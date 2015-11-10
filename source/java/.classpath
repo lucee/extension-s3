@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" path="src"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/loader"/>
+	<classpathentry kind="lib" path="libs/javax.el-api-3.0.0.jar"/>
+	<classpathentry kind="lib" path="libs/javax.servlet-api-3.1.0.jar"/>
+	<classpathentry kind="lib" path="libs/jsp-api-2.2.jar"/>
+	<classpathentry kind="lib" path="libs/org.apache.felix.framework-4.2.1.jar"/>
+	<classpathentry kind="output" path="bin"/>
+</classpath>
