@@ -16,26 +16,15 @@
  * License along with this library.  If not, see <http://www.gnu.org/licenses/>.
  * 
  **/
-package org.lucee.extension.resource.s3;
+package org.lucee.extension.resource.s3.info;
 
-import java.io.IOException;
-import java.io.InputStream;
-
-import org.xml.sax.Attributes;
-import org.xml.sax.SAXException;
-
-
-
-public final class ErrorFactory extends S3Factory {
-	public ErrorFactory(InputStream in) throws IOException, SAXException {
-		super();
-		if(in==null) return;
-		init(in);
-	}
-	@Override
-	public void doStartElement(String uri, String name, String qName, Attributes atts) {}
-	@Override
-	public void doEndElement(String uri, String name, String qName) throws SAXException {}
-	@Override
-	protected void setContent(String value) throws SAXException 	{}	
+public interface S3Info {
+	public long getSize();
+	public String getObjectName();
+	public String getBucketName();
+	public long getLastModified();
+	public boolean exists();
+	public boolean isDirectory();
+	public boolean isFile();
+	public boolean isBucket();
 }

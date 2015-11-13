@@ -1,5 +1,4 @@
 /**
- * Copyright (c) 2014, the Railo Company Ltd.
  * Copyright (c) 2015, Lucee Assosication Switzerland
  *
  * This library is free software; you can redistribute it and/or
@@ -25,9 +24,12 @@ import lucee.commons.io.res.Resource;
 import lucee.commons.io.res.ResourceLock;
 import lucee.commons.io.res.ResourceProvider;
 import lucee.commons.io.res.Resources;
+import lucee.commons.io.res.type.s3.S3Constants;
+import lucee.commons.lang.types.RefBoolean;
 import lucee.commons.lang.types.RefInteger;
 import lucee.loader.engine.CFMLEngine;
 import lucee.loader.engine.CFMLEngineFactory;
+import lucee.loader.util.Util;
 import lucee.runtime.PageContext;
 import lucee.runtime.net.s3.Properties;
 
@@ -96,32 +98,43 @@ public final class S3ResourceProvider implements ResourceProvider {
 		CFMLEngine engine = CFMLEngineFactory.getInstance();
 		path=engine.getResourceUtil().removeScheme(scheme, path);
 		S3 s3 = new S3();
-		RefInteger storage=engine.getCreationUtil().createRefInteger(S3.STORAGE_UNKNOW);
+		RefInteger storage=engine.getCreationUtil().createRefInteger(S3Constants.STORAGE_UNKNOW);
 		
-		
-		//path=loadWithOldPattern(s3,storage,path);
 		path=loadWithNewPattern(s3,storage,path);
 		
-		return new S3Resource(engine,s3,storage.toInt(),this,path,true);
+		return new S3Resource(engine,s3,storage.toInt(),this,path);
 	}
 
 	
 	public static String loadWithNewPattern(S3 s3,RefInteger storage, String path) {
 		PageContext pc = CFMLEngineFactory.getInstance().getThreadPageContext();
-		Properties prop=null; 
-		if(pc!=null){
-			prop=pc.getApplicationContext().getS3();
-		}
-		if(prop==null) prop=new PropertiesImpl();
 		
-		int defaultLocation = prop.getDefaultLocation();
+		boolean hasCustomCredentials=false;
+		String accessKeyId,host,secretAccessKey;
+		int defaultLocation;
+		{
+			Properties prop=null; 
+			if(pc!=null) prop=pc.getApplicationContext().getS3();
+			
+			if(prop!=null) {
+				accessKeyId = prop.getAccessKeyId();
+				host = prop.getHost();
+				secretAccessKey = prop.getSecretAccessKey();
+				defaultLocation = prop.getDefaultLocation();
+			}
+			else {
+				accessKeyId = null;
+				secretAccessKey = null;
+				host = S3Constants.HOST;
+				defaultLocation = S3Constants.STORAGE_UNKNOW;
+			}
+		}
+		
 		storage.setValue(defaultLocation);
-		String accessKeyId = prop.getAccessKeyId();
-		String secretAccessKey = prop.getSecretAccessKey();
 		
 		int atIndex=path.indexOf('@');
 		int slashIndex=path.indexOf('/');
-		if(slashIndex==-1){
+		if(slashIndex==-1) {
 			slashIndex=path.length();
 			path+="/";
 		}
@@ -131,6 +144,7 @@ public final class S3ResourceProvider implements ResourceProvider {
 		if(atIndex!=-1) {
 			index=path.indexOf(':');
 			if(index!=-1 && index<atIndex) {
+				hasCustomCredentials=true;
 				accessKeyId=path.substring(0,index);
 				secretAccessKey=path.substring(index+1,atIndex);
 				index=secretAccessKey.indexOf(':');
@@ -145,17 +159,17 @@ public final class S3ResourceProvider implements ResourceProvider {
 		}
 		path=prettifyPath(path.substring(atIndex+1));
 		index=path.indexOf('/');
-		s3.setHost(prop.getHost());
+		s3.setHost(host);
 		if(index==-1){
-			if(path.equalsIgnoreCase(S3.HOST) || path.equalsIgnoreCase(prop.getHost())){
+			if(path.equalsIgnoreCase(S3Constants.HOST) || path.equalsIgnoreCase(host)){
 				s3.setHost(path);
 				path="/";
 			}
 		}
 		else {
-			String host=path.substring(0,index);
-			if(host.equalsIgnoreCase(S3.HOST) || host.equalsIgnoreCase(prop.getHost())){
-				s3.setHost(host);
+			String _host=path.substring(0,index);
+			if(_host.equalsIgnoreCase(S3Constants.HOST) || _host.equalsIgnoreCase(host)){
+				s3.setHost(_host);
 				path=path.substring(index);
 			}
 		}
@@ -163,7 +177,7 @@ public final class S3ResourceProvider implements ResourceProvider {
 		
 		s3.setSecretAccessKey(secretAccessKey);
 		s3.setAccessKeyId(accessKeyId);
-		
+		s3.setCustomCredentials(hasCustomCredentials);
 		return path;
 	}
 
@@ -205,7 +219,7 @@ public final class S3ResourceProvider implements ResourceProvider {
 					String strStorage=secretAccessKey.substring(index+1).trim().toLowerCase();
 					secretAccessKey=secretAccessKey.substring(0,index);
 					//print.out("storage:"+strStorage);
-					storage.setValue(S3.toIntStorage(strStorage, S3.STORAGE_UNKNOW));
+					storage.setValue(S3.toIntStorage(strStorage, S3Constants.STORAGE_UNKNOW));
 				}
 			}
 			else accessKeyId=path.substring(0,atIndex);

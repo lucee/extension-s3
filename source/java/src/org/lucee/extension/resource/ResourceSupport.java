@@ -1,5 +1,6 @@
 /**
  *
+ * Copyright (c) 2015, Lucee Assosication Switzerland
  * Copyright (c) 2014, the Railo Company Ltd. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
