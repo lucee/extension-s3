@@ -30,7 +30,6 @@ import java.util.Set;
 
 import lucee.commons.io.res.Resource;
 import lucee.commons.io.res.ResourceProvider;
-import lucee.commons.io.res.type.s3.S3Constants;
 import lucee.loader.engine.CFMLEngine;
 import lucee.loader.engine.CFMLEngineFactory;
 import lucee.loader.util.Util;
@@ -61,20 +60,20 @@ public final class S3Resource extends ResourceSupport {
 	private String objectName;
 	private final S3 s3;
 	long infoLastAccess=0;
-	private int storage=S3Constants.STORAGE_UNKNOW;
-	private int acl=S3Constants.ACL_PUBLIC_READ;
+	private String location=null;
+	private String acl="public-read";
 
-	private S3Resource(CFMLEngine engine,S3 s3,int storage, S3ResourceProvider provider, String buckedName,String objectName) {
+	private S3Resource(CFMLEngine engine,S3 s3,String location, S3ResourceProvider provider, String buckedName,String objectName) {
 		super(engine);
 		this.s3=s3;
 		this.provider=provider;
 		this.bucketName=buckedName;
 		this.objectName=objectName;
-		this.storage=storage;
+		this.location=S3.improveLocation(location);
 	}
 	
 
-	S3Resource(CFMLEngine engine,S3 s3,int storage, S3ResourceProvider provider, String path) {
+	S3Resource(CFMLEngine engine,S3 s3,String location, S3ResourceProvider provider, String path) {
 		super(engine);
 		this.s3=s3;
 		this.provider=provider;
@@ -98,7 +97,7 @@ public final class S3Resource extends ResourceSupport {
 			}
 			if(objectName==null)objectName="";
 		}
-		this.storage=storage;
+		this.location=location;
 		
 	}
 
@@ -108,9 +107,9 @@ public final class S3Resource extends ResourceSupport {
 		try {
 			provider.lock(this);
 			if(isBucket()) {
-				s3.createDirectory(bucketName, acl,storage);
+				s3.createDirectory(bucketName, acl,location);
 			}
-			else s3.createDirectory(bucketName, objectName+"/", acl,storage);	
+			else s3.createDirectory(bucketName, objectName+"/", acl,location);	
 		}
 		catch (IOException ioe) {
 			throw ioe;
@@ -127,7 +126,7 @@ public final class S3Resource extends ResourceSupport {
 		if(isBucket()) throw new IOException("can't create file ["+getPath()+"], on this level (Bucket Level) you can only create directories");
 		try {
 			provider.lock(this);
-			s3.createFile(bucketName, objectName, acl, storage);
+			s3.createFile(bucketName, objectName, acl, location);
 		}
 		finally {
 			provider.unlock(this);
@@ -189,8 +188,8 @@ public final class S3Resource extends ResourceSupport {
 			sb.append(aki);
 			if(!engine.getStringUtil().isEmpty(sak)){
 				sb.append(":").append(sak);
-				if(storage!=S3Constants.STORAGE_UNKNOW){
-					sb.append(":").append(S3.toLocation(storage,"us"));
+				if(!Util.isEmpty(location)){
+					sb.append(":").append(S3.improveLocation(location));
 				}
 			}
 			sb.append("@");
@@ -223,7 +222,7 @@ public final class S3Resource extends ResourceSupport {
 	@Override
 	public Resource getParentResource() {
 		if(isRoot()) return null;
-		return new S3Resource(engine,s3,isBucket()?S3Constants.STORAGE_UNKNOW:storage,provider,getInnerParent());// MUST direkter machen
+		return new S3Resource(engine,s3,isBucket()?null:location,provider,getInnerParent());// MUST direkter machen
 	}
 
 	public boolean isRoot() {
@@ -264,7 +263,7 @@ public final class S3Resource extends ResourceSupport {
 					Util.closeEL(os);
 				}
 			}
-			S3ResourceOutputStream os = new S3ResourceOutputStream(s3,bucketName,objectName,getInnerPath(),acl,storage);
+			S3ResourceOutputStream os = new S3ResourceOutputStream(s3,bucketName,objectName,getInnerPath(),acl,location);
 			if(append && !(barr==null || barr.length==0))
 				engine.getIOUtil().copy(new ByteArrayInputStream(barr),os,true,false);
 			return os;
@@ -284,7 +283,7 @@ public final class S3Resource extends ResourceSupport {
 	public Resource getRealResource(String realpath) {
 		realpath=engine.getResourceUtil().merge(getInnerPath(), realpath);
 		if(realpath.startsWith("../"))return null;
-		return new S3Resource(engine,s3,S3Constants.STORAGE_UNKNOW,provider,realpath);
+		return new S3Resource(engine,s3,location,provider,realpath);
 	}
 
 	@Override
@@ -412,7 +411,7 @@ public final class S3Resource extends ResourceSupport {
 				int index=0;
 				while(it.hasNext()) {
 					si=it.next();
-					children[index]=new S3Resource(engine,s3,storage,provider,si.getBucketName(),"");
+					children[index]=new S3Resource(engine,s3,location,provider,si.getBucketName(),"");
 					s3.setInfo(children[index].getInnerPath(),si);
 					index++;
 				}
@@ -449,7 +448,7 @@ public final class S3Resource extends ResourceSupport {
 					//print.out("name:"+name);
 					if(path==null){
 						names.add(name);
-						tmp.add(r=new S3Resource(engine,s3,storage,provider,si.getBucketName(),key));
+						tmp.add(r=new S3Resource(engine,s3,location,provider,si.getBucketName(),key));
 						s3.setInfo(r.getInnerPath(),si);
 					}
 					else {
@@ -461,7 +460,7 @@ public final class S3Resource extends ResourceSupport {
 				while(_it.hasNext()) {
 					path=_it.next();
 					if(names.contains(path)) continue;
-					tmp.add(r=new S3Resource(engine,s3,storage,provider,bucketName,path));
+					tmp.add(r=new S3Resource(engine,s3,location,provider,bucketName,path));
 					s3.setInfo(r.getInnerPath(),UNDEFINED_WITH_CHILDREN2);
 				}
 				
@@ -562,17 +561,17 @@ public final class S3Resource extends ResourceSupport {
 	}
 
 
-	public void setACL(int acl) {
+	public void setACL(String acl) {
 		this.acl=acl;
 	}
 
 
-	public void setStorage(int storage) {
-		this.storage=storage;
+	public void setLocation(String location) {
+		this.location=S3.improveLocation(location);
 	}
 	
-	public void setStorage(String storage) throws S3Exception {
-		this.storage=S3.toIntStorage(storage);
+	public void setStorage(String storage) { // to not delete, exist because the core maybe call this with reflection
+		setLocation(storage);
 	}
 
 

@@ -24,9 +24,9 @@ import lucee.commons.io.res.Resource;
 import lucee.commons.io.res.ResourceLock;
 import lucee.commons.io.res.ResourceProvider;
 import lucee.commons.io.res.Resources;
-import lucee.commons.io.res.type.s3.S3Constants;
 import lucee.commons.lang.types.RefBoolean;
 import lucee.commons.lang.types.RefInteger;
+import lucee.commons.lang.types.RefString;
 import lucee.loader.engine.CFMLEngine;
 import lucee.loader.engine.CFMLEngineFactory;
 import lucee.loader.util.Util;
@@ -98,20 +98,20 @@ public final class S3ResourceProvider implements ResourceProvider {
 		CFMLEngine engine = CFMLEngineFactory.getInstance();
 		path=engine.getResourceUtil().removeScheme(scheme, path);
 		S3 s3 = new S3();
-		RefInteger storage=engine.getCreationUtil().createRefInteger(S3Constants.STORAGE_UNKNOW);
+		RefString location=engine.getCreationUtil().createRefString(null);
 		
-		path=loadWithNewPattern(s3,storage,path);
+		path=loadWithNewPattern(s3,location,path);
 		
-		return new S3Resource(engine,s3,storage.toInt(),this,path);
+		return new S3Resource(engine,s3,location.getValue(),this,path);
 	}
 
 	
-	public static String loadWithNewPattern(S3 s3,RefInteger storage, String path) {
+	public static String loadWithNewPattern(S3 s3,RefString storage, String path) {
 		PageContext pc = CFMLEngineFactory.getInstance().getThreadPageContext();
 		
 		boolean hasCustomCredentials=false;
 		String accessKeyId,host,secretAccessKey;
-		int defaultLocation;
+		String defaultLocation;
 		{
 			Properties prop=null; 
 			if(pc!=null) prop=pc.getApplicationContext().getS3();
@@ -125,8 +125,8 @@ public final class S3ResourceProvider implements ResourceProvider {
 			else {
 				accessKeyId = null;
 				secretAccessKey = null;
-				host = S3Constants.HOST;
-				defaultLocation = S3Constants.STORAGE_UNKNOW;
+				host = S3.DEFAULT_HOST;
+				defaultLocation = null;
 			}
 		}
 		
@@ -149,10 +149,10 @@ public final class S3ResourceProvider implements ResourceProvider {
 				secretAccessKey=path.substring(index+1,atIndex);
 				index=secretAccessKey.indexOf(':');
 				if(index!=-1) {
-					String strStorage=secretAccessKey.substring(index+1).trim().toLowerCase();
+					String strLocation=secretAccessKey.substring(index+1).trim().toLowerCase();
 					secretAccessKey=secretAccessKey.substring(0,index);
 					//print.out("storage:"+strStorage);
-					storage.setValue(S3.toIntStorage(strStorage, defaultLocation));
+					storage.setValue(S3.improveLocation(strLocation));
 				}
 			}
 			else accessKeyId=path.substring(0,atIndex);
@@ -161,14 +161,14 @@ public final class S3ResourceProvider implements ResourceProvider {
 		index=path.indexOf('/');
 		s3.setHost(host);
 		if(index==-1){
-			if(path.equalsIgnoreCase(S3Constants.HOST) || path.equalsIgnoreCase(host)){
+			if(path.equalsIgnoreCase(S3.DEFAULT_HOST) || path.equalsIgnoreCase(host)){
 				s3.setHost(path);
 				path="/";
 			}
 		}
 		else {
 			String _host=path.substring(0,index);
-			if(_host.equalsIgnoreCase(S3Constants.HOST) || _host.equalsIgnoreCase(host)){
+			if(_host.equalsIgnoreCase(S3.DEFAULT_HOST) || _host.equalsIgnoreCase(host)){
 				s3.setHost(_host);
 				path=path.substring(index);
 			}
@@ -190,7 +190,7 @@ public final class S3ResourceProvider implements ResourceProvider {
 	
 	
 
-	public static String loadWithOldPattern(S3 s3,RefInteger storage, String path) {
+	public static String loadWithOldPattern(S3 s3,RefString location, String path) {
 		
 		
 		String accessKeyId = null;
@@ -219,7 +219,7 @@ public final class S3ResourceProvider implements ResourceProvider {
 					String strStorage=secretAccessKey.substring(index+1).trim().toLowerCase();
 					secretAccessKey=secretAccessKey.substring(0,index);
 					//print.out("storage:"+strStorage);
-					storage.setValue(S3.toIntStorage(strStorage, S3Constants.STORAGE_UNKNOW));
+					location.setValue(S3.improveLocation(strStorage));
 				}
 			}
 			else accessKeyId=path.substring(0,atIndex);

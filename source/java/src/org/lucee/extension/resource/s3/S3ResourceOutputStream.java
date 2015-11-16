@@ -27,20 +27,20 @@ public final class S3ResourceOutputStream extends OutputStream {
 	private final S3 s3;
 	private final String bucketName;
 	private final String objectName;
-	private final int acl;
+	private final String acl;
 
-	private int storage;
+	private String location;
 
 	private File temp;
 	private FileOutputStream os;
 	private String path;
 	
-	public S3ResourceOutputStream(S3 s3,String bucketName,String objectName,String path,int acl, int storage) throws IOException {
+	public S3ResourceOutputStream(S3 s3,String bucketName,String objectName,String path,String acl, String location) throws IOException {
 		this.s3=s3;
 		this.bucketName=bucketName;
 		this.objectName=objectName;
 		this.acl=acl;
-		this.storage=storage;
+		this.location=location;
 		this.path=path;
 		temp=File.createTempFile("aws-s3", "tmp");
 		os=new FileOutputStream(temp);
@@ -54,7 +54,7 @@ public final class S3ResourceOutputStream extends OutputStream {
 			os.close();
 			
 			// write the temp file to s3
-			s3.write(bucketName, objectName, temp,acl,storage);
+			s3.write(bucketName, objectName, temp,acl,location);
 			s3.releaseCache(path);
 		}
 		finally {

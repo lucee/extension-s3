@@ -12,7 +12,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import lucee.commons.io.res.type.s3.S3Constants;
 import lucee.loader.engine.CFMLEngineFactory;
 import lucee.loader.util.Util;
 
@@ -92,12 +91,12 @@ public class S3 {
 
 
 	
-	public S3Bucket createDirectory(String bucketName, int acl, int storage) throws S3Exception {
+	public S3Bucket createDirectory(String bucketName, String acl, String location) throws S3Exception {
 		bucketName=improveBucketName(bucketName);
-		String l = toLocation(storage,null);
+		String l = improveLocation(location);
 		AccessControlList a = toACL(acl,null);
 		try{
-			if(l!=null) {
+			if(!Util.isEmpty(l,true)) {
 				if(a!=null) return getS3Service().createBucket(bucketName,l, a);
 				return getS3Service().createBucket(bucketName,l);
 			}
@@ -116,9 +115,9 @@ public class S3 {
 	 * @param storage only used when creating a non existing bucket
 	 * @throws IOException
 	 */
-	public void createDirectory(String bucketName, String objectName, int acl, int storage) throws S3Exception {
+	public void createDirectory(String bucketName, String objectName, String acl, String location) throws S3Exception {
 		if(Util.isEmpty(objectName)) {
-			createDirectory(bucketName, acl, storage);
+			createDirectory(bucketName, acl, location);
 			return;
 		}
 		
@@ -139,7 +138,7 @@ public class S3 {
 		catch (ServiceException se) {
 			if(get(bucketName)!=null)throw toS3Exception(se);
 			
-			S3Bucket bucket = createDirectory(bucketName, acl, storage);
+			S3Bucket bucket = createDirectory(bucketName, acl, location);
 			try {
 				getS3Service().putObject(bucket, object);
 			} 
@@ -149,9 +148,10 @@ public class S3 {
 		}
 	}
 	
-	public void createFile(String bucketName, String objectName, int acl, int storage) throws S3Exception {
+	public void createFile(String bucketName, String objectName, String acl, String location) throws S3Exception {
 		bucketName=improveBucketName(bucketName);
 		objectName=improveObjectName(objectName, false);
+		
 		
 		AccessControlList a = toACL(acl,null);
 		
@@ -166,7 +166,7 @@ public class S3 {
 		catch (ServiceException se) {
 			if(get(bucketName)!=null)throw toS3Exception(se);
 			
-			S3Bucket bucket = createDirectory(bucketName, acl, storage);
+			S3Bucket bucket = createDirectory(bucketName, acl, location);
 			try {
 				getS3Service().putObject(bucket, object);
 			} 
@@ -436,7 +436,7 @@ public class S3 {
 			S3BucketWrapper so = get(srcBucketName);
 			String loc = so.getLocation();
 			
-			createDirectory(trgBucketName, -1, toIntStorage(loc,S3Constants.STORAGE_UNKNOW));
+			createDirectory(trgBucketName, null, loc);
 			try {
 				getS3Service().copyObject(srcBucketName, srcObjectName, trgBucketName, new S3Object(trgObjectName), false);
 			} 
@@ -460,7 +460,7 @@ public class S3 {
 			S3BucketWrapper so = get(srcBucketName);
 			String loc = so.getLocation();
 			
-			createDirectory(trgBucketName, -1, toIntStorage(loc,S3Constants.STORAGE_UNKNOW));
+			createDirectory(trgBucketName, null, loc);
 			try {
 				getS3Service().moveObject(srcBucketName, srcObjectName, trgBucketName, new S3Object(trgObjectName), false);
 			} 
@@ -471,7 +471,7 @@ public class S3 {
 	}
 	
 
-	public void write(String bucketName,String objectName, String data, String mimeType, String charset, int acl, int storage) throws IOException {
+	public void write(String bucketName,String objectName, String data, String mimeType, String charset, String acl, String location) throws IOException {
 		bucketName=improveBucketName(bucketName);
 		objectName=improveObjectName(objectName,false);
 		
@@ -480,7 +480,7 @@ public class S3 {
 			String ct=toContentType(mimeType,charset,null);
 			if(ct!=null)so.setContentType(ct);
 
-			_write(so, bucketName, objectName, acl, storage);
+			_write(so, bucketName, objectName, acl, location);
 		}
 		catch (NoSuchAlgorithmException e) {
 			CFMLEngineFactory.getInstance().getExceptionUtil().toIOException(e);
@@ -488,7 +488,7 @@ public class S3 {
 	}
 	
 
-	public void write(String bucketName,String objectName, byte[] data, String mimeType, int acl, int storage) throws IOException {
+	public void write(String bucketName,String objectName, byte[] data, String mimeType, String acl, String location) throws IOException {
 		bucketName=improveBucketName(bucketName);
 		objectName=improveObjectName(objectName,false);
 		
@@ -496,14 +496,14 @@ public class S3 {
 			S3Object so = new S3Object(objectName, data);
 			if(!Util.isEmpty(mimeType))so.setContentType(mimeType);
 
-			_write(so, bucketName, objectName, acl, storage);
+			_write(so, bucketName, objectName, acl, location);
 		}
 		catch (NoSuchAlgorithmException e) {
 			CFMLEngineFactory.getInstance().getExceptionUtil().toIOException(e);
 		}
 	}
 
-	public void write(String bucketName,String objectName, File file, int acl, int storage) throws IOException {
+	public void write(String bucketName,String objectName, File file, String acl, String location) throws IOException {
 		bucketName=improveBucketName(bucketName);
 		objectName=improveObjectName(objectName,false);
 		
@@ -512,14 +512,14 @@ public class S3 {
 			String mt = CFMLEngineFactory.getInstance().getResourceUtil().getMimeType(max1000(file), null);
 			if(mt!=null) so.setContentType(mt);
 			
-			_write(so, bucketName, objectName, acl, storage);
+			_write(so, bucketName, objectName, acl, location);
 		}
 		catch (NoSuchAlgorithmException e) {
 			CFMLEngineFactory.getInstance().getExceptionUtil().toIOException(e);
 		}
 	}
 	
-	private void _write(S3Object so,String bucketName,String objectName, int acl, int storage) throws IOException {
+	private void _write(S3Object so,String bucketName,String objectName, String acl, String location) throws IOException {
 		try {
 			
 			so.setName(objectName);
@@ -533,7 +533,7 @@ public class S3 {
 			// does the bucket exist? if so we throw the exception
 			if(get(bucketName)!=null) throw toS3Exception(se);
 			// if the bucket does not exist, we do create it
-			createDirectory(bucketName, acl, storage);
+			createDirectory(bucketName, acl, location);
 			// now we try again
 			try {
 				getS3Service().putObject(bucketName, so);
@@ -612,23 +612,45 @@ public class S3 {
 		return service;
 	}
 	
-	public static String toLocation(int storage, String defaultValue) {
+	/*public static String toLocation(int storage, String defaultValue) {
 		switch(storage) {// TODO add support for more location by converting the lucee interface to string
 			case S3Constants.STORAGE_EU: return S3Bucket.LOCATION_EUROPE;
 			case S3Constants.STORAGE_US:return S3Bucket.LOCATION_US;
 			case S3Constants.STORAGE_US_WEST:return S3Bucket.LOCATION_US_WEST;
 		}
 		return defaultValue;
-	}
+	}*/
+	
+	
 	
 
-	public static AccessControlList toACL(int acl,AccessControlList defaultValue) {
-		switch(acl) {
-			case S3Constants.ACL_AUTH_READ:return AccessControlList.REST_CANNED_AUTHENTICATED_READ;
-			case S3Constants.ACL_PUBLIC_READ:return AccessControlList.REST_CANNED_PUBLIC_READ;
-			case S3Constants.ACL_PRIVATE:return AccessControlList.REST_CANNED_PRIVATE;
-			case S3Constants.ACL_PUBLIC_READ_WRITE:return AccessControlList.REST_CANNED_PUBLIC_READ_WRITE;
-		}
+	public static AccessControlList toACL(String acl,AccessControlList defaultValue) {
+		if(acl==null) return defaultValue;
+		
+		acl=acl.trim().toLowerCase();
+
+		if("public-read".equals(acl)) return AccessControlList.REST_CANNED_PUBLIC_READ;
+		if("public read".equals(acl)) return AccessControlList.REST_CANNED_PUBLIC_READ;
+		if("public_read".equals(acl)) return AccessControlList.REST_CANNED_PUBLIC_READ;
+		if("publicread".equals(acl)) return AccessControlList.REST_CANNED_PUBLIC_READ;
+		
+		if("private".equals(acl)) return AccessControlList.REST_CANNED_PRIVATE;
+
+		if("public-read-write".equals(acl)) return AccessControlList.REST_CANNED_PUBLIC_READ_WRITE;
+		if("public read write".equals(acl)) return AccessControlList.REST_CANNED_PUBLIC_READ_WRITE;
+		if("public_read_write".equals(acl)) return AccessControlList.REST_CANNED_PUBLIC_READ_WRITE;
+		if("publicreadwrite".equals(acl)) return AccessControlList.REST_CANNED_PUBLIC_READ_WRITE;
+
+		if("authenticated-read".equals(acl)) return AccessControlList.REST_CANNED_AUTHENTICATED_READ;
+		if("authenticated read".equals(acl)) return AccessControlList.REST_CANNED_AUTHENTICATED_READ;
+		if("authenticated_read".equals(acl)) return AccessControlList.REST_CANNED_AUTHENTICATED_READ;
+		if("authenticatedread".equals(acl)) return AccessControlList.REST_CANNED_AUTHENTICATED_READ;
+		
+		if("authenticate-read".equals(acl)) return AccessControlList.REST_CANNED_AUTHENTICATED_READ;
+		if("authenticate read".equals(acl)) return AccessControlList.REST_CANNED_AUTHENTICATED_READ;
+		if("authenticate_read".equals(acl)) return AccessControlList.REST_CANNED_AUTHENTICATED_READ;
+		if("authenticateread".equals(acl)) return AccessControlList.REST_CANNED_AUTHENTICATED_READ;
+		
 		return defaultValue;
 	}
 
@@ -659,33 +681,6 @@ public class S3 {
 		return ioe;
 	}
 	
-	public static int toIntStorage(String storage) throws S3Exception {
-		int s=toIntStorage(storage,-1);
-		if(s==-1)
-			throw new S3Exception("invalid storage value, valid values are [eu,us,us-west]");
-		return s;
-	}
-	public static int toIntStorage(String storage, int defaultValue) {
-		if(storage==null) return defaultValue;
-		storage=storage.toLowerCase().trim();
-		if("us".equals(storage)) return S3Constants.STORAGE_US;
-		if("usa".equals(storage)) return S3Constants.STORAGE_US;
-		if("eu".equals(storage)) return S3Constants.STORAGE_EU;
-		
-		if("u.s.".equals(storage)) return S3Constants.STORAGE_US;
-		if("u.s.a.".equals(storage)) return S3Constants.STORAGE_US;
-		if("europe.".equals(storage)) return S3Constants.STORAGE_EU;
-		if("euro.".equals(storage)) return S3Constants.STORAGE_EU;
-		if("e.u.".equals(storage)) return S3Constants.STORAGE_EU;
-		if("united states of america".equals(storage)) return S3Constants.STORAGE_US;
-		
-		if("us-west".equals(storage)) return S3Constants.STORAGE_US_WEST;
-		if("usa-west".equals(storage)) return S3Constants.STORAGE_US_WEST;
-		
-		
-		return defaultValue;
-	}
-	
 
 	private static String improveBucketName(String bucketName) throws S3Exception {
 		if(bucketName.startsWith("/"))bucketName=bucketName.substring(1);
@@ -706,6 +701,24 @@ public class S3 {
 		}
 		else if(objectName.endsWith("/"))objectName=objectName.substring(0, objectName.length()-1);
 		return objectName;
+	}
+	
+	public static String improveLocation(String location) {
+		if(location==null) return location;
+		location=location.toLowerCase().trim();
+		if("usa".equals(location)) return "us";
+		if("u.s.".equals(location)) return "us";
+		if("u.s.a.".equals(location)) return "us";
+		if("united states of america".equals(location)) return "us";
+		
+		if("europe.".equals(location)) return "eu";
+		if("euro.".equals(location)) return "eu";
+		if("e.u.".equals(location)) return "eu";
+		
+		if("usa-west".equals(location)) return "us-west";
+		
+		
+		return location;
 	}
 	
 	private static byte[] max1000(File file) throws IOException {
