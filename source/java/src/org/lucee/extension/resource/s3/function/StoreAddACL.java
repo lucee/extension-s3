@@ -1,6 +1,6 @@
 /**
  *
- * Copyright (c) 2014, the Railo Company Ltd. All rights reserved.
+ * Copyright (c) 2015, Lucee Assosication Switzerland
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -18,18 +18,13 @@
  **/
 package org.lucee.extension.resource.s3.function;
 
-import java.io.IOException;
-import java.util.Iterator;
-import java.util.List;
-
-import org.lucee.extension.resource.s3.AccessControl;
-import org.lucee.extension.resource.s3.AccessControlPolicy;
 import org.lucee.extension.resource.s3.S3Resource;
 
 import lucee.loader.engine.CFMLEngine;
 import lucee.loader.engine.CFMLEngineFactory;
 import lucee.runtime.PageContext;
 import lucee.runtime.exp.PageException;
+import lucee.runtime.type.Array;
 
 public class StoreAddACL extends S3Function {
 
@@ -44,31 +39,12 @@ public class StoreAddACL extends S3Function {
 	}
 	
 	public static String call(PageContext pc , String url, Object objACL) throws PageException {
-		try {
-			return _call(pc, url, objACL);
-		} catch (IOException e) {
-			throw CFMLEngineFactory.getInstance().getCastUtil().toPageException(e);
-		}
+		return _call(pc, url, objACL);
 	}
 
-	public static String _call(PageContext pc , String url, Object objACL) throws PageException, IOException {
+	public static String _call(PageContext pc , String url, Object objACL) throws PageException {
 		S3Resource res=toS3Resource(pc,url,"StoreAddACL");
-		AccessControlPolicy acp = res.getAccessControlPolicy();
-		
-		List<AccessControl> acl = acp.getAccessControlList();
-		List<AccessControl> newACL = AccessControl.toAccessControlList(objACL);
-		
-		Iterator<AccessControl> it = newACL.iterator();
-		while(it.hasNext()){
-			acl.add(it.next());
-		}
-		AccessControlPolicy.removeDuplicates(acl);
-		res.setAccessControlPolicy(acp);
-		
+		res.addAccessControlPolicy(objACL);
 		return null;
 	}
-	
-
-	
-	
 }

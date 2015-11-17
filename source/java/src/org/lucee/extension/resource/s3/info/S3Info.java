@@ -20,6 +20,7 @@ package org.lucee.extension.resource.s3.info;
 
 public interface S3Info {
 	public long getSize();
+	public String getName();
 	public String getObjectName();
 	public String getBucketName();
 	public long getLastModified();
@@ -27,4 +28,5 @@ public interface S3Info {
 	public boolean isDirectory();
 	public boolean isFile();
 	public boolean isBucket();
+	public long validUntil();
 }

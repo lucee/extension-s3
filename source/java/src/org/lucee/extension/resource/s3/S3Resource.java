@@ -31,16 +31,12 @@ import java.util.Set;
 import lucee.commons.io.res.Resource;
 import lucee.commons.io.res.ResourceProvider;
 import lucee.loader.engine.CFMLEngine;
-import lucee.loader.engine.CFMLEngineFactory;
 import lucee.loader.util.Util;
 import lucee.runtime.exp.PageException;
 import lucee.runtime.type.Array;
 
-import org.jets3t.service.model.S3Bucket;
-import org.jets3t.service.model.StorageObject;
 import org.lucee.extension.resource.ResourceSupport;
 import org.lucee.extension.resource.s3.info.S3Info;
-import org.xml.sax.SAXException;
 
 public final class S3Resource extends ResourceSupport {
 
@@ -48,18 +44,18 @@ public final class S3Resource extends ResourceSupport {
 
 	private static final long FUTURE=50000000000000L;
 	
-	private static final S3Info UNDEFINED=new Dummy("undefined",0,0,false,false,false,false);
-	private static final S3Info ROOT=new Dummy("root",0,0,true,false,true,false);
-	private static final S3Info LOCKED = new Dummy("locked",0,0,true,false,false,false);
-	private static final S3Info UNDEFINED_WITH_CHILDREN = new Dummy("undefined with children 1",0,0,true,false,true,false);
-	private static final S3Info UNDEFINED_WITH_CHILDREN2 = new Dummy("undefined with children 2",0,0,true,false,true,false);
+	private static final S3Info UNDEFINED=new Dummy("undefined",0,0,false,false,false,false,FUTURE);
+	private static final S3Info ROOT=new Dummy("root",0,0,true,false,true,false,FUTURE);
+	private static final S3Info LOCKED = new Dummy("locked",0,0,true,false,false,false,FUTURE);
+	private static final S3Info UNDEFINED_WITH_CHILDREN = new Dummy("undefined with children 1",0,0,true,false,true,false,FUTURE);
+	private static final S3Info UNDEFINED_WITH_CHILDREN2 = new Dummy("undefined with children 2",0,0,true,false,true,false,FUTURE);
 
 
 	private final S3ResourceProvider provider;
 	private final String bucketName;
 	private String objectName;
 	private final S3 s3;
-	long infoLastAccess=0;
+	long infoLastAccessw=0;
 	private String location=null;
 	private String acl="public-read";
 
@@ -205,11 +201,12 @@ public final class S3Resource extends ResourceSupport {
 		if(isRoot()) return null;
 		return getPrefix().concat(getInnerParent());
 	}
-	
+
 	private String getInnerPath() {
 		if(isRoot()) return "/";
 		return engine.getResourceUtil().translatePath(bucketName+"/"+objectName, true, false);
 	}
+	
 	
 	private String getInnerParent() {
 		if(isRoot()) return null;
@@ -318,19 +315,20 @@ public final class S3Resource extends ResourceSupport {
 
 	private S3Info getInfo() {
 		S3Info info = s3.getInfo(getInnerPath());
-		
+		long timeout;
 		if(info==null) {// || System.currentTimeMillis()>infoLastAccess
 			if(isRoot()) {
+				timeout=FUTURE;
 				try {
-					s3.list(false);
+					//s3.list(false);
 					info=ROOT;
 				}
 				catch (Exception e) {
 					info=UNDEFINED;
 				}
-				infoLastAccess=FUTURE;
 			}
 			else {
+				timeout=System.currentTimeMillis()+provider.getCache();
 				try {
 					provider.read(this);
 				} catch (IOException e) {
@@ -343,53 +341,35 @@ public final class S3Resource extends ResourceSupport {
 						S3Info tmp;
 						while(it.hasNext()) {
 							tmp=it.next();
+							s3.setInfo("/"+tmp.getBucketName(), tmp, timeout); // we cache all
 							if(tmp.getBucketName().equals(name)) {
 								info=tmp;
-								infoLastAccess=System.currentTimeMillis()+provider.getCache();
-								break;
 							}
 						}
 					}
 					else {
 						String objectNameWithSlash=objectName.endsWith("/")?objectName:objectName+"/";
-						/*Iterator<S3Info> it = s3.list(bucketName,objectName,true).iterator();
 						
-						S3Info tmp;
-						String objectNameWithSlash=objectName.endsWith("/")?objectName:objectName+"/";
-						while(it.hasNext()) {
-							tmp=it.next();
-							if(tmp.getObjectName()==null) continue;
-							// exact match
-							if(tmp.getObjectName().equals(objectName)) {
-								
-							}
-								
-							if(tmp.getObjectName().equals(objectName) || tmp.getObjectName().startsWith(objectNameWithSlash))
-						}*/
 						S3Info tmp = s3.get(bucketName, objectName);
 						if(tmp!=null) {
 							info=tmp;
-							infoLastAccess=System.currentTimeMillis()+provider.getCache();
 						}
 						else if((tmp = s3.get(bucketName, objectNameWithSlash))!=null) {
 							info=tmp;
-							infoLastAccess=System.currentTimeMillis()+provider.getCache();
 						}
 						else if(s3.list(bucketName, objectNameWithSlash,true).size()>0) {
 							info=UNDEFINED_WITH_CHILDREN;
-							infoLastAccess=System.currentTimeMillis()+provider.getCache();
 						}	
 					}
 					if(info==null){
 						info=UNDEFINED;
-						infoLastAccess=System.currentTimeMillis()+provider.getCache();
 					}
 				}
 				catch(Exception t) {
 					return UNDEFINED;
 				}
 			}
-			s3.setInfo(getInnerPath(), info);
+			s3.setInfo(getInnerPath(), info,timeout);
 		}
 		return info;
 	}
@@ -402,6 +382,7 @@ public final class S3Resource extends ResourceSupport {
 	@Override
 	public Resource[] listResources() {
 		S3Resource[] children=null;
+		long timeout=System.currentTimeMillis()+provider.getCache();
 		try {
 			if(isRoot()) {
 				List<S3Info> list = s3.list(false);
@@ -412,7 +393,7 @@ public final class S3Resource extends ResourceSupport {
 				while(it.hasNext()) {
 					si=it.next();
 					children[index]=new S3Resource(engine,s3,location,provider,si.getBucketName(),"");
-					s3.setInfo(children[index].getInnerPath(),si);
+					s3.setInfo(children[index].getInnerPath(),si,timeout);
 					index++;
 				}
 			}
@@ -443,13 +424,10 @@ public final class S3Resource extends ResourceSupport {
 						path=key.substring(0,index);
 					}
 					
-					//print.out("1:"+key);
-					//print.out("path:"+path);
-					//print.out("name:"+name);
 					if(path==null){
 						names.add(name);
 						tmp.add(r=new S3Resource(engine,s3,location,provider,si.getBucketName(),key));
-						s3.setInfo(r.getInnerPath(),si);
+						s3.setInfo(r.getInnerPath(),si,timeout);
 					}
 					else {
 						pathes.add(path);
@@ -461,7 +439,7 @@ public final class S3Resource extends ResourceSupport {
 					path=_it.next();
 					if(names.contains(path)) continue;
 					tmp.add(r=new S3Resource(engine,s3,location,provider,bucketName,path));
-					s3.setInfo(r.getInnerPath(),UNDEFINED_WITH_CHILDREN2);
+					s3.setInfo(r.getInnerPath(),UNDEFINED_WITH_CHILDREN2,timeout);
 				}
 				
 				//if(tmp.size()==0 && !isDirectory()) return null;
@@ -523,27 +501,36 @@ public final class S3Resource extends ResourceSupport {
 	}
 
 
-	public AccessControlPolicy getAccessControlPolicy() {
+	public Array getAccessControlPolicy() {
 		String p = getInnerPath();
 		try {
-			AccessControlPolicy acp = s3.getACP(p);
-			if(acp==null){
-				acp=s3.getAccessControlPolicy(bucketName,  getObjectName());
-				s3.setACP(p, acp);
+			Array arr = s3.getACL(p);
+			if(arr==null){
+				arr=s3.getAccessControlPolicy(bucketName,  getObjectName());
+				s3.setACL(p, arr);
 			}
-				
-			
-			return acp;
+			return arr;
 		} 
 		catch (Exception e) {
 			throw engine.getExceptionUtil().createPageRuntimeException(engine.getCastUtil().toPageException(e));
 		}
 	}
 	
-	public void setAccessControlPolicy(AccessControlPolicy acp) {
-		
+	public void setAccessControlPolicy(Object objAcl) {
 		try {
-			s3.setAccessControlPolicy(bucketName, getObjectName(),acp);
+			s3.setAccessControlPolicy(bucketName, getObjectName(),objAcl);
+		} 
+		catch (Exception e) {
+			throw engine.getExceptionUtil().createPageRuntimeException(engine.getCastUtil().toPageException(e));
+		}
+		finally {
+			s3.releaseCache(getInnerPath());
+		}
+	}
+	
+	public void addAccessControlPolicy(Object objAcl) {
+		try {
+			s3.addAccessControlPolicy(bucketName, getObjectName(),objAcl);
 		} 
 		catch (Exception e) {
 			throw engine.getExceptionUtil().createPageRuntimeException(engine.getCastUtil().toPageException(e));
@@ -643,9 +630,10 @@ public final class S3Resource extends ResourceSupport {
 		private boolean directory;
 		private String label;
 		private boolean bucket;
+		private long validUntil;
 	
 	 
-	public Dummy(String label,long lastModified, long size, boolean exists,boolean file, boolean directory, boolean bucket) {
+	public Dummy(String label,long lastModified, long size, boolean exists,boolean file, boolean directory, boolean bucket, long validUntil) {
 		this.label = label;
 		this.lastModified = lastModified;
 		this.size = size;
@@ -653,6 +641,7 @@ public final class S3Resource extends ResourceSupport {
 		this.file = file;
 		this.directory = directory;
 		this.bucket=bucket;
+		this.validUntil=validUntil;
 	}
 
 
@@ -698,14 +687,12 @@ public final class S3Resource extends ResourceSupport {
 
 	@Override
 	public String getObjectName() {
-		// TODO Auto-generated method stub
 		return null;
 	}
 
 
 	@Override
 	public String getBucketName() {
-		// TODO Auto-generated method stub
 		return null;
 	}
 
@@ -713,6 +700,18 @@ public final class S3Resource extends ResourceSupport {
 	@Override
 	public boolean isBucket() {
 		return bucket;
+	}
+
+
+	@Override
+	public long validUntil() {
+		return validUntil;
+	}
+
+
+	@Override
+	public String getName() {
+		return null;
 	}
 
 }

@@ -23,6 +23,7 @@ import java.io.InputStream;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 
+import org.jets3t.service.model.S3Object;
 import org.jets3t.service.model.StorageObject;
 import org.lucee.extension.resource.s3.S3;
 import org.lucee.extension.resource.s3.S3Exception;
@@ -32,11 +33,13 @@ public final class StorageObjectWrapper implements S3Info {
 	
 	private final S3 s3;
 	private final StorageObject so;
+	private long validUntil;
 	
 
-	public StorageObjectWrapper(S3 s3, StorageObject so) {
+	public StorageObjectWrapper(S3 s3, StorageObject so, long validUntil) {
 		this.s3=s3;
 		this.so=so;
+		this.validUntil=validUntil;
 	}
 	
 	/**
@@ -59,7 +62,7 @@ public final class StorageObjectWrapper implements S3Info {
 	 * @return the key
 	 */
 	public String getName() {
-		return so.getName();
+		return getObjectName();
 	}
 
 	/**
@@ -146,6 +149,14 @@ public final class StorageObjectWrapper implements S3Info {
 	public boolean isBucket() {
 		return false;
 	}
-	
+
+	@Override
+	public long validUntil() {
+		return validUntil;
+	}
+
+	public StorageObject getStorageObject() {
+		return so;
+	}
 	
 }

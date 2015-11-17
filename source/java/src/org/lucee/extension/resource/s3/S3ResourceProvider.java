@@ -97,7 +97,7 @@ public final class S3ResourceProvider implements ResourceProvider {
 	public Resource getResource(String path) {
 		CFMLEngine engine = CFMLEngineFactory.getInstance();
 		path=engine.getResourceUtil().removeScheme(scheme, path);
-		S3 s3 = new S3();
+		S3 s3 = new S3(cache);
 		RefString location=engine.getCreationUtil().createRefString(null);
 		
 		path=loadWithNewPattern(s3,location,path);

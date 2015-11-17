@@ -5,9 +5,11 @@ import org.jets3t.service.model.S3Bucket;
 public class S3BucketWrapper implements S3Info {
 
 	private S3Bucket bucket;
+	private long validUntil;
 
-	public S3BucketWrapper(S3Bucket bucket) {
+	public S3BucketWrapper(S3Bucket bucket, long validUntil) {
 		this.bucket=bucket;
+		this.validUntil=validUntil;
 	}
 
 	@Override
@@ -52,5 +54,19 @@ public class S3BucketWrapper implements S3Info {
 	
 	public String getLocation() {
 		return bucket.getLocation();
+	}
+
+	@Override
+	public long validUntil() {
+		return validUntil;
+	}
+
+	public S3Bucket getBucket() {
+		return bucket;
+	}
+
+	@Override
+	public String getName() {
+		return getBucketName();
 	}
 }

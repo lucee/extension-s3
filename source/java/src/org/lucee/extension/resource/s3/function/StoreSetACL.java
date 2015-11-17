@@ -1,6 +1,6 @@
 /**
  *
- * Copyright (c) 2014, the Railo Company Ltd. All rights reserved.
+ * Copyright (c) 2015, Lucee Assosication Switzerland
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -19,16 +19,14 @@
 package org.lucee.extension.resource.s3.function;
 
 import java.io.IOException;
-import java.util.List;
 
-import org.lucee.extension.resource.s3.AccessControl;
-import org.lucee.extension.resource.s3.AccessControlPolicy;
 import org.lucee.extension.resource.s3.S3Resource;
 
 import lucee.loader.engine.CFMLEngine;
 import lucee.loader.engine.CFMLEngineFactory;
 import lucee.runtime.PageContext;
 import lucee.runtime.exp.PageException;
+import lucee.runtime.type.Array;
 
 public class StoreSetACL extends S3Function {
 
@@ -50,17 +48,7 @@ public class StoreSetACL extends S3Function {
 
 	public static String _call(PageContext pc , String url, Object objACL) throws PageException, IOException {
 		S3Resource res=toS3Resource(pc,url,"StoreSetACL");
-		invoke(res, objACL);
+		res.setAccessControlPolicy(objACL);
 		return null;
 	}
-	
-	public static void invoke(S3Resource res, Object objACL) throws PageException, IOException {
-		AccessControlPolicy acp = res.getAccessControlPolicy();
-		List<AccessControl> acl = AccessControl.toAccessControlList(objACL);
-		AccessControlPolicy.removeDuplicates(acl);
-		acp.setAccessControlList(acl);
-		res.setAccessControlPolicy(acp);
-	}
-	
-	
 }
