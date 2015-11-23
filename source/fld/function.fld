@@ -68,5 +68,43 @@
 			<type>void</type>
 		</return>
 	</function>
+
+
+	<!-- StoreGetMetaData -->
+	<function>
+		<name>StoreGetMetaData</name>
+		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.StoreGetMetaData</class>
+		<description>Returns the metadata related to the object or bucket.</description>
+		<argument>
+			<name>url</name>
+			<type>string</type>
+				<required>Yes</required>
+			<description>Amazon S3 URL</description>
+	    </argument>
+		<return>
+			<type>struct</type>
+		</return>
+	</function>
+	<!-- StoreSetMetaData -->
+	<function>
+		<name>StoreSetMetaData</name>
+		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.StoreSetMetaData</class>
+		<description>Sets the metadata on bucket or object.</description>
+		<argument>
+			<name>url</name>
+			<type>string</type>
+			<required>Yes</required>
+			<description>Amazon S3 URL</description>
+	    </argument>
+		<argument>
+			<name>metadata</name>
+			<type>struct</type>
+			<required>Yes</required>
+			<description></description>
+	    </argument>
+		<return>
+			<type>void</type>
+		</return>
+	</function>
 	
 </func-lib>

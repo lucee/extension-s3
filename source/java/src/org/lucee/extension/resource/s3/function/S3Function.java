@@ -1,6 +1,6 @@
 /**
  *
- * Copyright (c) 2014, the Railo Company Ltd. All rights reserved.
+ * Copyright (c) 2015, Lucee Assosication Switzerland
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -33,7 +33,8 @@ public abstract class S3Function extends BIF {
 		Resource res=CFMLEngineFactory.getInstance().getResourceUtil().toResourceNotExisting(pc, url);
 		ResourceProvider provider = res.getResourceProvider();
 		if(!provider.getScheme().equalsIgnoreCase("s3") || !res.exists()) 
-			throw CFMLEngineFactory.getInstance().getExceptionUtil().createFunctionException(pc,functionName,1,"url","defined url must be a valid existing S3 Resource",null);
+			throw CFMLEngineFactory.getInstance().getExceptionUtil()
+			.createFunctionException(pc,functionName,1,"url","file ["+url+"] does not exist.",null);
 		
 		return (S3Resource) res;
 	}

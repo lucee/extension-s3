@@ -39,6 +39,6 @@ public class StoreGetACL extends S3Function {
 	
 	public static Object call(PageContext pc , String url) throws PageException {
 		S3Resource res=toS3Resource(pc,url,"StoreGetACL");
-		return res.getAccessControlPolicy();
+		return res.getAccessControlList();
     }
 }

@@ -1,6 +1,6 @@
 /**
  *
- * Copyright (c) 2014, the Railo Company Ltd. All rights reserved.
+ * Copyright (c) 2015, Lucee Assosication Switzerland
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -22,23 +22,27 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
+import java.util.Map;
 
 import org.jets3t.service.model.S3Object;
 import org.jets3t.service.model.StorageObject;
+import org.jets3t.service.model.StorageOwner;
 import org.lucee.extension.resource.s3.S3;
 import org.lucee.extension.resource.s3.S3Exception;
 import org.xml.sax.SAXException;
 
-public final class StorageObjectWrapper implements S3Info {
+public final class StorageObjectWrapper extends S3InfoSupport {
 	
 	private final S3 s3;
 	private final StorageObject so;
 	private long validUntil;
+	private String bucketName;
 	
 
-	public StorageObjectWrapper(S3 s3, StorageObject so, long validUntil) {
+	public StorageObjectWrapper(S3 s3, StorageObject so, String bucketName, long validUntil) {
 		this.s3=s3;
 		this.so=so;
+		this.bucketName=bucketName;
 		this.validUntil=validUntil;
 	}
 	
@@ -46,7 +50,7 @@ public final class StorageObjectWrapper implements S3Info {
 	 * @return the bucketName
 	 */
 	public String getBucketName() {
-		return so.getBucketName();
+		return bucketName;
 	}
 	
 
@@ -70,7 +74,7 @@ public final class StorageObjectWrapper implements S3Info {
 	 */
 	@Override
 	public long getLastModified() {
-		return so.getLastModifiedDate().getTime();
+		return so.getLastModifiedDate()==null?0: so.getLastModifiedDate().getTime();
 	}
 
 	/**
@@ -99,14 +103,16 @@ public final class StorageObjectWrapper implements S3Info {
 	 * @return the ownerIdKey
 	 */
 	public String getOwnerId() {
-		return so.getOwner().getId();
+		StorageOwner owner = so.getOwner();
+		return owner==null?null:owner.getId();
 	}
 
 	/**
 	 * @return the ownerDisplayName
 	 */
 	public String getOwnerDisplayName() {
-		return so.getOwner().getDisplayName();
+		StorageOwner owner = so.getOwner();
+		return owner==null?null:owner.getDisplayName();
 	}
 
 	public String getLink(int secondsValid) throws InvalidKeyException, NoSuchAlgorithmException, IOException {
@@ -158,5 +164,19 @@ public final class StorageObjectWrapper implements S3Info {
 	public StorageObject getStorageObject() {
 		return so;
 	}
-	
+
+	@Override
+	public StorageOwner getOwner() {
+		return so.getOwner();
+	}
+
+	@Override
+	public String getLocation() {
+		return null;
+	}
+
+	@Override
+	public Map<String, Object> getMetaData() {
+		return so.getMetadataMap();
+	}
 }

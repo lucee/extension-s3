@@ -1,8 +1,11 @@
 package org.lucee.extension.resource.s3.info;
 
-import org.jets3t.service.model.S3Bucket;
+import java.util.Map;
 
-public class S3BucketWrapper implements S3Info {
+import org.jets3t.service.model.S3Bucket;
+import org.jets3t.service.model.StorageOwner;
+
+public class S3BucketWrapper extends S3InfoSupport {
 
 	private S3Bucket bucket;
 	private long validUntil;
@@ -68,5 +71,15 @@ public class S3BucketWrapper implements S3Info {
 	@Override
 	public String getName() {
 		return getBucketName();
+	}
+
+	@Override
+	public StorageOwner getOwner() {
+		return bucket.getOwner();
+	}
+
+	@Override
+	public Map<String, Object> getMetaData() {
+		return bucket.getMetadataMap();
 	}
 }

@@ -1,6 +1,6 @@
 /**
  *
- * Copyright (c) 2014, the Railo Company Ltd. All rights reserved.
+ * Copyright (c) 2015, Lucee Assosication Switzerland
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -17,6 +17,8 @@
  * 
  **/
 package org.lucee.extension.resource.s3.function;
+
+import org.lucee.extension.resource.s3.S3Resource;
 
 import lucee.loader.engine.CFMLEngine;
 import lucee.loader.engine.CFMLEngineFactory;
@@ -44,9 +46,9 @@ public class StoreSetMetaData extends S3Function {
 		}
 	}
 
-	public static String _call(PageContext pc , String url, Struct metadata) {
-		//S3Resource res=toS3Resource(pc,url,"StoreGetMetaData");
-		
+	public static String _call(PageContext pc , String url, Struct metadata) throws PageException {
+		S3Resource res=toS3Resource(pc,url,"StoreSetMetaData");
+		res.setMetaData(metadata);
 		return null;
 	}
 	

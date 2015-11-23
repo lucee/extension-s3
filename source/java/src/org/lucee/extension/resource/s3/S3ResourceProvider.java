@@ -18,6 +18,7 @@
 package org.lucee.extension.resource.s3;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.Map;
 
 import lucee.commons.io.res.Resource;
@@ -38,10 +39,11 @@ public final class S3ResourceProvider implements ResourceProvider {
 	
 	private int socketTimeout=-1;
 	private int lockTimeout=20000;
-	private int cache=20000;
+	private int cache=10000;
 	private ResourceLock lock;
 	private String scheme="s3";
 	private Map arguments;
+	private Map<String,S3> s3s=new HashMap<String, S3>();
 
 	
 
@@ -54,7 +56,7 @@ public final class S3ResourceProvider implements ResourceProvider {
 	 */
 	@Override
 	public ResourceProvider init(String scheme,Map arguments) {
-		if(!CFMLEngineFactory.getInstance().getStringUtil().isEmpty(scheme))this.scheme=scheme;
+		if(!Util.isEmpty(scheme))this.scheme=scheme;
 		
 		if(arguments!=null) {
 			this.arguments=arguments;
@@ -77,6 +79,16 @@ public final class S3ResourceProvider implements ResourceProvider {
 		
 		return this;
 	}
+	
+
+	
+	private S3 getS3(S3Properties props) {
+		S3 s3=s3s.get(props.toString());
+		if(s3==null){
+			s3s.put(props.toString(),s3=new S3(props,cache));
+		}
+		return s3;
+	}
 
 	private int toIntValue(String str, int defaultValue) {
 		try{
@@ -97,16 +109,18 @@ public final class S3ResourceProvider implements ResourceProvider {
 	public Resource getResource(String path) {
 		CFMLEngine engine = CFMLEngineFactory.getInstance();
 		path=engine.getResourceUtil().removeScheme(scheme, path);
-		S3 s3 = new S3(cache);
+		
+		S3Properties props=new S3Properties();
+		//S3 s3 = new S3(cache);
 		RefString location=engine.getCreationUtil().createRefString(null);
 		
-		path=loadWithNewPattern(s3,location,path);
+		path=loadWithNewPattern(props,location,path);
 		
-		return new S3Resource(engine,s3,location.getValue(),this,path);
+		return new S3Resource(engine,getS3(props),location.getValue(),this,path);
 	}
 
-	
-	public static String loadWithNewPattern(S3 s3,RefString storage, String path) {
+
+	public static String loadWithNewPattern(S3Properties properties,RefString storage, String path) {
 		PageContext pc = CFMLEngineFactory.getInstance().getThreadPageContext();
 		
 		boolean hasCustomCredentials=false;
@@ -159,25 +173,25 @@ public final class S3ResourceProvider implements ResourceProvider {
 		}
 		path=prettifyPath(path.substring(atIndex+1));
 		index=path.indexOf('/');
-		s3.setHost(host);
+		properties.setHost(host);
 		if(index==-1){
 			if(path.equalsIgnoreCase(S3.DEFAULT_HOST) || path.equalsIgnoreCase(host)){
-				s3.setHost(path);
+				properties.setHost(path);
 				path="/";
 			}
 		}
 		else {
 			String _host=path.substring(0,index);
 			if(_host.equalsIgnoreCase(S3.DEFAULT_HOST) || _host.equalsIgnoreCase(host)){
-				s3.setHost(_host);
+				properties.setHost(_host);
 				path=path.substring(index);
 			}
 		}
 		
 		
-		s3.setSecretAccessKey(secretAccessKey);
-		s3.setAccessKeyId(accessKeyId);
-		s3.setCustomCredentials(hasCustomCredentials);
+		properties.setSecretAccessKey(secretAccessKey);
+		properties.setAccessKeyId(accessKeyId);
+		properties.setCustomCredentials(hasCustomCredentials);
 		return path;
 	}
 
@@ -190,7 +204,7 @@ public final class S3ResourceProvider implements ResourceProvider {
 	
 	
 
-	public static String loadWithOldPattern(S3 s3,RefString location, String path) {
+	/*public static String loadWithOldPattern(S3Properties s3,RefString location, String path) {
 		
 		
 		String accessKeyId = null;
@@ -240,7 +254,10 @@ public final class S3ResourceProvider implements ResourceProvider {
 		s3.setAccessKeyId(accessKeyId);
 		
 		return path;
-	}
+	}*/
+	
+	
+	
 	@Override
 	public boolean isAttributesSupported() {
 		return false;

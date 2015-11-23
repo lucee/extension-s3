@@ -1,6 +1,6 @@
 /**
  *
- * Copyright (c) 2014, the Railo Company Ltd. All rights reserved.
+ * Copyright (c) 2015, Lucee Assosication Switzerland
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -18,15 +18,26 @@
  **/
 package org.lucee.extension.resource.s3.info;
 
+import java.util.Map;
+
+import org.jets3t.service.model.StorageOwner;
+
 public interface S3Info {
-	public long getSize();
+	
 	public String getName();
 	public String getObjectName();
 	public String getBucketName();
+	
+	public long getSize();
 	public long getLastModified();
+	
 	public boolean exists();
 	public boolean isDirectory();
 	public boolean isFile();
 	public boolean isBucket();
 	public long validUntil();
+	
+	public StorageOwner getOwner();
+	public String getLocation();
+	public Map<String, Object> getMetaData();
 }

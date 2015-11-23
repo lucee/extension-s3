@@ -1,6 +1,6 @@
 /**
  *
- * Copyright (c) 2014, the Railo Company Ltd. All rights reserved.
+ * Copyright (c) 2015, Lucee Assosication Switzerland
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -18,10 +18,13 @@
  **/
 package org.lucee.extension.resource.s3.function;
 
+import org.lucee.extension.resource.s3.S3Resource;
+
 import lucee.loader.engine.CFMLEngine;
 import lucee.loader.engine.CFMLEngineFactory;
 import lucee.runtime.PageContext;
 import lucee.runtime.exp.PageException;
+import lucee.runtime.type.Struct;
 
 public class StoreGetMetaData extends S3Function {
 
@@ -35,7 +38,7 @@ public class StoreGetMetaData extends S3Function {
 		return call(pc, engine.getCastUtil().toString(args[0]));
 	}
 	
-	public static String call(PageContext pc , String url) throws PageException {
+	public static Struct call(PageContext pc , String url) throws PageException {
 		try {
 			return _call(pc, url);
 		} catch (Exception e) {
@@ -43,10 +46,9 @@ public class StoreGetMetaData extends S3Function {
 		}
 	}
 
-	public static String _call(PageContext pc , String url) {
-		//S3Resource res=toS3Resource(pc,url,"StoreGetMetaData");
-		
-		return null;
+	public static Struct _call(PageContext pc , String url) throws PageException {
+		S3Resource res=toS3Resource(pc,url,"StoreGetMetaData");
+		return res.getMetaData();
 	}
 	
 

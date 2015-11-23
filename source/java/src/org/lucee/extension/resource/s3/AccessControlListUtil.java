@@ -1,6 +1,6 @@
 /**
  *
- * Copyright (c) 2014, the Railo Company Ltd. All rights reserved.
+ * Copyright (c) 2015, Lucee Assosication Switzerland
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -22,7 +22,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 
 import org.jets3t.service.acl.AccessControlList;
 import org.jets3t.service.acl.CanonicalGrantee;
@@ -31,7 +30,6 @@ import org.jets3t.service.acl.GrantAndPermission;
 import org.jets3t.service.acl.GranteeInterface;
 import org.jets3t.service.acl.GroupGrantee;
 import org.jets3t.service.acl.Permission;
-import org.jets3t.service.acl.gs.GroupByEmailAddressGrantee;
 
 import lucee.loader.engine.CFMLEngine;
 import lucee.loader.engine.CFMLEngineFactory;
@@ -300,39 +298,7 @@ public class AccessControlListUtil {
 	    }
 		return null;
 	}
-	
-	/*public static String toType(short type) throws S3Exception {
-		String rtn = toType(type, null);
-		if(rtn!=null) return rtn;
-		throw new S3Exception("invalid type defintion");
-	}
-	
-	public static String toType(short type, String defaultValue) {
-		switch(type){
-		case TYPE_EMAIL: return "AmazonCustomerByEmail";
-		case TYPE_GROUP: return "Group";
-		case TYPE_CANONICAL_USER: return "CanonicalUser";
-		}
-		return defaultValue;
-	}*/
 
-	/*public static short toType(String type) throws S3Exception {
-		short rtn = toType(type, (short)-1);
-		if(rtn!=-1) return rtn;
-		
-		throw new S3Exception("invalid type defintion ["+type+"], valid types are [Email,Group,CanonicalUser]");
-	}
-	
-	public static short toType(String type, short defaultValue) {
-		type=removeWordDelimter(type);
-		if("Email".equalsIgnoreCase(type)) return TYPE_EMAIL;
-		if("AmazonCustomerByEmail".equalsIgnoreCase(type)) return TYPE_EMAIL;
-		if("CanonicalUser".equalsIgnoreCase(type)) return TYPE_CANONICAL_USER;
-		if("Group".equalsIgnoreCase(type)) return TYPE_GROUP;
-		
-		return defaultValue;
-	}*/
-	
 	public static Array toArray(GrantAndPermission[] grantAndPerms)  {
 		CFMLEngine engine = CFMLEngineFactory.getInstance();
 		Struct sct;

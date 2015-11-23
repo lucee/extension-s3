@@ -1,7 +1,6 @@
 /**
  *
  * Copyright (c) 2015, Lucee Assosication Switzerland
- * Copyright (c) 2014, the Railo Company Ltd. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -79,16 +78,14 @@ public abstract class ResourceSupport implements Resource {
 
 	@Override
 	public void moveTo(Resource dest) throws IOException {
+		checkMoveToOK(this, dest);
 		_moveTo(this, dest);
 	}
 	
-	private static void _moveTo(Resource src, Resource dest) throws IOException {
-		checkMoveToOK(src, dest);
+	private void _moveTo(Resource src, Resource dest) throws IOException {
 		
 		if(src.isFile()){
-			if(!dest.exists()) dest.createFile(false);
-			Util.copy(src,dest);
-			src.remove(false);
+			moveFile(src, dest);
 		}
 		else {
 			if(!dest.exists()) dest.createDirectory(false);
@@ -100,6 +97,9 @@ public abstract class ResourceSupport implements Resource {
 		}
 		dest.setLastModified(System.currentTimeMillis());
 	}
+	
+	public abstract void moveFile(Resource src, Resource dest) throws IOException;
+	
 	
 	private static void checkMoveToOK(Resource source, Resource target) throws IOException {
 		if(!source.exists()) {

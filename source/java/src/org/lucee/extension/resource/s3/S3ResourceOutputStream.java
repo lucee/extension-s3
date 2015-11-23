@@ -55,7 +55,6 @@ public final class S3ResourceOutputStream extends OutputStream {
 			
 			// write the temp file to s3
 			s3.write(bucketName, objectName, temp,acl,location);
-			s3.releaseCache(path);
 		}
 		finally {
 			// delete the temp file

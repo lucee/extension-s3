@@ -48,7 +48,7 @@ public class StoreSetACL extends S3Function {
 
 	public static String _call(PageContext pc , String url, Object objACL) throws PageException, IOException {
 		S3Resource res=toS3Resource(pc,url,"StoreSetACL");
-		res.setAccessControlPolicy(objACL);
+		res.setAccessControlList(objACL);
 		return null;
 	}
 }
