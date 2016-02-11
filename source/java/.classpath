@@ -12,12 +12,12 @@
 	<classpathentry kind="lib" path="libs/jackson-mapper-asl-1.9.13.jar"/>
 	<classpathentry kind="lib" path="libs/java-xmlbuilder-1-1-0.jar"/>
 	<classpathentry kind="lib" path="libs/log4j-1.2.17.jar"/>
-	<classpathentry kind="lib" path="libs/mx4j-3-0-2.jar"/>
 	<classpathentry kind="lib" path="libs/org.apache.commons.logging-1.2.0.jar"/>
 	<classpathentry kind="lib" path="libs/apache-http-components-client-4-5-0-0002L.jar"/>
 	<classpathentry combineaccessrules="false" kind="src" path="/loader"/>
-	<classpathentry kind="lib" path="libs/javax-mail-activation-1-4-7.jar"/>
 	<classpathentry kind="lib" path="libs/commons-codec-1.9.jar"/>
-	<classpathentry kind="lib" path="libs/jets3t-0-9-4-0003L.jar"/>
+	<classpathentry kind="lib" path="libs/javax-mail-activation-1-4-7-0002L.jar"/>
+	<classpathentry kind="lib" path="libs/jets3t-0-9-4-0006L.jar"/>
+	<classpathentry kind="lib" path="libs/mx4j-lite-3-0-2.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

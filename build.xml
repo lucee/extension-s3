@@ -79,7 +79,8 @@ version: "${bundleversion}${build.number}"
 id: "${id}"
 name: "${label}"
 description: "${description}"
-lucee-core-version: "5.0.0.116”
+lucee-core-version: "${luceeCoreVersion}”
+release-type: ${releaseType}
 start-bundles: false
 resource: "[{'class':'${class}','bundleName':'${bundlename}','bundleVersion':'${bundleversion}${build.number}','scheme':'s3','lock-timeout':'10000'}]"
 </echo>
