@@ -74,7 +74,8 @@
 	<function>
 		<name>StoreGetMetaData</name>
 		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.StoreGetMetaData</class>
-		<description>Returns the metadata related to the object or bucket.</description>
+        <introduced>5.0.0.000</introduced>
+        <description>Returns the metadata related to the object or bucket.</description>
 		<argument>
 			<name>url</name>
 			<type>string</type>
@@ -89,6 +90,7 @@
 	<function>
 		<name>StoreSetMetaData</name>
 		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.StoreSetMetaData</class>
+        <introduced>5.0.0.000</introduced>
 		<description>Sets the metadata on bucket or object.</description>
 		<argument>
 			<name>url</name>
