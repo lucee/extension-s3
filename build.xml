@@ -145,11 +145,10 @@ resource: "[{'class':'${class}','bundleName':'${bundlename}','bundleVersion':'${
         <exclude name="**/org.apache.felix.framework-*"/>
 
         <!-- we exclude this because this is part of the Lucee core and in worst case it is loaded on the fly -->
-        <exclude name="**/apache.http.components.core-*"/>
+        <exclude name="**/httpcomponents-*"/>
         <exclude name="**/org.apache.commons.codec-*"/>
         <exclude name="**/commons-codec-*"/>
         <exclude name="**/log4j-*"/>
-        <exclude name="**/apache-http-components-client-*"/>
         <exclude name="**/javax-mail-activation-*"/>
       </fileset>
     </copy>
