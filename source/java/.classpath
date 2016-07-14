@@ -15,9 +15,9 @@
 	<classpathentry kind="lib" path="libs/commons-codec-1.9.jar"/>
 	<classpathentry kind="lib" path="libs/javax-mail-activation-1-4-7-0002L.jar"/>
 	<classpathentry kind="lib" path="libs/mx4j-lite-3-0-2.jar"/>
-	<classpathentry kind="lib" path="libs/httpcomponents-httpclient-4.5.0.jar"/>
-	<classpathentry kind="lib" path="libs/httpcomponents-httpcore-4.4.1.jar"/>
 	<classpathentry kind="lib" path="libs/jets3t-0.9.4.jar"/>
 	<classpathentry kind="lib" path="libs/commons-logging-1.2.0.jar"/>
+	<classpathentry kind="lib" path="libs/org.lucee.httpcomponents.httpclient-4.5.2.jar"/>
+	<classpathentry kind="lib" path="libs/org.lucee.httpcomponents.httpcore-4.4.4.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
