@@ -2,15 +2,15 @@ Manifest-Version: 1.0
 Export-Package: org.lucee.extension.resource.s3,
  org.lucee.extension.resource.s3.function
 Bundle-ManifestVersion: 2
-Require-Bundle: bcprov;bundle-version=1.52,
+Require-Bundle: org.lucee.bouncycastle.bcprov;bundle-version=1.52.0,
  org.apache.commons.codec;bundle-version=1.9.0,
  org.lucee.commons.logging;bundle-version=1.2.0,
  org.lucee.httpcomponents.httpcore;bundle-version=4.4.4,
  org.lucee.httpcomponents.httpclient;bundle-version=4.5.2,
+ org.lucee.jets3t;bundle-version=0.9.4.0002L,
  jackson-core-asl;bundle-version=1.9.13,
  jackson-mapper-asl;bundle-version=1.9.13,
  log4j;bundle-version=1.2.17,
  java.xmlbuilder;bundle-version=1.1.0,
  javax.mail.activation;bundle-version=1.4.7.0002L,
- org.lucee.jets3t;bundle-version=0.9.4,
  mx4j.lite;bundle-version=3.0.2
