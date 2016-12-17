@@ -9,11 +9,13 @@ import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 
 import javafx.css.PseudoClass;
 import lucee.loader.engine.CFMLEngine;
@@ -140,6 +142,7 @@ public class S3 {
 		AccessControlList a = toACL(acl,null);
 		
 		S3Object object = new S3Object("object");
+		object.addMetadata("Content-Type", "application/x-directory");
 		if(a!=null)object.setAcl(a);
 		
 		objectName=improveObjectName(objectName, true);
@@ -282,9 +285,16 @@ public class S3 {
 	 */
 	public List<S3Info> list(String bucketName, boolean recursive, boolean listPseudoFolder) throws S3Exception {
 		List<S3Info> list=new ArrayList<S3Info>();
+		//Set<S3Info> set=new HashSet<S3Info>();
+		
 		Iterator<S3Info> iit = _list("",bucketName,recursive,listPseudoFolder);
-		while(iit.hasNext()){
-			list.add(iit.next());
+		S3Info s3i;
+		//String path;
+		while(iit.hasNext()) {
+			s3i = iit.next();
+			//path=improveBucketName(s3i.getBucketName())+"/"+improveObjectName(s3i.getObjectName(), false);
+			//System.out.println("x "+path+":"+s3i.getClass().getName());
+			list.add(s3i);
 		}
 		return list;
 	}
@@ -304,7 +314,6 @@ public class S3 {
 			info=it.next();
 			add(map,info,prefix,recursive,listPseudoFolder);
 		}
-		
 		return map.values().iterator();
 	}
 	
@@ -312,17 +321,27 @@ public class S3 {
 	private void add(Map<String,S3Info> map, S3Info info, String prefix, boolean recursive, boolean addPseudoEntries) throws S3Exception {
 		String name=improveObjectName(info.getObjectName(), false);
 		int index,last=0;
-		S3Info tmp;
+		ParentObject tmp;
+		String objName;
+		S3Info existing;
 		if(addPseudoEntries) {
 			while((index=name.indexOf('/',last))!=-1){
 				tmp=new ParentObject(name.substring(0, index+1), info);
-				if(!isParent(prefix,tmp.getObjectName()) && (recursive || isDirectKid(tmp.getObjectName(),prefix)))
-					map.put(tmp.getObjectName(),tmp);
+				if(!isParent(prefix,tmp.getObjectName()) && (recursive || isDirectKid(tmp.getObjectName(),prefix))) {
+					objName=improveObjectName(tmp.getObjectName(),false);
+					existing = map.get(objName);
+					if(existing==null) {
+						map.put(objName,tmp);
+					}
+				}
 				last=index+1;
 			}
 		}
-		if(!isParent(prefix,info.getObjectName()) && (recursive || isDirectKid(info.getObjectName(),prefix)))
-			map.put(info.getObjectName(),info);
+		if(!isParent(prefix,info.getObjectName()) && (recursive || isDirectKid(info.getObjectName(),prefix))) {
+			objName=improveObjectName(info.getObjectName(),false);
+			existing = map.get(objName);
+			if(existing==null || existing instanceof ParentObject) map.put(objName,info);
+		}
 	}
 
 	private boolean isParent(String prefix, String objectName) throws S3Exception {
@@ -445,7 +464,7 @@ public class S3 {
 
 	public S3BucketWrapper get(String bucketName) throws S3Exception {
 		bucketName=improveBucketName(bucketName);
-		
+		 
 		S3BucketWrapper info=null;
 		if(buckets!=null) {
 			info=buckets.get(bucketName);

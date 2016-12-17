@@ -22,7 +22,12 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
+
+import lucee.loader.engine.CFMLEngineFactory;
+import lucee.loader.util.Util;
 
 import org.jets3t.service.model.S3Object;
 import org.jets3t.service.model.StorageObject;
@@ -137,13 +142,45 @@ public final class StorageObjectWrapper extends S3InfoSupport {
 	}
 	
 	@Override
-	public boolean isDirectory() {
+	/*public boolean isDirectory() {
+		String ct = CFMLEngineFactory.getInstance().getCastUtil().toString(so.getMetadata("Content-Type"),null);
+		// sadly a directory not necessary has set "application/x-directory" so not existing does not mean it is not a directory
+		if(!Util.isEmpty(ct) && "application/x-directory".equalsIgnoreCase(ct)) return true;
 		return getSize()==0 && getKey().endsWith("/");
+		
+	}*/
+	public boolean isDirectory() {
+		return !isFile();
 	}
 	
 	@Override
 	public boolean isFile() {
-		return getSize()>0 || !getKey().endsWith("/");
+		//System.out.println("isFile("+getName()+")");
+		// when it has content it is a file
+		//System.out.println("- getSize():"+getSize());
+		if(getSize()>0) return true;
+		
+		Object o = so.getMetadata("Content-Type");
+		//System.out.println("- Content-Type:"+o);
+		if(o instanceof String) {
+			String ct=(String)o;
+			if("application/x-directory".equalsIgnoreCase(ct)) return false;
+			if(ct.startsWith("audio/")) return true;
+			if(ct.startsWith("image/")) return true;
+			if(ct.startsWith("text/")) return true;
+			if(ct.startsWith("video/")) return true;
+		}
+		
+		// when a file has "children" it is a directory
+		try {
+			List<S3Info> list = s3.list(getBucketName(),getObjectName(),true, false);
+			//System.out.println("- list:"+(list!=null && list.size()>0));
+			if(list!=null && list.size()>0) return false;
+		}
+		catch (S3Exception e) {}
+		
+		//System.out.println("- ends-not-with-slash:"+(!getKey().endsWith("/")));
+		return !getKey().endsWith("/"); // i don't like this, but this is a pattern used with S3
 	}
 
 	@Override
