@@ -65,6 +65,7 @@
     <copy todir="${temp}">
       <fileset dir="${src}">
         <include name="**/*.java"/>
+        <exclude name="**/Test.java"/>
       </fileset>
     </copy>
 

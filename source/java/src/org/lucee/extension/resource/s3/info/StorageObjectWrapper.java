@@ -155,13 +155,10 @@ public final class StorageObjectWrapper extends S3InfoSupport {
 	
 	@Override
 	public boolean isFile() {
-		//System.out.println("isFile("+getName()+")");
 		// when it has content it is a file
-		//System.out.println("- getSize():"+getSize());
 		if(getSize()>0) return true;
 		
 		Object o = so.getMetadata("Content-Type");
-		//System.out.println("- Content-Type:"+o);
 		if(o instanceof String) {
 			String ct=(String)o;
 			if("application/x-directory".equalsIgnoreCase(ct)) return false;
@@ -174,12 +171,10 @@ public final class StorageObjectWrapper extends S3InfoSupport {
 		// when a file has "children" it is a directory
 		try {
 			List<S3Info> list = s3.list(getBucketName(),getObjectName(),true, false);
-			//System.out.println("- list:"+(list!=null && list.size()>0));
 			if(list!=null && list.size()>0) return false;
 		}
 		catch (S3Exception e) {}
 		
-		//System.out.println("- ends-not-with-slash:"+(!getKey().endsWith("/")));
 		return !getKey().endsWith("/"); // i don't like this, but this is a pattern used with S3
 	}
 

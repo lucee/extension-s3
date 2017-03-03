@@ -84,7 +84,7 @@ public final class S3ResourceProvider implements ResourceProvider {
 	
 	private S3 getS3(S3Properties props) {
 		S3 s3=s3s.get(props.toString());
-		if(s3==null){
+		if(s3==null) {
 			s3s.put(props.toString(),s3=new S3(props,cache));
 		}
 		return s3;
@@ -95,6 +95,7 @@ public final class S3ResourceProvider implements ResourceProvider {
 			return Integer.parseInt(str);
 		}
 		catch(Throwable t){
+			if(t instanceof ThreadDeath) throw (ThreadDeath)t;
 			return defaultValue;
 		}
 	}

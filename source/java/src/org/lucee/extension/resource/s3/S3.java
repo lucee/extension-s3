@@ -31,6 +31,7 @@ import lucee.runtime.util.Decision;
 import org.jets3t.service.S3Service;
 import org.jets3t.service.S3ServiceException;
 import org.jets3t.service.ServiceException;
+import org.jets3t.service.StorageObjectsChunk;
 import org.jets3t.service.acl.AccessControlList;
 import org.jets3t.service.impl.rest.httpclient.RestS3Service;
 import org.jets3t.service.model.S3Bucket;
@@ -65,7 +66,8 @@ public class S3 {
 	private final Map<String,ValidUntilMap<StorageObjectWrapper>> bucketObjects=
 			new HashMap<String, ValidUntilMap<StorageObjectWrapper>>(); 
 	
-	Map<String,ValidUntilAccessControlList> accessControlLists=new HashMap<String,ValidUntilAccessControlList>();
+	Map<String,ValidUntilElement<AccessControlList>> accessControlLists=new HashMap<String,ValidUntilElement<AccessControlList>>();
+	final Map<String,ValidUntilElement<Boolean>> exists=new HashMap<String,ValidUntilElement<Boolean>>();
 	
 /////////////////////////////////////////////
 
@@ -138,6 +140,7 @@ public class S3 {
 		
 		bucketName=improveBucketName(bucketName);
 		objectName=improveObjectName(objectName, true);
+		flushExists(bucketName,objectName);
 		// TODO update bucket objects
 		AccessControlList a = toACL(acl,null);
 		
@@ -166,10 +169,21 @@ public class S3 {
 		}
 	}
 	
+	private void flushExists(String bucketName, String objectName) throws S3Exception {
+		objectName=improveObjectName(objectName, true);
+		exists.remove(bucketName+":"+objectName+":"+true);
+		exists.remove(bucketName+":"+objectName+false);
+		
+		objectName=improveObjectName(objectName, false);
+		exists.remove(bucketName+":"+objectName+true);
+		exists.remove(bucketName+":"+objectName+false);
+	}
+
 	public void createFile(String bucketName, String objectName, String acl, String location) throws S3Exception {
 		bucketName=improveBucketName(bucketName);
 		objectName=improveObjectName(objectName, false);
 		
+		flushExists(bucketName,objectName);
 		
 		AccessControlList a = toACL(acl,null);
 		
@@ -292,8 +306,6 @@ public class S3 {
 		//String path;
 		while(iit.hasNext()) {
 			s3i = iit.next();
-			//path=improveBucketName(s3i.getBucketName())+"/"+improveObjectName(s3i.getObjectName(), false);
-			//System.out.println("x "+path+":"+s3i.getClass().getName());
 			list.add(s3i);
 		}
 		return list;
@@ -303,8 +315,6 @@ public class S3 {
 	public Iterator<S3Info> _list(String prefix,String bucketName, boolean recursive, boolean listPseudoFolder) throws S3Exception {
 		bucketName=improveBucketName(bucketName);
 		
-		//if(Util.isEmpty(bucketName)) return list(recursive,listPseudoFolder);
-
 		ValidUntilMap<StorageObjectWrapper> objects = __list(bucketName);
 		Iterator<StorageObjectWrapper> it = objects.values().iterator();
 		
@@ -366,6 +376,7 @@ public class S3 {
 			ValidUntilMap<StorageObjectWrapper> _list = bucketObjects.get(bucketName);
 			if(_list==null || _list.validUntil<System.currentTimeMillis()) {
 				S3Object[] kids = getS3Service().listObjects(bucketName);
+				
 				long validUntil=System.currentTimeMillis()+timeout;
 				_list=new ValidUntilMap<StorageObjectWrapper>(validUntil);
 				bucketObjects.put(bucketName, _list);
@@ -374,58 +385,129 @@ public class S3 {
 				}
 			}
 			return _list;
-			
 		}
 		catch (ServiceException se) {
 			throw toS3Exception(se);
 		}
 	}
 	
-	/*private void _list(List<S3Info> list,String bucketName, boolean recursive, ObjectFilter filter) throws S3Exception {
+	private boolean _exists(String bucketName,String objectName, boolean includePseudoFolder, Boolean isDirectory) throws S3Exception {
+		bucketName=improveBucketName(bucketName);
+		if(isDirectory==Boolean.TRUE) objectName=improveObjectName(objectName,true);
+		else if(isDirectory==Boolean.FALSE) objectName=improveObjectName(objectName,false);
+		else objectName=improveObjectName(objectName);
+		
 		try {
 			
 			// not cached 
-			ValidUntilMap<StorageObjectWrapper> _list = bucketObjects.get(bucketName);
-			if(_list==null || _list.validUntil<System.currentTimeMillis()) {
-				S3Object[] kids = getS3Service().listObjects(bucketName);
-				long validUntil=System.currentTimeMillis()+timeout;
-				_list=new ValidUntilMap<StorageObjectWrapper>(validUntil);
-				bucketObjects.put(bucketName, _list);
-				for(int i=0;i<kids.length;i++){
-					_list.put(kids[i].getKey(),new StorageObjectWrapper(this,kids[i],validUntil));
+			ValidUntilElement<Boolean> _ex = exists.get(bucketName+":"+objectName+":"+includePseudoFolder);
+			if(_ex==null || _ex.validUntil<System.currentTimeMillis()) {
+				
+				S3Service s3 = getS3Service();
+				
+				// listObjects can be very slow, because of that we do a isObjectInBucket in any case
+				boolean isInBucket=s3.isObjectInBucket(bucketName, objectName);
+				// object can end with / or not
+				if(!isInBucket && isDirectory==null) {
+					String oppo=improveObjectNameOppo(objectName);
+					isInBucket=s3.isObjectInBucket(bucketName, oppo);
+					if(isInBucket) objectName=oppo;
 				}
+				
+				if(!includePseudoFolder || isInBucket) {
+					
+					// is file or dir
+					if(isDirectory!=null && isInBucket) {
+						boolean is= isDirectory.booleanValue()==isDirectory(s3,bucketName, objectName);
+						
+						long validUntil=System.currentTimeMillis()+timeout;
+						exists.put(bucketName+":"+objectName+":"+includePseudoFolder,new ValidUntilElement<Boolean>(is, validUntil,isDirectory));
+						return is;
+					}
+					
+					// exists
+					long validUntil=System.currentTimeMillis()+timeout;
+					exists.put(bucketName+":"+objectName+":"+includePseudoFolder,new ValidUntilElement<Boolean>(isInBucket, validUntil,isDirectory));
+					return isInBucket;
+				}
+				
+				// in case we have an extension at the end, we take the risk it is not a directory
+				String ext = CFMLEngineFactory.getInstance().getResourceUtil().getExtension(objectName, null);
+				if(!Util.isEmpty(ext)) {
+					long validUntil=System.currentTimeMillis()+timeout;
+					exists.put(bucketName+":"+objectName+":"+includePseudoFolder,new ValidUntilElement<Boolean>(isInBucket, validUntil,isDirectory));
+					// dir check would not make it true, so it is not necessary
+					return false;
+				}
+				
+				StorageObjectsChunk chunk = s3.listObjectsChunked(bucketName,objectName,",",2,null);
+				StorageObject[] children = chunk.getObjects();
+				
+				long validUntil=System.currentTimeMillis()+timeout;
+				// no match
+				if(children.length==0) {
+					exists.put(bucketName+":"+objectName+":"+includePseudoFolder,new ValidUntilElement<Boolean>(false, validUntil,isDirectory));
+					return false;
+				}
+				// direct match (unlikely)
+				if(children.length==1 && objectName.equals(children[0].getName())) {
+					if(isDirectory==null) {
+						exists.put(bucketName+":"+objectName+":"+includePseudoFolder,new ValidUntilElement<Boolean>(true, validUntil,isDirectory));
+						return true;
+					}
+					boolean b=(isDirectory==Boolean.TRUE)==children[0].isDirectoryPlaceholder();
+					exists.put(bucketName+":"+objectName+":"+includePseudoFolder,new ValidUntilElement<Boolean>(b, validUntil,isDirectory));
+					return b;
+				}
+				
+				if(isDirectory!=Boolean.FALSE) {
+					if(isDirectory==null)objectName=improveObjectName(objectName,true);
+					do {
+						for(int i=0;i<children.length;i++) {
+							if(children[i].getName().startsWith(objectName)) {
+								exists.put(bucketName+":"+objectName+":"+includePseudoFolder,new ValidUntilElement<Boolean>(true, validUntil,isDirectory));
+								return true;
+							}
+						}
+						chunk = s3.listObjectsChunked(bucketName,objectName,",",100,chunk.getPriorLastKey());
+						if(chunk!=null)children=chunk.getObjects();
+						else children=null;
+						
+					}while(children!=null && children.length>0);
+				}
+				exists.put(bucketName+":"+objectName+":"+includePseudoFolder,new ValidUntilElement<Boolean>(false, validUntil,isDirectory));
+				return false;
+			}
+			// if we have no match type does not matter
+			if(_ex.element==Boolean.FALSE) return false;
+			
+			// we do not care about type or type matches
+			if(isDirectory==null || _ex.isDirectory==isDirectory) return _ex.element;
+			
+			// we have an invalid type, we know having a type means it does not match
+			if(_ex.isDirectory!=null) return false;
+			
+			// at this time we have no type but we accept one
+			try{
+				_ex.isDirectory=isDirectory(getS3Service(), bucketName, objectName);
+				return isDirectory==_ex.isDirectory;
+			}
+			catch(S3ServiceException e) {
+				exists.remove(bucketName+":"+objectName+":"+includePseudoFolder);
+				return _exists(bucketName, objectName, includePseudoFolder, isDirectory);
 			}
 			
-			String name;
-			int index;
-			Iterator<StorageObjectWrapper> it = _list.values().iterator();
-			S3Info info;
-			while(it.hasNext()){
-				info=it.next();
-				if(!recursive) {
-					name=info.getObjectName();
-					index=name.indexOf('/');
-					if(index!=-1 && index+1<name.length()) continue;
-				}
-				if(filter==null || filter.accept(info.getObjectName()))
-					list.add(info);
-			}
 			
 		}
 		catch (ServiceException se) {
 			throw toS3Exception(se);
 		}
 	}
-	public List<S3Info> list(String bucketName, String objectName,boolean recursive) throws S3Exception {
-		if(Util.isEmpty(objectName)) return list(bucketName,recursive);
-		
-		bucketName=improveBucketName(bucketName);
-		
-		List<S3Info> list=new ArrayList<S3Info>();
-		_list(list, bucketName, true,new ObjectFilter(objectName,recursive));
-		return list;
-	}*/
 	
+	private boolean isDirectory(S3Service s3, String bucketName, String objectName) throws S3ServiceException {
+		return s3.getObject(bucketName, objectName).isDirectoryPlaceholder();
+	}
+
 	public List<S3Info> list(String bucketName, String objectName, boolean recursive, boolean listPseudoFolder) throws S3Exception {
 		List<S3Info> list=new ArrayList<S3Info>();
 		Iterator<S3Info> iit = _list(objectName,bucketName,recursive,listPseudoFolder);
@@ -442,24 +524,15 @@ public class S3 {
 	}
 	
 	public boolean exists(String bucketName, String objectName, boolean includePseudoFolder) throws S3Exception {
-		bucketName=improveBucketName(bucketName);
-		objectName=improveObjectName(objectName);
-		
-		return get(bucketName, objectName,includePseudoFolder)!=null;
+		return _exists(bucketName, objectName, includePseudoFolder,null);
 	}
 	
 	public boolean isDirectory(String bucketName, String objectName, boolean includePseudoFolder) throws S3Exception {
-		bucketName=improveBucketName(bucketName);
-		objectName=improveObjectName(objectName);
-		S3Info info = get(bucketName, objectName,includePseudoFolder);
-		return info!=null && info.isDirectory();
+		return _exists(bucketName, objectName, includePseudoFolder,true);
 	}
 	
-	public boolean isFile(String bucketName, String objectName, boolean includePseudoFolder) throws S3Exception {
-		bucketName=improveBucketName(bucketName);
-		objectName=improveObjectName(objectName);
-		S3Info info = get(bucketName, objectName,includePseudoFolder);
-		return info!=null && info.isFile();
+	public boolean isFile(String bucketName, String objectName) throws S3Exception {
+		return _exists(bucketName, objectName, false,false);
 	}
 
 	public S3BucketWrapper get(String bucketName) throws S3Exception {
@@ -487,7 +560,6 @@ public class S3 {
 		bucketName=improveBucketName(bucketName);
 		objectName=improveObjectName(objectName);
 		String diffObjName=objectName.endsWith("/") ? improveObjectName(objectName,false):improveObjectName(objectName,true);
-		
 		// get from cache
 		ValidUntilMap<StorageObjectWrapper> objects = this.bucketObjects.get(bucketName);
 		if(objects!=null) {
@@ -543,7 +615,8 @@ public class S3 {
 		}
 		bucketName=improveBucketName(bucketName);
 		objectName=improveObjectName(objectName);
-
+		flushExists(bucketName,objectName);
+		
 		String nameFile=improveObjectName(objectName,false);
 		String nameDir=improveObjectName(objectName,true);
 		
@@ -633,6 +706,8 @@ public class S3 {
 		srcObjectName=improveObjectName(srcObjectName,false);
 		trgBucketName=improveBucketName(trgBucketName);
 		trgObjectName=improveObjectName(trgObjectName,false);
+		flushExists(srcBucketName,srcObjectName);
+		flushExists(trgBucketName,trgObjectName);
 		
 		try {
 			S3Object trg = new S3Object(trgObjectName);
@@ -663,6 +738,8 @@ public class S3 {
 		srcObjectName=improveObjectName(srcObjectName,false);
 		trgBucketName=improveBucketName(trgBucketName);
 		trgObjectName=improveObjectName(trgObjectName,false);
+		flushExists(srcBucketName,srcObjectName);
+		flushExists(trgBucketName,trgObjectName);
 		
 		try {
 			S3Object trg = new S3Object(trgObjectName);
@@ -711,6 +788,7 @@ public class S3 {
 	public void write(String bucketName,String objectName, byte[] data, String mimeType, String acl, String location) throws IOException {
 		bucketName=improveBucketName(bucketName);
 		objectName=improveObjectName(objectName,false);
+		flushExists(bucketName,objectName);
 		
 		try {
 			S3Object so = new S3Object(objectName, data);
@@ -727,6 +805,7 @@ public class S3 {
 	public void write(String bucketName,String objectName, File file, String acl, String location) throws IOException {
 		bucketName=improveBucketName(bucketName);
 		objectName=improveObjectName(objectName,false);
+		flushExists(bucketName,objectName);
 		
 		try {
 			S3Object so = new S3Object(file);
@@ -949,8 +1028,8 @@ public class S3 {
 		
 		String key=bucketName+"|"+(objectName==null?"":objectName);
 		
-		ValidUntilAccessControlList vuacl = accessControlLists.get(key);
-		if(vuacl!=null && vuacl.validUntil>System.currentTimeMillis()) return vuacl.acl;
+		ValidUntilElement<AccessControlList> vuacl = accessControlLists.get(key);
+		if(vuacl!=null && vuacl.validUntil>System.currentTimeMillis()) return vuacl.element;
 		 
 		
 		try {
@@ -967,8 +1046,8 @@ public class S3 {
 		objectName=improveObjectName(objectName);
 		
 		String key=bucket.getName()+"|"+(objectName==null?"":objectName);
-		ValidUntilAccessControlList vuacl = accessControlLists.get(key);
-		if(vuacl!=null && vuacl.validUntil>System.currentTimeMillis()) return vuacl.acl;
+		ValidUntilElement<AccessControlList> vuacl = accessControlLists.get(key);
+		if(vuacl!=null && vuacl.validUntil>System.currentTimeMillis()) return vuacl.element;
 		
 		try {
 			if(Util.isEmpty(objectName)) 
@@ -1105,6 +1184,13 @@ public class S3 {
 		if(objectName.startsWith("/"))objectName=objectName.substring(1);
 		return objectName;
 	}
+
+	public static String improveObjectNameOppo(String objectName) throws S3Exception {
+		if(objectName==null) return null;
+		if(objectName.startsWith("/"))objectName=objectName.substring(1);
+		if(objectName.endsWith("/")) return objectName.substring(0, objectName.length()-1);
+		return objectName=objectName+"/";
+	}
 	
 	public static String improveObjectName(String objectName, boolean directory) throws S3Exception {
 		if(objectName.startsWith("/"))objectName=objectName.substring(1);
@@ -1221,7 +1307,19 @@ public class S3 {
 	}
 	
 
-	class ValidUntilAccessControlList {
+	class ValidUntilElement<E> {
+		private final long validUntil;
+		private final E element;
+		private Boolean isDirectory;
+		
+		public ValidUntilElement(E element, long validUntil, Boolean isDirectory){
+			this.element=element;
+			this.validUntil=validUntil;
+			this.isDirectory=isDirectory;
+		}
+	}
+
+	/*class ValidUntilAccessControlList {
 		private final long validUntil;
 		private final AccessControlList acl;
 		
@@ -1229,5 +1327,18 @@ public class S3 {
 			this.acl=acl;
 			this.validUntil=validUntil;
 		}
-	}	
+	}
+	
+	class ValidUntilObject {
+		private final long validUntil;
+		private final Object obj;
+		
+		public ValidUntilObject(AccessControlList obj, long validUntil){
+			this.obj=obj;
+			this.validUntil=validUntil;
+		}
+	}*/	
+	
+	
+	
 }

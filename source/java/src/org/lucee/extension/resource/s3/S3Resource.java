@@ -297,7 +297,7 @@ public final class S3Resource extends ResourceSupport {
 		if(isRoot()) return false;
 		try {
 			if(isBucket()) return false;
-			else return s3.isFile(bucketName, objectName,true);
+			else return s3.isFile(bucketName, objectName);
 		}
 		catch(S3Exception s3e) {
 			CFMLEngine e = CFMLEngineFactory.getInstance();
