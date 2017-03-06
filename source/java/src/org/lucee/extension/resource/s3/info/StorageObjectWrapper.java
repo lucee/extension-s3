@@ -155,7 +155,9 @@ public final class StorageObjectWrapper extends S3InfoSupport {
 	
 	@Override
 	public boolean isFile() {
-		// when it has content it is a file
+		return s3._isFile(this);
+		
+		/*// when it has content it is a file
 		if(getSize()>0) return true;
 		
 		Object o = so.getMetadata("Content-Type");
@@ -170,12 +172,12 @@ public final class StorageObjectWrapper extends S3InfoSupport {
 		
 		// when a file has "children" it is a directory
 		try {
-			List<S3Info> list = s3.list(getBucketName(),getObjectName(),true, false);
+			List<S3Info> list = s3.list(getBucketName(),getObjectName(),true, false,2);
 			if(list!=null && list.size()>0) return false;
 		}
 		catch (S3Exception e) {}
 		
-		return !getKey().endsWith("/"); // i don't like this, but this is a pattern used with S3
+		return !getKey().endsWith("/"); // i don't like this, but this is a pattern used with S3*/
 	}
 
 	@Override

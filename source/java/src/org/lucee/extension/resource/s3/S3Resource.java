@@ -307,6 +307,12 @@ public final class S3Resource extends ResourceSupport {
 
 	@Override
 	public boolean exists() {
+		long start=System.currentTimeMillis();
+		boolean b=_exists();
+		System.err.println("(((((exists)))))"+bucketName+":"+objectName+":"+(System.currentTimeMillis()-start));
+		return b;
+	}
+	public boolean _exists() {
 		if(isRoot()) return true;
 		try {
 			if(isBucket()) return s3.exists(bucketName);
@@ -369,12 +375,12 @@ public final class S3Resource extends ResourceSupport {
 			List<S3Info> list=null;
 			if(isRoot()) {
 				buckets=true;
-				list = s3.list(false,false);
+				list = s3.list(false,false,-1);
 			}
 			else if(isDirectory()){
 				list = isBucket()?
-					s3.list(bucketName,false,true):
-					s3.list(bucketName, objectName+"/",false,true);
+					s3.list(bucketName,false,true,-1):
+					s3.list(bucketName, objectName+"/",false,true,-1);
 			}
 			
 			if(list!=null) {
