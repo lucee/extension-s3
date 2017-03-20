@@ -517,7 +517,7 @@ public final class S3Resource extends ResourceSupport {
 	}
 	
 	private void copy(Resource from, Resource to, boolean append) throws IOException {
-		if(from instanceof S3Resource || to instanceof S3Resource) {
+		if(from instanceof S3Resource && to instanceof S3Resource) {
 			S3Resource f=(S3Resource) from;
 			S3Resource t=(S3Resource) to;
 			// whe have the same container
