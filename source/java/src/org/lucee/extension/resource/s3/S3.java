@@ -958,6 +958,12 @@ public class S3 {
 			
 			StorageObject so = ((StorageObjectWrapper)info).getStorageObject();
 			so.addAllMetadata(data);
+			try {
+				getS3Service().updateObjectMetadata(bucketName, so);
+			}
+			catch (ServiceException se) {
+				throw CFMLEngineFactory.getInstance().getCastUtil().toPageException(se);
+			}
 		}
 	}
 	 
