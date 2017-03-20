@@ -284,7 +284,7 @@ public final class S3Resource extends ResourceSupport {
 		if(isRoot()) return true;
 		try {
 			if(isBucket()) return s3.exists(bucketName);
-			else return s3.isDirectory(bucketName, objectName+"/",true);
+			else return s3.isDirectory(bucketName, objectName+"/");
 		}
 		catch(S3Exception s3e) {
 			CFMLEngine e = CFMLEngineFactory.getInstance();
@@ -307,16 +307,10 @@ public final class S3Resource extends ResourceSupport {
 
 	@Override
 	public boolean exists() {
-		long start=System.currentTimeMillis();
-		boolean b=_exists();
-		System.err.println("(((((exists)))))"+bucketName+":"+objectName+":"+(System.currentTimeMillis()-start));
-		return b;
-	}
-	public boolean _exists() {
 		if(isRoot()) return true;
 		try {
 			if(isBucket()) return s3.exists(bucketName);
-			else return s3.exists(bucketName, objectName,true);
+			else return s3.exists(bucketName, objectName);
 		}
 		catch(S3Exception s3e) {
 			CFMLEngine e = CFMLEngineFactory.getInstance();
@@ -354,7 +348,7 @@ public final class S3Resource extends ResourceSupport {
 		try {
 			S3Info info;
 			if(isBucket()) info = s3.get(bucketName);
-			else info= s3.get(bucketName, objectName+"/",true);
+			else info= s3.get(bucketName, objectName+"/");
 			return info;
 		}
 		catch(S3Exception s3e) {
@@ -369,18 +363,18 @@ public final class S3Resource extends ResourceSupport {
 	@Override
 	public Resource[] listResources() {
 		S3Resource[] children=null;
-		long timeout=System.currentTimeMillis()+provider.getCache();
+		//long timeout=System.currentTimeMillis()+provider.getCache();
 		try {
 			boolean buckets=false;
 			List<S3Info> list=null;
 			if(isRoot()) {
 				buckets=true;
-				list = s3.list(false,false,-1);
+				list = s3.list(false,false);
 			}
 			else if(isDirectory()){
 				list = isBucket()?
-					s3.list(bucketName,false,true,-1):
-					s3.list(bucketName, objectName+"/",false,true,-1);
+					s3.list(bucketName,"",false,true,true):
+					s3.list(bucketName, objectName+"/",false,true,true);
 			}
 			
 			if(list!=null) {
@@ -405,6 +399,7 @@ public final class S3Resource extends ResourceSupport {
 	@Override
 	public void remove(boolean force) throws IOException {
 		if(isRoot()) throw new IOException("can not remove root of S3 Service");
+		
 		engine.getResourceUtil().checkRemoveOK(this);
 		if(isBucket()) {
 			s3.delete(bucketName,force);

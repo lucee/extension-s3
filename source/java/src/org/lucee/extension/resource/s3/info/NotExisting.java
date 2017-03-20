@@ -5,36 +5,23 @@ import java.util.Map;
 
 import org.jets3t.service.model.StorageOwner;
 
-public class ParentObject extends S3InfoSupport {
+public class NotExisting extends S3InfoSupport {
 
-	//private S3Info kid;
 	private String bucketName;
 	private String objectName;
 	private String location;
 	private long validUntil;
 
-	public ParentObject(String objectName, S3Info info) {
-		this.bucketName=info.getBucketName();
-		this.objectName=objectName;
-		this.location=info.getLocation();
-		this.validUntil=info.validUntil();
-	}
-	
-	public ParentObject(String bucketName, String objectName, String location, long validUntil) {
+	public NotExisting(String bucketName, String objectName, String location, long validUntil) {
 		this.bucketName=bucketName;
 		this.objectName=objectName;
 		this.location=location;
 		this.validUntil=validUntil;
 	}
-
-	@Override
-	public long getSize() {
-		return 0;
-	}
-
+	
 	@Override
 	public String getName() {
-		return getObjectName();
+		return objectName;
 	}
 
 	@Override
@@ -48,18 +35,23 @@ public class ParentObject extends S3InfoSupport {
 	}
 
 	@Override
+	public long getSize() {
+		return 0;
+	}
+
+	@Override
 	public long getLastModified() {
 		return 0;
 	}
 
 	@Override
 	public boolean exists() {
-		return true;
+		return false;
 	}
 
 	@Override
 	public boolean isDirectory() {
-		return true;
+		return false;
 	}
 
 	@Override
@@ -84,7 +76,7 @@ public class ParentObject extends S3InfoSupport {
 
 	@Override
 	public String getLocation() {
-		return location;
+		return null;
 	}
 
 	@Override

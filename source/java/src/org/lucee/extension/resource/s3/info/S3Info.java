@@ -40,4 +40,10 @@ public interface S3Info {
 	public StorageOwner getOwner();
 	public String getLocation();
 	public Map<String, Object> getMetaData();
+	
+	/**
+	 * is this a pseudo object or an object really physically exists
+	 */
+	public boolean isVirtual();
+	
 }

@@ -34,6 +34,7 @@ import org.jets3t.service.model.StorageObject;
 import org.jets3t.service.model.StorageOwner;
 import org.lucee.extension.resource.s3.S3;
 import org.lucee.extension.resource.s3.S3Exception;
+import org.lucee.extension.resource.s3.util.print;
 import org.xml.sax.SAXException;
 
 public final class StorageObjectWrapper extends S3InfoSupport {
@@ -42,8 +43,8 @@ public final class StorageObjectWrapper extends S3InfoSupport {
 	private final StorageObject so;
 	private long validUntil;
 	private String bucketName;
+	private Boolean isDirectory;
 	
-
 	public StorageObjectWrapper(S3 s3, StorageObject so, String bucketName, long validUntil) {
 		this.s3=s3;
 		this.so=so;
@@ -149,35 +150,39 @@ public final class StorageObjectWrapper extends S3InfoSupport {
 		return getSize()==0 && getKey().endsWith("/");
 		
 	}*/
-	public boolean isDirectory() {
-		return !isFile();
+	public boolean isFile() {
+		return !isDirectory();
 	}
 	
 	@Override
-	public boolean isFile() {
-		return s3._isFile(this);
+	public boolean isDirectory() {
+		if(isDirectory!=null) return isDirectory.booleanValue();
 		
-		/*// when it has content it is a file
-		if(getSize()>0) return true;
-		
+		if(so.isDirectoryPlaceholder()) return isDirectory=true;
+		if(so.getContentLength()>0) return isDirectory=false;
 		Object o = so.getMetadata("Content-Type");
+		//System.out.println("- Content-Type:"+o);
 		if(o instanceof String) {
 			String ct=(String)o;
-			if("application/x-directory".equalsIgnoreCase(ct)) return false;
-			if(ct.startsWith("audio/")) return true;
-			if(ct.startsWith("image/")) return true;
-			if(ct.startsWith("text/")) return true;
-			if(ct.startsWith("video/")) return true;
+			if("application/x-directory".equalsIgnoreCase(ct)) return isDirectory=true;
+			if(ct.startsWith("audio/")) return isDirectory=false;
+			if(ct.startsWith("image/")) return isDirectory=false;
+			if(ct.startsWith("text/")) return isDirectory=false;
+			if(ct.startsWith("video/")) return isDirectory=false;
 		}
 		
 		// when a file has "children" it is a directory
-		try {
-			List<S3Info> list = s3.list(getBucketName(),getObjectName(),true, false,2);
-			if(list!=null && list.size()>0) return false;
-		}
-		catch (S3Exception e) {}
+		/*if(sisters!=null) {
+			String name=S3.improveObjectName(so.getName(), true);
+			for(StorageObject sis:sisters) {
+				if(sis.getName().startsWith(name) && sis.getName().length()>name.length()) return isDirectory=true;
+			}
+		}*/
 		
-		return !getKey().endsWith("/"); // i don't like this, but this is a pattern used with S3*/
+		if(getKey().endsWith("/")) return isDirectory=true;
+		if(getKey().contains(".")) return isDirectory=false;
+		
+		return isDirectory=true; // i don't like this, but this is a pattern used with S3
 	}
 
 	@Override
@@ -212,5 +217,10 @@ public final class StorageObjectWrapper extends S3InfoSupport {
 	@Override
 	public Map<String, Object> getMetaData() {
 		return so.getMetadataMap();
+	}
+
+	@Override
+	public boolean isVirtual() {
+		return false;
 	}
 }

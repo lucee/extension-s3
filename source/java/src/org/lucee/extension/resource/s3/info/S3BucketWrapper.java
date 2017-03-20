@@ -82,4 +82,9 @@ public class S3BucketWrapper extends S3InfoSupport {
 	public Map<String, Object> getMetaData() {
 		return bucket.getMetadataMap();
 	}
+
+	@Override
+	public boolean isVirtual() {
+		return false;
+	}
 }
