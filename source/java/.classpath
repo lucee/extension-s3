@@ -13,11 +13,10 @@
 	<classpathentry kind="lib" path="libs/commons-codec-1.9.jar"/>
 	<classpathentry kind="lib" path="libs/javax-mail-activation-1-4-7-0002L.jar"/>
 	<classpathentry kind="lib" path="libs/mx4j-lite-3-0-2.jar"/>
-	<classpathentry kind="lib" path="libs/commons-logging-1.2.0.jar"/>
 	<classpathentry kind="lib" path="libs/org.lucee.httpcomponents.httpclient-4.5.2.jar"/>
 	<classpathentry kind="lib" path="libs/org.lucee.httpcomponents.httpcore-4.4.4.jar"/>
 	<classpathentry kind="lib" path="/Users/mic/lucee.jar"/>
-	<classpathentry kind="lib" path="libs/org.lucee.jets3t-0.9.4.0002L.jar"/>
 	<classpathentry kind="lib" path="libs/org.lucee.bouncycastle.bcprov-1.52.0.jar"/>
+	<classpathentry kind="lib" path="libs/org.lucee.jets3t-0.9.4.0003L.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
