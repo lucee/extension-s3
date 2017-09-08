@@ -262,7 +262,6 @@ public final class S3Resource extends ResourceSupport {
 					Util.closeEL(os);
 				}
 			}
-			print.ds("getOutputStream=>"+acl+":"+hashCode());
 			S3ResourceOutputStream os = new S3ResourceOutputStream(s3,bucketName,objectName,getInnerPath(),acl,location);
 			if(append && !(barr==null || barr.length==0))
 				engine.getIOUtil().copy(new ByteArrayInputStream(barr),os,true,false);

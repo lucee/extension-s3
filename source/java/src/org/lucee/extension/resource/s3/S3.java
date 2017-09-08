@@ -858,7 +858,7 @@ public class S3 {
 			
 			getS3Service().putObject(bucketName, so);
 		}
-		catch (S3ServiceException se) {print.e(se);
+		catch (S3ServiceException se) {
 			// does the bucket exist? if so we throw the exception
 			if(get(bucketName)!=null) throw toS3Exception(se);
 			// if the bucket does not exist, we do create it

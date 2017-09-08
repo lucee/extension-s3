@@ -257,7 +257,7 @@ public class TestCase {
 			s3.delete(bucketName, true);
 		}
 		finally {
-			print.e("exe-time:"+(System.currentTimeMillis()-start));
+			//print.e("exe-time:"+(System.currentTimeMillis()-start));
 			
 		}
 	}
