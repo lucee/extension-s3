@@ -5,6 +5,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.Method;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Date;
@@ -19,6 +20,7 @@ import java.util.Set;
 import lucee.loader.engine.CFMLEngineFactory;
 import lucee.loader.util.Util;
 import lucee.runtime.exp.PageException;
+import lucee.runtime.net.s3.Properties;
 import lucee.runtime.type.Array;
 import lucee.runtime.type.Collection.Key;
 import lucee.runtime.type.Struct;
@@ -42,6 +44,7 @@ import org.lucee.extension.resource.s3.info.ParentObject;
 import org.lucee.extension.resource.s3.info.S3BucketWrapper;
 import org.lucee.extension.resource.s3.info.S3Info;
 import org.lucee.extension.resource.s3.info.StorageObjectWrapper;
+import org.lucee.extension.resource.s3.util.print;
 
 public class S3 {
 	
@@ -101,16 +104,15 @@ public class S3 {
 
 
 	
-	public S3Bucket createDirectory(String bucketName, String acl, String location) throws S3Exception {
+	public S3Bucket createDirectory(String bucketName, AccessControlList acl, String location) throws S3Exception {
 		//flushExists(bucketName);
 		
 		bucketName=improveBucketName(bucketName);
 		String l = improveLocation(location);
-		AccessControlList a = toACL(acl,null);
 		try{
 			S3Bucket bucket;
 			if(!Util.isEmpty(l,true)) {
-				if(a!=null) bucket = getS3Service().createBucket(bucketName,l, a);
+				if(acl!=null) bucket = getS3Service().createBucket(bucketName,l, acl);
 				else bucket = getS3Service().createBucket(bucketName,l);
 			}
 			else bucket = getS3Service().createBucket(bucketName);
@@ -135,7 +137,7 @@ public class S3 {
 	 * @param storage only used when creating a non existing bucket
 	 * @throws IOException
 	 */
-	public void createDirectory(String bucketName, String objectName, String acl, String location) throws S3Exception {
+	public void createDirectory(String bucketName, String objectName, AccessControlList acl, String location) throws S3Exception {
 		if(Util.isEmpty(objectName)) {
 			createDirectory(bucketName, acl, location);
 			return;
@@ -145,12 +147,9 @@ public class S3 {
 		objectName=improveObjectName(objectName, true);
 		flushExists(bucketName,objectName);
 		
-		// TODO update bucket objects
-		AccessControlList a = toACL(acl,null);
-		
 		S3Object object = new S3Object("object");
 		object.addMetadata("Content-Type", "application/x-directory");
-		if(a!=null)object.setAcl(a);
+		if(acl!=null)object.setAcl(acl);
 		
 		objectName=improveObjectName(objectName, true);
 		object.setName(objectName);
@@ -173,16 +172,14 @@ public class S3 {
 		}
 	}
 	
-	public void createFile(String bucketName, String objectName, String acl, String location) throws S3Exception {
+	public void createFile(String bucketName, String objectName, AccessControlList acl, String location) throws S3Exception {
 		bucketName=improveBucketName(bucketName);
 		objectName=improveObjectName(objectName, false);
 
 		flushExists(bucketName,objectName);
 		
-		AccessControlList a = toACL(acl,null);
-		
 		S3Object object = new S3Object("object");
-		if(a!=null)object.setAcl(a);
+		if(acl!=null)object.setAcl(acl);
 		
 		object.setName(objectName);
 		// Upload the object to our test bucket in S3.
@@ -798,7 +795,7 @@ public class S3 {
 	}
 	
 
-	public void write(String bucketName,String objectName, String data, String mimeType, String charset, String acl, String location) throws IOException {
+	public void write(String bucketName,String objectName, String data, String mimeType, String charset, AccessControlList acl, String location) throws IOException {
 		bucketName=improveBucketName(bucketName);
 		objectName=improveObjectName(objectName,false);
 		flushExists(bucketName,objectName);
@@ -817,7 +814,7 @@ public class S3 {
 	}
 	
 
-	public void write(String bucketName,String objectName, byte[] data, String mimeType, String acl, String location) throws IOException {
+	public void write(String bucketName,String objectName, byte[] data, String mimeType, AccessControlList acl, String location) throws IOException {
 		bucketName=improveBucketName(bucketName);
 		objectName=improveObjectName(objectName,false);
 		flushExists(bucketName,objectName);
@@ -834,7 +831,7 @@ public class S3 {
 		}
 	}
 
-	public void write(String bucketName,String objectName, File file, String acl, String location) throws IOException {
+	public void write(String bucketName,String objectName, File file, AccessControlList acl, String location) throws IOException {
 		bucketName=improveBucketName(bucketName);
 		objectName=improveObjectName(objectName,false);
 		flushExists(bucketName,objectName);
@@ -852,17 +849,16 @@ public class S3 {
 		}
 	}
 	
-	private void _write(S3Object so,String bucketName,String objectName, String acl, String location) throws IOException {
+	private void _write(S3Object so,String bucketName,String objectName, AccessControlList acl, String location) throws IOException {
 		try {
 			
 			so.setName(objectName);
 			
-			AccessControlList a = toACL(acl,null);
-			if(a!=null)so.setAcl(a);
+			if(acl!=null)so.setAcl(acl);
 			
 			getS3Service().putObject(bucketName, so);
 		}
-		catch (S3ServiceException se) {
+		catch (S3ServiceException se) {print.e(se);
 			// does the bucket exist? if so we throw the exception
 			if(get(bucketName)!=null) throw toS3Exception(se);
 			// if the bucket does not exist, we do create it
@@ -1171,6 +1167,19 @@ public class S3 {
 		
 		return defaultValue;
 	}
+	
+
+	public static AccessControlList toACL(Properties prop, AccessControlList defaultValue) {
+		try {
+			Method m = prop.getClass().getMethod("getACL", new Class[0]);
+			String str=CFMLEngineFactory.getInstance().getCastUtil().toString(m.invoke(prop, new Object[0]),null);
+			if(Util.isEmpty(str)) return defaultValue;
+			return toACL(str, defaultValue);
+		}
+		catch (Exception e) {}
+		return defaultValue;
+	}
+	
 
 	private ObjectKeyAndVersion[] toObjectKeyAndVersions(S3Object[] src) {
 		ObjectKeyAndVersion[] trg=new ObjectKeyAndVersion[src.length];
@@ -1180,15 +1189,6 @@ public class S3 {
 		return trg;
 	}
 
-	/*private ObjectKeyAndVersion[] toObjectKeyAndVersions(StorageObject[] src, String ignoreKey) {
-		List<ObjectKeyAndVersion> trg=new ArrayList<ObjectKeyAndVersion>();
-		for(int i=0;i<src.length;i++){
-			if(ignoreKey!=null && src[i].getKey().equals(ignoreKey)) continue;
-			trg.add(new ObjectKeyAndVersion(src[i].getKey()));
-		}
-		return trg.toArray(new ObjectKeyAndVersion[trg.size()]);
-	}*/
-	
 	private ObjectKeyAndVersion[] toObjectKeyAndVersions(List<S3Info> src, String ignoreKey) {
 		List<ObjectKeyAndVersion> trg=new ArrayList<ObjectKeyAndVersion>();
 		Iterator<S3Info> it = src.iterator();
@@ -1345,7 +1345,5 @@ public class S3 {
 			}
 			return true;
 		}
-	}
-	
-	
+	}	
 }

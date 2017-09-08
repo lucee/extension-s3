@@ -21,6 +21,8 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.jets3t.service.acl.AccessControlList;
+
 import lucee.commons.io.res.Resource;
 import lucee.commons.io.res.ResourceLock;
 import lucee.commons.io.res.ResourceProvider;
@@ -35,7 +37,6 @@ import lucee.runtime.PageContext;
 import lucee.runtime.net.s3.Properties;
 
 public final class S3ResourceProvider implements ResourceProvider {
-	
 	
 	private int socketTimeout=-1;
 	private int lockTimeout=20000;
@@ -117,7 +118,7 @@ public final class S3ResourceProvider implements ResourceProvider {
 		
 		path=loadWithNewPattern(props,location,path);
 		
-		return new S3Resource(engine,getS3(props),location.getValue(),this,path);
+		return new S3Resource(engine,getS3(props),props,location.getValue(),this,path);
 	}
 
 
@@ -127,6 +128,7 @@ public final class S3ResourceProvider implements ResourceProvider {
 		boolean hasCustomCredentials=false;
 		String accessKeyId,host,secretAccessKey;
 		String defaultLocation;
+		AccessControlList defaultACL;
 		{
 			Properties prop=null; 
 			if(pc!=null) prop=pc.getApplicationContext().getS3();
@@ -136,14 +138,17 @@ public final class S3ResourceProvider implements ResourceProvider {
 				host = prop.getHost();
 				secretAccessKey = prop.getSecretAccessKey();
 				defaultLocation = prop.getDefaultLocation();
+				defaultACL=S3.toACL(prop,AccessControlList.REST_CANNED_PUBLIC_READ);
 			}
 			else {
 				accessKeyId = null;
 				secretAccessKey = null;
 				host = S3.DEFAULT_HOST;
 				defaultLocation = null;
+				defaultACL=AccessControlList.REST_CANNED_PUBLIC_READ;
 			}
 		}
+		properties.setACL(defaultACL);
 		
 		storage.setValue(defaultLocation);
 		

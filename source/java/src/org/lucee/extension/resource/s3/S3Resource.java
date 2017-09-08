@@ -38,8 +38,10 @@ import lucee.runtime.type.Array;
 import lucee.runtime.type.Struct;
 import lucee.runtime.util.Excepton;
 
+import org.jets3t.service.acl.AccessControlList;
 import org.lucee.extension.resource.ResourceSupport;
 import org.lucee.extension.resource.s3.info.S3Info;
+import org.lucee.extension.resource.s3.util.print;
 
 public final class S3Resource extends ResourceSupport {
 
@@ -51,24 +53,30 @@ public final class S3Resource extends ResourceSupport {
 	private final String bucketName;
 	private String objectName;
 	private final S3 s3;
+	private final S3Properties props;
 	long infoLastAccessw=0;
 	private String location=null;
-	private String acl="public-read";
+	private AccessControlList acl;//="public-read";
 
-	private S3Resource(CFMLEngine engine,S3 s3,String location, S3ResourceProvider provider, String buckedName,String objectName) {
+
+	private S3Resource(CFMLEngine engine,S3 s3, S3Properties props, String location, S3ResourceProvider provider, String buckedName,String objectName) {
 		super(engine);
 		this.s3=s3;
+		this.props=props;
 		this.provider=provider;
 		this.bucketName=buckedName;
 		this.objectName=objectName;
 		this.location=S3.improveLocation(location);
+		this.acl=props.getACL();
 	}
 	
 
-	S3Resource(CFMLEngine engine,S3 s3,String location, S3ResourceProvider provider, String path) {
+	S3Resource(CFMLEngine engine,S3 s3, S3Properties props, String location, S3ResourceProvider provider, String path) {
 		super(engine);
 		this.s3=s3;
+		this.props=props;
 		this.provider=provider;
+		this.acl=props.getACL();
 		
 		if(path.equals("/") || engine.getStringUtil().isEmpty(path,true)) {
 			this.bucketName=null;
@@ -213,7 +221,7 @@ public final class S3Resource extends ResourceSupport {
 	@Override
 	public Resource getParentResource() {
 		if(isRoot()) return null;
-		return new S3Resource(engine,s3,isBucket()?null:location,provider,getInnerParent());// MUST direkter machen
+		return new S3Resource(engine,s3,props,isBucket()?null:location,provider,getInnerParent());// MUST direkter machen
 	}
 
 	public boolean isRoot() {
@@ -254,6 +262,7 @@ public final class S3Resource extends ResourceSupport {
 					Util.closeEL(os);
 				}
 			}
+			print.ds("getOutputStream=>"+acl+":"+hashCode());
 			S3ResourceOutputStream os = new S3ResourceOutputStream(s3,bucketName,objectName,getInnerPath(),acl,location);
 			if(append && !(barr==null || barr.length==0))
 				engine.getIOUtil().copy(new ByteArrayInputStream(barr),os,true,false);
@@ -271,7 +280,7 @@ public final class S3Resource extends ResourceSupport {
 	public Resource getRealResource(String realpath) {
 		realpath=engine.getResourceUtil().merge(getInnerPath(), realpath);
 		if(realpath.startsWith("../"))return null;
-		return new S3Resource(engine,s3,location,provider,realpath);
+		return new S3Resource(engine,s3,props,location,provider,realpath);
 	}
 
 	@Override
@@ -384,7 +393,7 @@ public final class S3Resource extends ResourceSupport {
 				int index=0;
 				while(it.hasNext()) {
 					si=it.next();
-					children[index]=new S3Resource(engine,s3,location,provider,si.getBucketName(),buckets?"":S3.improveObjectName(si.getObjectName(),false));
+					children[index]=new S3Resource(engine,s3,props,location,provider,si.getBucketName(),buckets?"":S3.improveObjectName(si.getObjectName(),false));
 					index++;
 				}
 			}
@@ -492,7 +501,7 @@ public final class S3Resource extends ResourceSupport {
 
 
 	public void setACL(String acl) {
-		this.acl=acl;
+		this.acl=S3.toACL(acl, null);
 	}
 
 
