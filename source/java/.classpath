@@ -17,6 +17,6 @@
 	<classpathentry kind="lib" path="libs/org.lucee.httpcomponents.httpcore-4.4.4.jar"/>
 	<classpathentry kind="lib" path="/Users/mic/lucee.jar"/>
 	<classpathentry kind="lib" path="libs/org.lucee.bouncycastle.bcprov-1.52.0.jar"/>
-	<classpathentry kind="lib" path="libs/org.lucee.jets3t-0.9.4.0003L.jar"/>
+	<classpathentry kind="lib" path="libs/org.lucee.jets3t-0.9.4.0004L.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
