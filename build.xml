@@ -76,14 +76,14 @@
 
     <echo file="${dist}/extension/META-INF/MANIFEST.MF">Manifest-Version: 1.0
 Built-Date: ${NOW}
-version: "${bundleversion}${build.number}"
+version: "${bundleversion}${build.number}${appendix}"
 id: "${id}"
 name: "${label}"
 description: "${description}"
 lucee-core-version: "${luceeCoreVersion}”
 release-type: ${releaseType}
 start-bundles: false
-resource: "[{'class':'${class}','bundleName':'${bundlename}','bundleVersion':'${bundleversion}${build.number}','scheme':'s3','lock-timeout':'10000'}]"
+resource: "[{'class':'${class}','bundleName':'${bundlename}','bundleVersion':'${bundleversion}${build.number}${appendix}','scheme':'s3','lock-timeout':'10000'}]"
 </echo>
   </target>
   
@@ -103,9 +103,9 @@ resource: "[{'class':'${class}','bundleName':'${bundlename}','bundleVersion':'${
  
     <!-- Put everything in ${build} into .jar file -->
     <jar 
-    	jarfile="${dist}/extension/jars/${filename}-${bundleversion}${build.number}.jar" basedir="${build}"  manifest="${src}/META-INF/MANIFEST.MF">
+    	jarfile="${dist}/extension/jars/${filename}-${bundleversion}${build.number}${appendix}.jar" basedir="${build}"  manifest="${src}/META-INF/MANIFEST.MF">
       <manifest>
-        <attribute name="Bundle-Version" value="${bundleversion}${build.number}"/>
+        <attribute name="Bundle-Version" value="${bundleversion}${build.number}${appendix}"/>
         <attribute name="Built-Date" value="${NOW}"/>
         <attribute name="Bundle-SymbolicName" value="${bundlename}"/>
 
@@ -117,14 +117,14 @@ resource: "[{'class':'${class}','bundleName':'${bundlename}','bundleVersion':'${
     <!-- copy the tlds necessary 
     <loadfile property="content1" srcFile="${tld}/tag.tld" />
     <replace haystack="${content1}" needle="{bundle-name}" repl="${bundlename}" property="content2"/>
-    <replace haystack="${content2}" needle="{bundle-version}" repl="${bundleversion}${build.number}" property="content3"/>
+    <replace haystack="${content2}" needle="{bundle-version}" repl="${bundleversion}${build.number}${appendix}" property="content3"/>
     <echo message="${content3}" file="${dist}/extension/tlds/pdftag.tld"/>
     -->
 
     <!-- copy the flds necessary -->
     <loadfile property="c1" srcFile="${fld}/function.fld" />
     <replace haystack="${c1}" needle="{bundle-name}" repl="${bundlename}" property="c2"/>
-    <replace haystack="${c2}" needle="{bundle-version}" repl="${bundleversion}${build.number}" property="c3"/>
+    <replace haystack="${c2}" needle="{bundle-version}" repl="${bundleversion}${build.number}${appendix}" property="c3"/>
     <echo message="${c3}" file="${dist}/extension/flds/s3-functions.fld"/>
 
 
@@ -165,7 +165,7 @@ resource: "[{'class':'${class}','bundleName':'${bundlename}','bundleVersion':'${
 
 
     <!-- Zip everything  -->
-     <zip destfile="${dist}/${filename}-${bundleversion}${build.number}.lex">
+     <zip destfile="${dist}/${filename}-${bundleversion}${build.number}${appendix}.lex">
         <zipfileset dir="${dist}/extension"/>
     </zip>
 		
