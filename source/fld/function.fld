@@ -24,6 +24,7 @@
 	    </argument>
 		<argument>
 			<name>aclObject</name>
+			<alias>acl</alias>
 			<type>object</type>
 			<required>Yes</required>
 			<description>an array of struct where each struct represents an ACL grant</description>
@@ -60,6 +61,7 @@
 	    </argument>
 		<argument>
 			<name>aclObject</name>
+			<alias>acl</alias>
 			<type>object</type>
 			<required>Yes</required>
 			<description>an array of struct where each struct represents an ACL grant</description>
