@@ -121,7 +121,7 @@ public class S3 {
 			return bucket;
 		}
 		catch(ServiceException se){
-			throw toS3Exception(se);
+			throw toS3Exception(se, "could not create the bucket ["+bucketName+"], please consult the following website to learn about Bucket Restrictions and limitations: https://docs.aws.amazon.com/AmazonS3/latest/dev/BucketRestrictions.html");
 		}
 	}
 
@@ -1201,12 +1201,17 @@ public class S3 {
 		return trg.toArray(new ObjectKeyAndVersion[trg.size()]);
 	}
 
-	
+
 	private S3Exception toS3Exception(ServiceException se) {
+		return toS3Exception(se, null);
+	}
+	
+	private S3Exception toS3Exception(ServiceException se, String detail) {
 		String msg=se.getErrorMessage();
 		if(Util.isEmpty(msg))msg=se.getMessage();
 	
-		S3Exception ioe = new S3Exception(msg);
+		S3Exception ioe = Util.isEmpty(detail)?new S3Exception(msg):new S3Exception(msg+";"+detail);
+		ioe.initCause(se);
 		ioe.setStackTrace(se.getStackTrace());
 		return ioe;
 	}

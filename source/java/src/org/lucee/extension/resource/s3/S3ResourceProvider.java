@@ -27,8 +27,6 @@ import lucee.commons.io.res.Resource;
 import lucee.commons.io.res.ResourceLock;
 import lucee.commons.io.res.ResourceProvider;
 import lucee.commons.io.res.Resources;
-import lucee.commons.lang.types.RefBoolean;
-import lucee.commons.lang.types.RefInteger;
 import lucee.commons.lang.types.RefString;
 import lucee.loader.engine.CFMLEngine;
 import lucee.loader.engine.CFMLEngineFactory;
@@ -37,6 +35,8 @@ import lucee.runtime.PageContext;
 import lucee.runtime.net.s3.Properties;
 
 public final class S3ResourceProvider implements ResourceProvider {
+
+	private static final long serialVersionUID = 1861539395523424633L;
 	
 	private int socketTimeout=-1;
 	private int lockTimeout=20000;
@@ -194,7 +194,17 @@ public final class S3ResourceProvider implements ResourceProvider {
 			}
 		}
 		
+		// env var
+		if(Util.isEmpty(secretAccessKey, true)) 
+			secretAccessKey=S3Util.getSystemPropOrEnvVar("lucee.s3.secretaccesskey", null);
+		if(Util.isEmpty(secretAccessKey, true)) 
+			secretAccessKey=S3Util.getSystemPropOrEnvVar("lucee.s3.secretkey", null);
 		
+		if(Util.isEmpty(accessKeyId, true)) 
+			accessKeyId=S3Util.getSystemPropOrEnvVar("lucee.s3.accesskeyid", null);
+		if(Util.isEmpty(accessKeyId, true)) 
+			accessKeyId=S3Util.getSystemPropOrEnvVar("lucee.s3.accesskey", null);
+
 		properties.setSecretAccessKey(secretAccessKey);
 		properties.setAccessKeyId(accessKeyId);
 		properties.setCustomCredentials(hasCustomCredentials);
