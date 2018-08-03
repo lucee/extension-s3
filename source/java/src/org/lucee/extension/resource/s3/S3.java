@@ -27,6 +27,8 @@ import lucee.runtime.type.Struct;
 import lucee.runtime.util.Cast;
 import lucee.runtime.util.Decision;
 
+import org.jets3t.service.Constants;
+import org.jets3t.service.Jets3tProperties;
 import org.jets3t.service.S3Service;
 import org.jets3t.service.S3ServiceException;
 import org.jets3t.service.ServiceException;
@@ -44,7 +46,6 @@ import org.lucee.extension.resource.s3.info.ParentObject;
 import org.lucee.extension.resource.s3.info.S3BucketWrapper;
 import org.lucee.extension.resource.s3.info.S3Info;
 import org.lucee.extension.resource.s3.info.StorageObjectWrapper;
-import org.lucee.extension.resource.s3.util.print;
 
 public class S3 {
 	
@@ -1133,7 +1134,20 @@ public class S3 {
 	private S3Service getS3Service() {
 		
 		if(service==null) {
-			service=new RestS3Service(new AWSCredentials(accessKeyId, secretAccessKey));
+			if(host!=null && !host.isEmpty() && !host.equalsIgnoreCase(DEFAULT_HOST)) {
+				final Jets3tProperties props = Jets3tProperties.getInstance(Constants.JETS3T_PROPERTIES_FILENAME);
+				props.setProperty("s3service.s3-endpoint", host);
+				service=new RestS3Service(new AWSCredentials(accessKeyId, secretAccessKey),null,null,props);
+			}
+			else {
+				service=new RestS3Service(new AWSCredentials(accessKeyId, secretAccessKey));
+			}
+			try {
+				service.listAllBuckets();
+			} catch (S3ServiceException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 		}
 		return service;
 	}

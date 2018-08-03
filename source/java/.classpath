@@ -17,5 +17,6 @@
 	<classpathentry kind="lib" path="/Users/mic/lucee.jar"/>
 	<classpathentry kind="lib" path="libs/org.lucee.bouncycastle.bcprov-1.52.0.jar"/>
 	<classpathentry kind="lib" path="libs/org.lucee.jets3t-0.9.4.0006L.jar"/>
+	<classpathentry kind="lib" path="libs/commons-logging-1.2.0.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
