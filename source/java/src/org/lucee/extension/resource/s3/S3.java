@@ -15,7 +15,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import lucee.loader.engine.CFMLEngineFactory;
 import lucee.loader.util.Util;
@@ -64,10 +64,11 @@ public class S3 {
 
 	
 /////////////////////// CACHE ////////////////
-	private ValidUntilMap<S3BucketWrapper> buckets;
-	private final Map<String,ValidUntilMap<S3Info>> objects=new HashMap<String, ValidUntilMap<S3Info>>(); 
-	Map<String,ValidUntilElement<AccessControlList>> accessControlLists=new HashMap<String,ValidUntilElement<AccessControlList>>();
-	private Map<String,S3Info> exists=new HashMap<String,S3Info>();
+	private ValidUntilMap<S3BucketWrapper> buckets;	
+	private final Map<String,ValidUntilMap<S3Info>> objects=new ConcurrentHashMap<String, ValidUntilMap<S3Info>>(); 
+	Map<String,ValidUntilElement<AccessControlList>> accessControlLists=new ConcurrentHashMap<String,ValidUntilElement<AccessControlList>>();
+	private Map<String,S3Info> exists=new ConcurrentHashMap<String,S3Info>();
+ 	
 	
 /////////////////////////////////////////////
 
@@ -415,7 +416,7 @@ public class S3 {
 						
 				long validUntil=System.currentTimeMillis()+timeout;
 				_list=new ValidUntilMap<S3Info>(validUntil);
-				objects.put(key, _list);
+				objects.putIfAbsent(key, _list);
 				
 				// add bucket
 				if(!hasObjName && !onlyChildren) {
@@ -432,8 +433,8 @@ public class S3 {
 					
 					if(!hasObjName || name.equals(nameFile) || name.startsWith(nameDir))
 						_list.put(kids[i].getKey(),tmp);
-					
-					exists.put(toKey(kids[i].getBucketName(), kids[i].getName()),tmp);
+										
+					exists.putIfAbsent(toKey(kids[i].getBucketName(), kids[i].getName()),tmp);
 				}
 			}
 			return _list;
@@ -491,7 +492,7 @@ public class S3 {
 			StorageObject[] objects = chunk==null?null:chunk.getObjects();
 			
 			if(objects==null || objects.length==0) {
-				exists.put(
+				exists.putIfAbsent((
 						toKey(bucketName,objectName), 
 						new NotExisting(bucketName,objectName,null,validUntil) // we do not return this, we just store it to cache that it does not exis
 					);
@@ -504,7 +505,7 @@ public class S3 {
 			for(StorageObject so:objects) {
 				targetName=so.getName();
 				if(nameFile.equals(targetName) || nameDir.equals(targetName)) {
-					exists.put(
+					exists.putIfAbsent(
 							toKey(bucketName,nameFile), 
 							info=new StorageObjectWrapper(this, stoObj=so, bucketName, validUntil)
 					);
@@ -516,7 +517,7 @@ public class S3 {
 				for(StorageObject so:objects) {
 					targetName=so.getName();
 					if(nameDir.length()<targetName.length() && targetName.startsWith(nameDir)) {
-						exists.put(
+						exists.putIfAbsent(
 								toKey(bucketName,nameFile), 
 								info=new ParentObject(bucketName,nameDir, null,validUntil)
 						);
@@ -526,14 +527,14 @@ public class S3 {
 			
 			for(StorageObject obj:objects) {
 				if(stoObj!=null && stoObj.equals(obj)) continue;
-				exists.put(
+				exists.putIfAbsent(
 					toKey(obj.getBucketName(),obj.getName()), 
 					new StorageObjectWrapper(this, obj, bucketName, validUntil)
 				);
 			}
 			
 			if(info==null) {
-				exists.put(
+				exists.putIfAbsent(
 					toKey(bucketName,objectName), 
 					new NotExisting(bucketName,objectName,null,validUntil) // we do not return this, we just store it to cache that it does not exis
 				);
@@ -751,13 +752,13 @@ public class S3 {
 	
 	private static void _flush(Map<String,?> map, String prefix, String exact) {
 		if(map==null) return;
-		Set<String> keySet = map.keySet();
-		String[] keys = keySet.toArray(new String[keySet.size()]);
-		for(String key:keys) {
-			if((exact!=null && key.equals(exact)) || key.startsWith(prefix)){
-				map.remove(key);
-			}
-		}
+		Iterator<String> it = map.keySet().iterator();
+		while(it.hasNext()) {
+			String key = it.next();
+			if(key!=null && ((exact!=null && key.equals(exact)) || key.startsWith(prefix))){
+				it.remove();
+ 			}
+ 		}
 	}
 
 	public void move(String srcBucketName, String srcObjectName, String trgBucketName, String trgObjectName) throws S3Exception {
@@ -1293,8 +1294,7 @@ public class S3 {
 	/*public void setCustomCredentials(boolean customCredentials) {
 		this.customCredentials=customCredentials;
 	}*/
-	
-	class ValidUntilMap<I> extends HashMap<String, I> {
+	class ValidUntilMap<I> extends ConcurrentHashMap<String, I> {	
 		private static final long serialVersionUID = 238079099294942075L;
 		private final long validUntil;
 
