@@ -492,7 +492,7 @@ public class S3 {
 			StorageObject[] objects = chunk==null?null:chunk.getObjects();
 			
 			if(objects==null || objects.length==0) {
-				exists.putIfAbsent((
+				exists.putIfAbsent(
 						toKey(bucketName,objectName), 
 						new NotExisting(bucketName,objectName,null,validUntil) // we do not return this, we just store it to cache that it does not exis
 					);
