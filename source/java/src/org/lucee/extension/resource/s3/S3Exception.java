@@ -24,5 +24,4 @@ public class S3Exception extends IOException {
 	public S3Exception(String message) {
 		super(message);
 	}
-
 }

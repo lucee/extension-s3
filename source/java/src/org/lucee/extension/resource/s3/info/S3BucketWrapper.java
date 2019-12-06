@@ -11,8 +11,8 @@ public class S3BucketWrapper extends S3InfoSupport {
 	private long validUntil;
 
 	public S3BucketWrapper(S3Bucket bucket, long validUntil) {
-		this.bucket=bucket;
-		this.validUntil=validUntil;
+		this.bucket = bucket;
+		this.validUntil = validUntil;
 	}
 
 	@Override
@@ -54,7 +54,7 @@ public class S3BucketWrapper extends S3InfoSupport {
 	public boolean isBucket() {
 		return true;
 	}
-	
+
 	public String getLocation() {
 		return bucket.getLocation();
 	}

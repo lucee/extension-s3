@@ -32,13 +32,12 @@ public class StoreGetACL extends S3Function {
 	@Override
 	public Object invoke(PageContext pc, Object[] args) throws PageException {
 		CFMLEngine engine = CFMLEngineFactory.getInstance();
-		if(args.length!=1)
-			throw engine.getExceptionUtil().createFunctionException(pc, "StoreGetACL", 1, 1, args.length);
+		if (args.length != 1) throw engine.getExceptionUtil().createFunctionException(pc, "StoreGetACL", 1, 1, args.length);
 		return call(pc, engine.getCastUtil().toString(args[0]));
 	}
-	
-	public static Object call(PageContext pc , String url) throws PageException {
-		S3Resource res=toS3Resource(pc,url,"StoreGetACL");
+
+	public static Object call(PageContext pc, String url) throws PageException {
+		S3Resource res = toS3Resource(pc, url, "StoreGetACL");
 		return res.getAccessControlList();
-    }
+	}
 }

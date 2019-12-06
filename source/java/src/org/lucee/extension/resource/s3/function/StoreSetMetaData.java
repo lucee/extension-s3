@@ -33,26 +33,23 @@ public class StoreSetMetaData extends S3Function {
 	@Override
 	public Object invoke(PageContext pc, Object[] args) throws PageException {
 		CFMLEngine engine = CFMLEngineFactory.getInstance();
-		if(args.length!=2)
-			throw engine.getExceptionUtil().createFunctionException(pc, "StoreSetMetaData", 2, 2, args.length);
+		if (args.length != 2) throw engine.getExceptionUtil().createFunctionException(pc, "StoreSetMetaData", 2, 2, args.length);
 		return call(pc, engine.getCastUtil().toString(args[0]), engine.getCastUtil().toStruct(args[1]));
 	}
-	
-	public static String call(PageContext pc , String url, Struct metadata) throws PageException {
+
+	public static String call(PageContext pc, String url, Struct metadata) throws PageException {
 		try {
-			return _call(pc, url,metadata);
-		} catch (Exception e) {
+			return _call(pc, url, metadata);
+		}
+		catch (Exception e) {
 			throw CFMLEngineFactory.getInstance().getCastUtil().toPageException(e);
 		}
 	}
 
-	public static String _call(PageContext pc , String url, Struct metadata) throws PageException {
-		S3Resource res=toS3Resource(pc,url,"StoreSetMetaData");
+	public static String _call(PageContext pc, String url, Struct metadata) throws PageException {
+		S3Resource res = toS3Resource(pc, url, "StoreSetMetaData");
 		res.setMetaData(metadata);
 		return null;
 	}
-	
 
-	
-	
 }

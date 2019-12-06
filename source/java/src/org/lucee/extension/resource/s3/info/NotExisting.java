@@ -13,12 +13,12 @@ public class NotExisting extends S3InfoSupport {
 	private long validUntil;
 
 	public NotExisting(String bucketName, String objectName, String location, long validUntil) {
-		this.bucketName=bucketName;
-		this.objectName=objectName;
-		this.location=location;
-		this.validUntil=validUntil;
+		this.bucketName = bucketName;
+		this.objectName = objectName;
+		this.location = location;
+		this.validUntil = validUntil;
 	}
-	
+
 	@Override
 	public String getName() {
 		return objectName;

@@ -47,73 +47,71 @@ public final class S3Resource extends ResourceSupport {
 
 	private static final long serialVersionUID = 2265457088552587701L;
 
-	private static final long FUTURE=50000000000000L;
+	private static final long FUTURE = 50000000000000L;
 
 	private final S3ResourceProvider provider;
 	private final String bucketName;
 	private String objectName;
 	private final S3 s3;
 	private final S3Properties props;
-	long infoLastAccessw=0;
-	private String location=null;
-	private AccessControlList acl;//="public-read";
+	long infoLastAccessw = 0;
+	private String location = null;
+	private AccessControlList acl;// ="public-read";
 
-
-	private S3Resource(CFMLEngine engine,S3 s3, S3Properties props, String location, S3ResourceProvider provider, String buckedName,String objectName) {
+	private S3Resource(CFMLEngine engine, S3 s3, S3Properties props, String location, S3ResourceProvider provider, String buckedName, String objectName) {
 		super(engine);
-		this.s3=s3;
-		this.props=props;
-		this.provider=provider;
-		this.bucketName=buckedName;
-		this.objectName=objectName;
-		this.location=S3.improveLocation(location);
-		this.acl=props.getACL();
+		this.s3 = s3;
+		this.props = props;
+		this.provider = provider;
+		this.bucketName = buckedName;
+		this.objectName = objectName;
+		this.location = S3.improveLocation(location);
+		this.acl = props.getACL();
 	}
-	
 
-	S3Resource(CFMLEngine engine,S3 s3, S3Properties props, String location, S3ResourceProvider provider, String path) {
+	S3Resource(CFMLEngine engine, S3 s3, S3Properties props, String location, S3ResourceProvider provider, String path) {
 		super(engine);
-		this.s3=s3;
-		this.props=props;
-		this.provider=provider;
-		this.acl=props.getACL();
-		
-		if(path.equals("/") || engine.getStringUtil().isEmpty(path,true)) {
-			this.bucketName=null;
-			this.objectName="";
+		this.s3 = s3;
+		this.props = props;
+		this.provider = provider;
+		this.acl = props.getACL();
+
+		if (path.equals("/") || engine.getStringUtil().isEmpty(path, true)) {
+			this.bucketName = null;
+			this.objectName = "";
 		}
 		else {
-			path=engine.getResourceUtil().translatePath(path, true, false);
-			String[] arr=null;
+			path = engine.getResourceUtil().translatePath(path, true, false);
+			String[] arr = null;
 			try {
-				arr = engine.getListUtil().toStringArray( engine.getListUtil().toArrayRemoveEmpty(path,"/"));
-			} catch (PageException e) {
+				arr = engine.getListUtil().toStringArray(engine.getListUtil().toArrayRemoveEmpty(path, "/"));
+			}
+			catch (PageException e) {
 				// that should never happen, because we have string as base!!!
 			}
-			bucketName=arr[0];
-			for(int i=1;i<arr.length;i++) {
-				if(Util.isEmpty(objectName))objectName=arr[i];
-				else objectName+="/"+arr[i];
+			bucketName = arr[0];
+			for (int i = 1; i < arr.length; i++) {
+				if (Util.isEmpty(objectName)) objectName = arr[i];
+				else objectName += "/" + arr[i];
 			}
-			if(objectName==null)objectName="";
+			if (objectName == null) objectName = "";
 		}
-		this.location=location;
-		
+		this.location = location;
+
 	}
 
 	@Override
 	public void createDirectory(boolean createParentWhenNotExists) throws IOException {
-		if(isRoot())
-			throw new S3Exception("you cannot manipulate the root of the S3 Service!");
-		
+		if (isRoot()) throw new S3Exception("you cannot manipulate the root of the S3 Service!");
+
 		engine.getResourceUtil().checkCreateDirectoryOK(this, createParentWhenNotExists);
-		
+
 		try {
 			provider.lock(this);
-			if(isBucket()) {
-				s3.createDirectory(bucketName, acl,location);
+			if (isBucket()) {
+				s3.createDirectory(bucketName, acl, location);
 			}
-			else s3.createDirectory(bucketName, objectName+"/", acl,location);	
+			else s3.createDirectory(bucketName, objectName + "/", acl, location);
 		}
 		catch (IOException ioe) {
 			throw ioe;
@@ -125,11 +123,10 @@ public final class S3Resource extends ResourceSupport {
 
 	@Override
 	public void createFile(boolean createParentWhenNotExists) throws IOException {
-		if(isRoot())
-			throw new S3Exception("you cannot manipulate the root of the S3 Service!");
-		
+		if (isRoot()) throw new S3Exception("you cannot manipulate the root of the S3 Service!");
+
 		engine.getResourceUtil().checkCreateFileOK(this, createParentWhenNotExists);
-		if(isBucket()) throw new IOException("can't create file ["+getPath()+"], on this level (Bucket Level) you can only create directories");
+		if (isBucket()) throw new IOException("can't create file [" + getPath() + "], on this level (Bucket Level) you can only create directories");
 		try {
 			provider.lock(this);
 			s3.createFile(bucketName, objectName, acl, location);
@@ -145,7 +142,7 @@ public final class S3Resource extends ResourceSupport {
 		provider.read(this);
 		try {
 			return engine.getIOUtil().toBufferedInputStream(s3.getInputStream(bucketName, objectName));
-		} 
+		}
 		catch (Exception e) {
 			throw new IOException(e.getMessage());
 		}
@@ -158,116 +155,112 @@ public final class S3Resource extends ResourceSupport {
 
 	@Override
 	public String getName() {
-		if(isRoot()) return "";
-		if(isBucket()) return bucketName;
-		return objectName.substring(objectName.lastIndexOf('/')+1);
+		if (isRoot()) return "";
+		if (isBucket()) return bucketName;
+		return objectName.substring(objectName.lastIndexOf('/') + 1);
 	}
 
 	@Override
 	public boolean isAbsolute() {
 		return true;
 	}
-	
 
 	@Override
 	public String getPath() {
 		return getPrefix().concat(getInnerPath());
 	}
-	
-	private String getPrefix()  {
-		
-		String aki=s3.getAccessKeyId();
-		String sak=s3.getSecretAccessKey();
-		
-		StringBuilder sb=new StringBuilder(provider.getScheme()).append("://");
-		boolean doHost=!s3.getHost().equals(S3.DEFAULT_HOST) && s3.getHost().length()>0;
-		
-		if(s3.getCustomCredentials() && !engine.getStringUtil().isEmpty(aki)){
+
+	private String getPrefix() {
+
+		String aki = s3.getAccessKeyId();
+		String sak = s3.getSecretAccessKey();
+
+		StringBuilder sb = new StringBuilder(provider.getScheme()).append("://");
+		boolean doHost = !s3.getHost().equals(S3.DEFAULT_HOST) && s3.getHost().length() > 0;
+
+		if (s3.getCustomCredentials() && !engine.getStringUtil().isEmpty(aki)) {
 			sb.append(aki);
-			if(!engine.getStringUtil().isEmpty(sak)){
+			if (!engine.getStringUtil().isEmpty(sak)) {
 				sb.append(":").append(sak);
-				if(!Util.isEmpty(location)){
+				if (!Util.isEmpty(location)) {
 					sb.append(":").append(S3.improveLocation(location));
 				}
 			}
 			sb.append("@");
 		}
-		if(doHost) sb.append(s3.getHost());
-		
+		if (doHost) sb.append(s3.getHost());
+
 		return sb.toString();
 	}
 
-
 	@Override
 	public String getParent() {
-		if(isRoot()) return null;
+		if (isRoot()) return null;
 		return getPrefix().concat(getInnerParent());
 	}
 
 	private String getInnerPath() {
-		if(isRoot()) return "/";
-		return engine.getResourceUtil().translatePath(bucketName+"/"+objectName, true, false);
+		if (isRoot()) return "/";
+		return engine.getResourceUtil().translatePath(bucketName + "/" + objectName, true, false);
 	}
-	
-	
+
 	private String getInnerParent() {
-		if(isRoot()) return null;
-		if(Util.isEmpty(objectName)) return "/";
-		if(objectName.indexOf('/')==-1) return "/"+bucketName;
-		String tmp=objectName.substring(0,objectName.lastIndexOf('/'));
-		return engine.getResourceUtil().translatePath(bucketName+"/"+tmp, true, false);
+		if (isRoot()) return null;
+		if (Util.isEmpty(objectName)) return "/";
+		if (objectName.indexOf('/') == -1) return "/" + bucketName;
+		String tmp = objectName.substring(0, objectName.lastIndexOf('/'));
+		return engine.getResourceUtil().translatePath(bucketName + "/" + tmp, true, false);
 	}
 
 	@Override
 	public Resource getParentResource() {
-		if(isRoot()) return null;
-		return new S3Resource(engine,s3,props,isBucket()?null:location,provider,getInnerParent());// MUST direkter machen
+		if (isRoot()) return null;
+		return new S3Resource(engine, s3, props, isBucket() ? null : location, provider, getInnerParent());// MUST direkter machen
 	}
 
 	public boolean isRoot() {
-		return bucketName==null;
+		return bucketName == null;
 	}
-	
+
 	public boolean isBucket() {
-		return bucketName!=null && Util.isEmpty(objectName);
+		return bucketName != null && Util.isEmpty(objectName);
 	}
 
 	@Override
 	public String toString() {
 		return getPath();
 	}
-	
+
 	@Override
 	public OutputStream getOutputStream(boolean append) throws IOException {
 
 		engine.getResourceUtil().checkGetOutputStreamOK(this);
-		//provider.lock(this);
-		
+		// provider.lock(this);
+
 		try {
 			byte[] barr = null;
-			if(append){
-				InputStream is=null;
-				OutputStream os=null;
-				try{
+			if (append) {
+				InputStream is = null;
+				OutputStream os = null;
+				try {
 					ByteArrayOutputStream baos = new ByteArrayOutputStream();
-					os=baos;
-					engine.getIOUtil().copy(is=getInputStream(), baos,false,false);
-					barr=baos.toByteArray();
+					os = baos;
+					engine.getIOUtil().copy(is = getInputStream(), baos, false, false);
+					barr = baos.toByteArray();
 				}
 				catch (Exception e) {
 					throw engine.getExceptionUtil().createPageRuntimeException(engine.getCastUtil().toPageException(e));
 				}
-				finally{
+				finally {
 					Util.closeEL(is);
 					Util.closeEL(os);
 				}
 			}
-			S3ResourceOutputStream os = new S3ResourceOutputStream(s3,bucketName,objectName,getInnerPath(),acl,location);
-			if(append && !(barr==null || barr.length==0))
-				engine.getIOUtil().copy(new ByteArrayInputStream(barr),os,true,false);
+			S3ResourceOutputStream os = new S3ResourceOutputStream(s3, bucketName, objectName, getInnerPath(), acl, location);
+			if (append && !(barr == null || barr.length == 0)) engine.getIOUtil().copy(new ByteArrayInputStream(barr), os, true, false);
 			return os;
 		}
-		catch(IOException e) {
+		catch (IOException e) {
 			throw e;
 		}
 		catch (Exception e) {
@@ -277,9 +270,9 @@ public final class S3Resource extends ResourceSupport {
 
 	@Override
 	public Resource getRealResource(String realpath) {
-		realpath=engine.getResourceUtil().merge(getInnerPath(), realpath);
-		if(realpath.startsWith("../"))return null;
-		return new S3Resource(engine,s3,props,location,provider,realpath);
+		realpath = engine.getResourceUtil().merge(getInnerPath(), realpath);
+		if (realpath.startsWith("../")) return null;
+		return new S3Resource(engine, s3, props, location, provider, realpath);
 	}
 
 	@Override
@@ -289,12 +282,12 @@ public final class S3Resource extends ResourceSupport {
 
 	@Override
 	public boolean isDirectory() {
-		if(isRoot()) return true;
+		if (isRoot()) return true;
 		try {
-			if(isBucket()) return s3.exists(bucketName);
-			else return s3.isDirectory(bucketName, objectName+"/");
+			if (isBucket()) return s3.exists(bucketName);
+			else return s3.isDirectory(bucketName, objectName + "/");
 		}
-		catch(S3Exception s3e) {
+		catch (S3Exception s3e) {
 			CFMLEngine e = CFMLEngineFactory.getInstance();
 			throw e.getExceptionUtil().createPageRuntimeException(e.getCastUtil().toPageException(s3e));
 		}
@@ -302,12 +295,12 @@ public final class S3Resource extends ResourceSupport {
 
 	@Override
 	public boolean isFile() {
-		if(isRoot()) return false;
+		if (isRoot()) return false;
 		try {
-			if(isBucket()) return false;
+			if (isBucket()) return false;
 			else return s3.isFile(bucketName, objectName);
 		}
-		catch(S3Exception s3e) {
+		catch (S3Exception s3e) {
 			CFMLEngine e = CFMLEngineFactory.getInstance();
 			throw e.getExceptionUtil().createPageRuntimeException(e.getCastUtil().toPageException(s3e));
 		}
@@ -315,12 +308,12 @@ public final class S3Resource extends ResourceSupport {
 
 	@Override
 	public boolean exists() {
-		if(isRoot()) return true;
+		if (isRoot()) return true;
 		try {
-			if(isBucket()) return s3.exists(bucketName);
+			if (isBucket()) return s3.exists(bucketName);
 			else return s3.exists(bucketName, objectName);
 		}
-		catch(S3Exception s3e) {
+		catch (S3Exception s3e) {
 			CFMLEngine e = CFMLEngineFactory.getInstance();
 			throw e.getExceptionUtil().createPageRuntimeException(e.getCastUtil().toPageException(s3e));
 		}
@@ -338,66 +331,61 @@ public final class S3Resource extends ResourceSupport {
 
 	@Override
 	public long lastModified() {
-		if(isRoot()) return 0;
+		if (isRoot()) return 0;
 		S3Info info = getInfo();
-		if(info==null) return 0;
+		if (info == null) return 0;
 		return info.getLastModified();
 	}
 
 	@Override
 	public long length() {
-		if(isRoot()) return 0;
+		if (isRoot()) return 0;
 		S3Info info = getInfo();
-		if(info==null) return 0;
+		if (info == null) return 0;
 		return info.getSize();
 	}
-	
+
 	private S3Info getInfo() {
 		try {
 			S3Info info;
-			if(isBucket()) info = s3.get(bucketName);
-			else info= s3.get(bucketName, objectName+"/");
+			if (isBucket()) info = s3.get(bucketName);
+			else info = s3.get(bucketName, objectName + "/");
 			return info;
 		}
-		catch(S3Exception s3e) {
+		catch (S3Exception s3e) {
 			CFMLEngine e = CFMLEngineFactory.getInstance();
 			throw e.getExceptionUtil().createPageRuntimeException(e.getCastUtil().toPageException(s3e));
 		}
 	}
-	
-	
-	
 
 	@Override
 	public Resource[] listResources() {
-		S3Resource[] children=null;
-		//long timeout=System.currentTimeMillis()+provider.getCache();
+		S3Resource[] children = null;
+		// long timeout=System.currentTimeMillis()+provider.getCache();
 		try {
-			boolean buckets=false;
-			List<S3Info> list=null;
-			if(isRoot()) {
-				buckets=true;
-				list = s3.list(false,false);
+			boolean buckets = false;
+			List<S3Info> list = null;
+			if (isRoot()) {
+				buckets = true;
+				list = s3.list(false, false);
 			}
-			else if(isDirectory()){
-				list = isBucket()?
-					s3.list(bucketName,"",false,true,true):
-					s3.list(bucketName, objectName+"/",false,true,true);
+			else if (isDirectory()) {
+				list = isBucket() ? s3.list(bucketName, "", false, true, true) : s3.list(bucketName, objectName + "/", false, true, true);
 			}
-			
-			if(list!=null) {
+
+			if (list != null) {
 				Iterator<S3Info> it = list.iterator();
-				children=new S3Resource[list.size()];
+				children = new S3Resource[list.size()];
 				S3Info si;
-				int index=0;
-				while(it.hasNext()) {
-					si=it.next();
-					children[index]=new S3Resource(engine,s3,props,location,provider,si.getBucketName(),buckets?"":S3.improveObjectName(si.getObjectName(),false));
+				int index = 0;
+				while (it.hasNext()) {
+					si = it.next();
+					children[index] = new S3Resource(engine, s3, props, location, provider, si.getBucketName(), buckets ? "" : S3.improveObjectName(si.getObjectName(), false));
 					index++;
 				}
 			}
 		}
-		catch(Exception t) {
+		catch (Exception t) {
 			t.printStackTrace();
 			return null;
 		}
@@ -406,158 +394,147 @@ public final class S3Resource extends ResourceSupport {
 
 	@Override
 	public void remove(boolean force) throws IOException {
-		if(isRoot()) throw new IOException("can not remove root of S3 Service");
-		
+		if (isRoot()) throw new IOException("can not remove root of S3 Service");
+
 		engine.getResourceUtil().checkRemoveOK(this);
-		if(isBucket()) {
-			s3.delete(bucketName,force);
+		if (isBucket()) {
+			s3.delete(bucketName, force);
 		}
 		else {
-			s3.delete(bucketName,isDirectory()?objectName+"/":objectName,force);
+			s3.delete(bucketName, isDirectory() ? objectName + "/" : objectName, force);
 		}
 	}
 
 	@Override
 	public boolean setLastModified(long time) {
-		//s3.releaseCache(getInnerPath());
-		// TODO 
+		// s3.releaseCache(getInnerPath());
+		// TODO
 		return false;
 	}
 
 	@Override
 	public void setMode(int mode) throws IOException {
-		//s3.releaseCache(getInnerPath());
-		// TODO 
-		
+		// s3.releaseCache(getInnerPath());
+		// TODO
+
 	}
 
 	@Override
 	public boolean setReadable(boolean readable) {
-		//s3.releaseCache(getInnerPath());
-		// TODO 
+		// s3.releaseCache(getInnerPath());
+		// TODO
 		return false;
 	}
 
 	@Override
 	public boolean setWritable(boolean writable) {
-		//s3.releaseCache(getInnerPath());
-		// TODO 
+		// s3.releaseCache(getInnerPath());
+		// TODO
 		return false;
 	}
 
-
 	public Array getAccessControlList() {
 		try {
-			return s3.getAccessControlList(bucketName,  getObjectName());
-		} 
+			return s3.getAccessControlList(bucketName, getObjectName());
+		}
 		catch (Exception e) {
 			throw engine.getExceptionUtil().createPageRuntimeException(engine.getCastUtil().toPageException(e));
 		}
 	}
-	
+
 	public void setAccessControlList(Object objAcl) {
 		try {
-			s3.setAccessControlList(bucketName, getObjectName(),objAcl);
-		} 
+			s3.setAccessControlList(bucketName, getObjectName(), objAcl);
+		}
 		catch (Exception e) {
 			throw engine.getExceptionUtil().createPageRuntimeException(engine.getCastUtil().toPageException(e));
 		}
 	}
-	
+
 	public void addAccessControlList(Object objAcl) {
 		try {
-			s3.addAccessControlList(bucketName, getObjectName(),objAcl);
-		} 
+			s3.addAccessControlList(bucketName, getObjectName(), objAcl);
+		}
 		catch (Exception e) {
 			throw engine.getExceptionUtil().createPageRuntimeException(engine.getCastUtil().toPageException(e));
 		}
 	}
-	
+
 	public Struct getMetaData() {
 		try {
-			return s3.getMetaData(bucketName,  getObjectName());
-		} 
+			return s3.getMetaData(bucketName, getObjectName());
+		}
 		catch (Exception e) {
 			throw engine.getExceptionUtil().createPageRuntimeException(engine.getCastUtil().toPageException(e));
 		}
 	}
-	
+
 	public void setMetaData(Struct metaData) {
 		try {
-			s3.setMetaData(bucketName, getObjectName(),metaData);
-		} 
+			s3.setMetaData(bucketName, getObjectName(), metaData);
+		}
 		catch (Exception e) {
 			throw engine.getExceptionUtil().createPageRuntimeException(engine.getCastUtil().toPageException(e));
 		}
 	}
-	
+
 	private String getObjectName() {
-		if(!engine.getStringUtil().isEmpty(objectName) && isDirectory()) {
-			return objectName+"/";
+		if (!engine.getStringUtil().isEmpty(objectName) && isDirectory()) {
+			return objectName + "/";
 		}
 		return objectName;
 	}
 
-
 	public void setACL(String acl) {
-		this.acl=S3.toACL(acl, null);
+		this.acl = S3.toACL(acl, null);
 	}
-
 
 	public void setLocation(String location) {
-		this.location=S3.improveLocation(location);
+		this.location = S3.improveLocation(location);
 	}
-	
+
 	public void setStorage(String storage) { // to not delete, exist because the core maybe call this with reflection
 		setLocation(storage);
 	}
-
 
 	@Override
 	public void copyFrom(Resource res, boolean append) throws IOException {
 		copy(res, this, append);
 	}
 
-
 	@Override
 	public void copyTo(Resource res, boolean append) throws IOException {
 		copy(this, res, append);
 	}
-	
+
 	private void copy(Resource from, Resource to, boolean append) throws IOException {
-		if(from instanceof S3Resource && to instanceof S3Resource) {
-			S3Resource f=(S3Resource) from;
-			S3Resource t=(S3Resource) to;
+		if (from instanceof S3Resource && to instanceof S3Resource) {
+			S3Resource f = (S3Resource) from;
+			S3Resource t = (S3Resource) to;
 			// whe have the same container
-			if(f.s3.getAccessKeyId().equals(t.s3.getAccessKeyId()) && f.s3.getSecretAccessKey().equals(t.s3.getSecretAccessKey())) {
-				s3.copy(f.bucketName,f.objectName,t.bucketName,t.objectName);
+			if (f.s3.getAccessKeyId().equals(t.s3.getAccessKeyId()) && f.s3.getSecretAccessKey().equals(t.s3.getSecretAccessKey())) {
+				s3.copy(f.bucketName, f.objectName, t.bucketName, t.objectName);
 				return;
 			}
-			
+
 		}
 		super.copyTo(to, append);
 	}
 
-	
-
 	public void moveFile(Resource src, Resource trg) throws IOException {
-		if(src instanceof S3Resource && trg instanceof S3Resource) {
+		if (src instanceof S3Resource && trg instanceof S3Resource) {
 
-			S3Resource s3Src=(S3Resource) src;
-			S3Resource s3Trg=(S3Resource) trg;
+			S3Resource s3Src = (S3Resource) src;
+			S3Resource s3Trg = (S3Resource) trg;
 			// we have the same container
-			if(
-					s3Trg.s3.getAccessKeyId()		.equals(s3Src.s3.getAccessKeyId()) && 
-					s3Trg.s3.getSecretAccessKey()	.equals(s3Src.s3.getSecretAccessKey())) {
-				s3.move(
-						s3Src.bucketName,s3Src.objectName,
-						s3Trg.bucketName,s3Trg.objectName);
+			if (s3Trg.s3.getAccessKeyId().equals(s3Src.s3.getAccessKeyId()) && s3Trg.s3.getSecretAccessKey().equals(s3Src.s3.getSecretAccessKey())) {
+				s3.move(s3Src.bucketName, s3Src.objectName, s3Trg.bucketName, s3Trg.objectName);
 				return;
 			}
 		}
-		
-		if(!trg.exists()) trg.createFile(false);
-		Util.copy(src,trg);
+
+		if (!trg.exists()) trg.createFile(false);
+		Util.copy(src, trg);
 		src.remove(false);
 	}
 }

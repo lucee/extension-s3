@@ -33,22 +33,21 @@ import lucee.loader.util.Util;
  * Helper class to build resources
  */
 public abstract class ResourceSupport implements Resource {
-	
+
 	protected final CFMLEngine engine;
-	
+
 	public ResourceSupport(CFMLEngine engine) {
-		this.engine=engine;
-	}
-	
-
-	@Override
-	public void copyFrom(Resource res,boolean append) throws IOException {
-		engine.getIOUtil().copy(res.getInputStream(), this.getOutputStream(append),true,true);
+		this.engine = engine;
 	}
 
 	@Override
-	public void copyTo(Resource res,boolean append) throws IOException {
-		engine.getIOUtil().copy(this.getInputStream(), res.getOutputStream(append),true,true);
+	public void copyFrom(Resource res, boolean append) throws IOException {
+		engine.getIOUtil().copy(res.getInputStream(), this.getOutputStream(append), true, true);
+	}
+
+	@Override
+	public void copyTo(Resource res, boolean append) throws IOException {
+		engine.getIOUtil().copy(this.getInputStream(), res.getOutputStream(append), true, true);
 	}
 
 	@Override
@@ -81,72 +80,68 @@ public abstract class ResourceSupport implements Resource {
 		checkMoveToOK(this, dest);
 		_moveTo(this, dest);
 	}
-	
+
 	private void _moveTo(Resource src, Resource dest) throws IOException {
-		
-		if(src.isFile()){
+
+		if (src.isFile()) {
 			moveFile(src, dest);
 		}
 		else {
-			if(!dest.exists()) dest.createDirectory(false);
+			if (!dest.exists()) dest.createDirectory(false);
 			Resource[] children = src.listResources();
-			for(int i=0;i<children.length;i++){
-				_moveTo(children[i],dest.getRealResource(children[i].getName()));
+			for (int i = 0; i < children.length; i++) {
+				_moveTo(children[i], dest.getRealResource(children[i].getName()));
 			}
 			src.remove(false);
 		}
 		dest.setLastModified(System.currentTimeMillis());
 	}
-	
+
 	public abstract void moveFile(Resource src, Resource dest) throws IOException;
-	
-	
+
 	private static void checkMoveToOK(Resource source, Resource target) throws IOException {
-		if(!source.exists()) {
-			throw new IOException("can't move ["+source.getPath()+"] to ["+target.getPath()+"], source file does not exist");
+		if (!source.exists()) {
+			throw new IOException("can't move [" + source.getPath() + "] to [" + target.getPath() + "], source file does not exist");
 		}
-		if(source.isDirectory() && target.isFile())
-			throw new IOException("can't move ["+source.getPath()+"] directory to ["+target.getPath()+"], target is a file");
-		if(source.isFile() && target.isDirectory())
-			throw new IOException("can't move ["+source.getPath()+"] file to ["+target.getPath()+"], target is a directory");
+		if (source.isDirectory() && target.isFile()) throw new IOException("can't move [" + source.getPath() + "] directory to [" + target.getPath() + "], target is a file");
+		if (source.isFile() && target.isDirectory()) throw new IOException("can't move [" + source.getPath() + "] file to [" + target.getPath() + "], target is a directory");
 	}
-	
-	
+
 	@Override
 	public String[] list(ResourceFilter filter) {
 		String[] files = list();
-		if(files==null) return null;
-		List list=new ArrayList();
+		if (files == null) return null;
+		List list = new ArrayList();
 		Resource res;
-		for(int i=0;i<files.length;i++) {
-			res=getRealResource(files[i]);
-			if(filter.accept(res))list.add(files[i]);
+		for (int i = 0; i < files.length; i++) {
+			res = getRealResource(files[i]);
+			if (filter.accept(res)) list.add(files[i]);
 		}
 		return (String[]) list.toArray(new String[list.size()]);
 	}
 
 	@Override
 	public String[] list(ResourceNameFilter filter) {
-		String[] lst=list();
-		if(lst==null) return null;
-		
-		List list=new ArrayList();
-		for(int i=0;i<lst.length;i++) {
-			if(filter.accept(getParentResource(),lst[i]))list.add(lst[i]);
+		String[] lst = list();
+		if (lst == null) return null;
+
+		List list = new ArrayList();
+		for (int i = 0; i < lst.length; i++) {
+			if (filter.accept(getParentResource(), lst[i])) list.add(lst[i]);
 		}
-		if(list.size()==0) return new String[0];
-		if(list.size()==lst.length) return lst;
+		if (list.size() == 0) return new String[0];
+		if (list.size() == lst.length) return lst;
 		return (String[]) list.toArray(new String[list.size()]);
 	}
 
 	@Override
 	public Resource[] listResources(ResourceNameFilter filter) {
 		String[] files = list();
-		if(files==null) return null;
-		
-		List list=new ArrayList();
-		for(int i=0;i<files.length;i++) {
-			if(filter.accept(this,files[i]))list.add(getRealResource(files[i]));
+		if (files == null) return null;
+
+		List list = new ArrayList();
+		for (int i = 0; i < files.length; i++) {
+			if (filter.accept(this, files[i])) list.add(getRealResource(files[i]));
 		}
 		return (Resource[]) list.toArray(new Resource[list.size()]);
 	}
@@ -154,13 +149,13 @@ public abstract class ResourceSupport implements Resource {
 	@Override
 	public Resource[] listResources(ResourceFilter filter) {
 		String[] files = list();
-		if(files==null) return null;
-		
-		List list=new ArrayList();
+		if (files == null) return null;
+
+		List list = new ArrayList();
 		Resource res;
-		for(int i=0;i<files.length;i++) {
-			res=this.getRealResource(files[i]);
-			if(filter.accept(res))list.add(res);
+		for (int i = 0; i < files.length; i++) {
+			res = this.getRealResource(files[i]);
+			if (filter.accept(res)) list.add(res);
 		}
 		return (Resource[]) list.toArray(new Resource[list.size()]);
 	}
@@ -169,19 +164,17 @@ public abstract class ResourceSupport implements Resource {
 	public String getReal(String realpath) {
 		return getRealResource(realpath).getPath();
 	}
-	
 
 	@Override
 	public String[] list() {
 		Resource[] children = listResources();
-		if(children==null) return null;
-		String[] rtn=new String[children.length];
-		for(int i=0;i<children.length;i++) {
-			rtn[i]=children[i].getName();
+		if (children == null) return null;
+		String[] rtn = new String[children.length];
+		for (int i = 0; i < children.length; i++) {
+			rtn[i] = children[i].getName();
 		}
 		return rtn;
 	}
-	
 
 	@Override
 	public boolean canRead() {
@@ -202,7 +195,7 @@ public abstract class ResourceSupport implements Resource {
 		catch (IOException e) {
 			return false;
 		}
-		
+
 	}
 
 	@Override
@@ -210,7 +203,7 @@ public abstract class ResourceSupport implements Resource {
 		try {
 			createFile(false);
 			return true;
-		} 
+		}
 		catch (IOException e) {}
 		return false;
 	}
@@ -235,14 +228,13 @@ public abstract class ResourceSupport implements Resource {
 			return false;
 		}
 	}
-	
 
 	@Override
 	public boolean delete() {
 		try {
 			remove(false);
 			return true;
-		} 
+		}
 		catch (IOException e) {}
 		return false;
 	}
@@ -281,24 +273,24 @@ public abstract class ResourceSupport implements Resource {
 	public void setSystem(boolean value) throws IOException {
 		setAttribute(ATTRIBUTE_SYSTEM, value);
 	}
-	
+
 	@Override
 	public boolean equals(Object obj) {
-		if(this==obj) return true;
-		if(!(obj instanceof Resource)) return false;
-		Resource other=(Resource) obj;
-		
-		if(getResourceProvider()!=other.getResourceProvider()) return false;
-		
-		if(getResourceProvider().isCaseSensitive()) {
-			if(getPath().equals(other.getPath())) return true;
+		if (this == obj) return true;
+		if (!(obj instanceof Resource)) return false;
+		Resource other = (Resource) obj;
+
+		if (getResourceProvider() != other.getResourceProvider()) return false;
+
+		if (getResourceProvider().isCaseSensitive()) {
+			if (getPath().equals(other.getPath())) return true;
 			return getCanonicalPathEL(this).equals(getCanonicalPathEL(other));
 		}
-		if(getPath().equalsIgnoreCase(other.getPath())) return true;
+		if (getPath().equalsIgnoreCase(other.getPath())) return true;
 		return getCanonicalPathEL(this).equalsIgnoreCase(getCanonicalPathEL(other));
-		
+
 	}
-	
+
 	@Override
 	public String toString() {
 		return getPath();
@@ -311,24 +303,25 @@ public abstract class ResourceSupport implements Resource {
 
 	@Override
 	public void setAttribute(short attribute, boolean value) throws IOException {
-		throw new IOException("the resource ["+getPath()+"] does not support attributes");
+		throw new IOException("the resource [" + getPath() + "] does not support attributes");
 	}
-	
+
 	/**
-     * Returns the canonical form of this abstract pathname.
-     * @param res file to get canoncial form from it
-     *
-     * @return  The canonical pathname string denoting the same file or
-     *          directory as this abstract pathname
-     *
-     * @throws  SecurityException
-     *          If a required system property value cannot be accessed.
-     */
-    private static String getCanonicalPathEL(Resource res) {
-        try {
-            return res.getCanonicalPath();
-        } catch (IOException e) {
-            return res.toString();
-        }
-    }
+	 * Returns the canonical form of this abstract pathname.
+	 * 
+	 * @param res file to get canoncial form from it
+	 *
+	 * @return The canonical pathname string denoting the same file or directory as this abstract
+	 *         pathname
+	 *
+	 * @throws SecurityException If a required system property value cannot be accessed.
+	 */
+	private static String getCanonicalPathEL(Resource res) {
+		try {
+			return res.getCanonicalPath();
+		}
+		catch (IOException e) {
+			return res.toString();
+		}
+	}
 }

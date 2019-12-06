@@ -37,173 +37,163 @@ import lucee.runtime.net.s3.Properties;
 public final class S3ResourceProvider implements ResourceProvider {
 
 	private static final long serialVersionUID = 1861539395523424633L;
-	
-	private int socketTimeout=-1;
-	private int lockTimeout=20000;
-	private int cache=10000;
+
+	private int socketTimeout = -1;
+	private int lockTimeout = 20000;
+	private int cache = 10000;
 	private ResourceLock lock;
-	private String scheme="s3";
+	private String scheme = "s3";
 	private Map arguments;
-	private Map<String,S3> s3s=new HashMap<String, S3>();
+	private Map<String, S3> s3s = new HashMap<String, S3>();
 
-	
-
-	
 	/**
 	 * initalize ram resource
+	 * 
 	 * @param scheme
 	 * @param arguments
 	 * @return RamResource
 	 */
 	@Override
-	public ResourceProvider init(String scheme,Map arguments) {
-		if(!Util.isEmpty(scheme))this.scheme=scheme;
-		
-		if(arguments!=null) {
-			this.arguments=arguments;
+	public ResourceProvider init(String scheme, Map arguments) {
+		if (!Util.isEmpty(scheme)) this.scheme = scheme;
+
+		if (arguments != null) {
+			this.arguments = arguments;
 			// socket-timeout
 			String strTimeout = (String) arguments.get("socket-timeout");
-			if(strTimeout!=null) {
-				socketTimeout=toIntValue(strTimeout,socketTimeout);
+			if (strTimeout != null) {
+				socketTimeout = toIntValue(strTimeout, socketTimeout);
 			}
 			// lock-timeout
-			strTimeout=(String) arguments.get("lock-timeout");
-			if(strTimeout!=null) {
-				lockTimeout=toIntValue(strTimeout,lockTimeout);
+			strTimeout = (String) arguments.get("lock-timeout");
+			if (strTimeout != null) {
+				lockTimeout = toIntValue(strTimeout, lockTimeout);
 			}
 			// cache
-			String strCache=(String) arguments.get("cache");
-			if(strCache!=null) {
-				cache=toIntValue(strCache,cache);
+			String strCache = (String) arguments.get("cache");
+			if (strCache != null) {
+				cache = toIntValue(strCache, cache);
 			}
 		}
-		
+
 		return this;
 	}
-	
 
-	
 	private S3 getS3(S3Properties props) {
-		S3 s3=s3s.get(props.toString());
-		if(s3==null) {
-			s3s.put(props.toString(),s3=new S3(props,cache));
+		S3 s3 = s3s.get(props.toString());
+		if (s3 == null) {
+			s3s.put(props.toString(), s3 = new S3(props, cache));
 		}
 		return s3;
 	}
 
 	private int toIntValue(String str, int defaultValue) {
-		try{
+		try {
 			return Integer.parseInt(str);
 		}
-		catch(Throwable t){
-			if(t instanceof ThreadDeath) throw (ThreadDeath)t;
+		catch (Throwable t) {
+			if (t instanceof ThreadDeath) throw (ThreadDeath) t;
 			return defaultValue;
 		}
 	}
-
 
 	@Override
 	public String getScheme() {
 		return scheme;
 	}
-	
+
 	@Override
 	public Resource getResource(String path) {
 		CFMLEngine engine = CFMLEngineFactory.getInstance();
-		path=engine.getResourceUtil().removeScheme(scheme, path);
-		
-		S3Properties props=new S3Properties();
-		//S3 s3 = new S3(cache);
-		RefString location=engine.getCreationUtil().createRefString(null);
-		
-		path=loadWithNewPattern(props,location,path);
-		
-		return new S3Resource(engine,getS3(props),props,location.getValue(),this,path);
+		path = engine.getResourceUtil().removeScheme(scheme, path);
+
+		S3Properties props = new S3Properties();
+		// S3 s3 = new S3(cache);
+		RefString location = engine.getCreationUtil().createRefString(null);
+
+		path = loadWithNewPattern(props, location, path);
+
+		return new S3Resource(engine, getS3(props), props, location.getValue(), this, path);
 	}
 
-
-	public static String loadWithNewPattern(S3Properties properties,RefString storage, String path) {
+	public static String loadWithNewPattern(S3Properties properties, RefString storage, String path) {
 		PageContext pc = CFMLEngineFactory.getInstance().getThreadPageContext();
-		
-		boolean hasCustomCredentials=false;
-		String accessKeyId,host,secretAccessKey;
+
+		boolean hasCustomCredentials = false;
+		String accessKeyId, host, secretAccessKey;
 		String defaultLocation;
 		AccessControlList defaultACL;
 		{
-			Properties prop=null; 
-			if(pc!=null) prop=pc.getApplicationContext().getS3();
-			
-			if(prop!=null) {
+			Properties prop = null;
+			if (pc != null) prop = pc.getApplicationContext().getS3();
+
+			if (prop != null) {
 				accessKeyId = prop.getAccessKeyId();
 				host = prop.getHost();
 				secretAccessKey = prop.getSecretAccessKey();
 				defaultLocation = prop.getDefaultLocation();
-				defaultACL=S3.toACL(prop,AccessControlList.REST_CANNED_PUBLIC_READ);
+				defaultACL = S3.toACL(prop, AccessControlList.REST_CANNED_PUBLIC_READ);
 			}
 			else {
 				accessKeyId = null;
 				secretAccessKey = null;
 				host = S3.DEFAULT_HOST;
 				defaultLocation = null;
-				defaultACL=AccessControlList.REST_CANNED_PUBLIC_READ;
+				defaultACL = AccessControlList.REST_CANNED_PUBLIC_READ;
 			}
 		}
 		properties.setACL(defaultACL);
-		
+
 		storage.setValue(defaultLocation);
-		
-		int atIndex=path.indexOf('@');
-		int slashIndex=path.indexOf('/');
-		if(slashIndex==-1) {
-			slashIndex=path.length();
-			path+="/";
+
+		int atIndex = path.indexOf('@');
+		int slashIndex = path.indexOf('/');
+		if (slashIndex == -1) {
+			slashIndex = path.length();
+			path += "/";
 		}
 		int index;
-		
+
 		// key/id
-		if(atIndex!=-1) {
-			index=path.indexOf(':');
-			if(index!=-1 && index<atIndex) {
-				hasCustomCredentials=true;
-				accessKeyId=path.substring(0,index);
-				secretAccessKey=path.substring(index+1,atIndex);
-				index=secretAccessKey.indexOf(':');
-				if(index!=-1) {
-					String strLocation=secretAccessKey.substring(index+1).trim().toLowerCase();
-					secretAccessKey=secretAccessKey.substring(0,index);
-					//print.out("storage:"+strStorage);
+		if (atIndex != -1) {
+			index = path.indexOf(':');
+			if (index != -1 && index < atIndex) {
+				hasCustomCredentials = true;
+				accessKeyId = path.substring(0, index);
+				secretAccessKey = path.substring(index + 1, atIndex);
+				index = secretAccessKey.indexOf(':');
+				if (index != -1) {
+					String strLocation = secretAccessKey.substring(index + 1).trim().toLowerCase();
+					secretAccessKey = secretAccessKey.substring(0, index);
+					// print.out("storage:"+strStorage);
 					storage.setValue(S3.improveLocation(strLocation));
 				}
 			}
-			else accessKeyId=path.substring(0,atIndex);
+			else accessKeyId = path.substring(0, atIndex);
 		}
-		path=prettifyPath(path.substring(atIndex+1));
-		index=path.indexOf('/');
+		path = prettifyPath(path.substring(atIndex + 1));
+		index = path.indexOf('/');
 		properties.setHost(host);
-		if(index==-1){
-			if(path.equalsIgnoreCase(S3.DEFAULT_HOST) || path.equalsIgnoreCase(host)){
+		if (index == -1) {
+			if (path.equalsIgnoreCase(S3.DEFAULT_HOST) || path.equalsIgnoreCase(host)) {
 				properties.setHost(path);
-				path="/";
+				path = "/";
 			}
 		}
 		else {
-			String _host=path.substring(0,index);
-			if(_host.equalsIgnoreCase(S3.DEFAULT_HOST) || _host.equalsIgnoreCase(host)){
+			String _host = path.substring(0, index);
+			if (_host.equalsIgnoreCase(S3.DEFAULT_HOST) || _host.equalsIgnoreCase(host)) {
 				properties.setHost(_host);
-				path=path.substring(index);
+				path = path.substring(index);
 			}
 		}
-		
+
 		// env var
-		if(Util.isEmpty(secretAccessKey, true)) 
-			secretAccessKey=S3Util.getSystemPropOrEnvVar("lucee.s3.secretaccesskey", null);
-		if(Util.isEmpty(secretAccessKey, true)) 
-			secretAccessKey=S3Util.getSystemPropOrEnvVar("lucee.s3.secretkey", null);
-		
-		if(Util.isEmpty(accessKeyId, true)) 
-			accessKeyId=S3Util.getSystemPropOrEnvVar("lucee.s3.accesskeyid", null);
-		if(Util.isEmpty(accessKeyId, true)) 
-			accessKeyId=S3Util.getSystemPropOrEnvVar("lucee.s3.accesskey", null);
+		if (Util.isEmpty(secretAccessKey, true)) secretAccessKey = S3Util.getSystemPropOrEnvVar("lucee.s3.secretaccesskey", null);
+		if (Util.isEmpty(secretAccessKey, true)) secretAccessKey = S3Util.getSystemPropOrEnvVar("lucee.s3.secretkey", null);
+
+		if (Util.isEmpty(accessKeyId, true)) accessKeyId = S3Util.getSystemPropOrEnvVar("lucee.s3.accesskeyid", null);
+		if (Util.isEmpty(accessKeyId, true)) accessKeyId = S3Util.getSystemPropOrEnvVar("lucee.s3.accesskey", null);
 
 		properties.setSecretAccessKey(secretAccessKey);
 		properties.setAccessKeyId(accessKeyId);
@@ -212,68 +202,11 @@ public final class S3ResourceProvider implements ResourceProvider {
 	}
 
 	private static String prettifyPath(String path) {
-		path=path.replace('\\','/');
-		return CFMLEngineFactory.getInstance().getStringUtil().replace(path, "//", "/", false,false);
+		path = path.replace('\\', '/');
+		return CFMLEngineFactory.getInstance().getStringUtil().replace(path, "//", "/", false, false);
 		// TODO /aaa/../bbb/
 	}
-	
-	
-	
 
-	/*public static String loadWithOldPattern(S3Properties s3,RefString location, String path) {
-		
-		
-		String accessKeyId = null;
-		String secretAccessKey = null;
-		String host = null;
-		//int port = 21;
-		
-		//print.out("raw:"+path);
-		
-		int atIndex=path.indexOf('@');
-		int slashIndex=path.indexOf('/');
-		if(slashIndex==-1){
-			slashIndex=path.length();
-			path+="/";
-		}
-		int index;
-		
-		// key/id
-		if(atIndex!=-1) {
-			index=path.indexOf(':');
-			if(index!=-1 && index<atIndex) {
-				accessKeyId=path.substring(0,index);
-				secretAccessKey=path.substring(index+1,atIndex);
-				index=secretAccessKey.indexOf(':');
-				if(index!=-1) {
-					String strStorage=secretAccessKey.substring(index+1).trim().toLowerCase();
-					secretAccessKey=secretAccessKey.substring(0,index);
-					//print.out("storage:"+strStorage);
-					location.setValue(S3.improveLocation(strStorage));
-				}
-			}
-			else accessKeyId=path.substring(0,atIndex);
-		}
-		path=prettifyPath(path.substring(atIndex+1));
-		index=path.indexOf('/');
-		if(index==-1){
-			host=path;
-			path="/";
-		}
-		else {
-			host=path.substring(0,index);
-			path=path.substring(index);
-		}
-		
-		s3.setHost(host);
-		s3.setSecretAccessKey(secretAccessKey);
-		s3.setAccessKeyId(accessKeyId);
-		
-		return path;
-	}*/
-	
-	
-	
 	@Override
 	public boolean isAttributesSupported() {
 		return false;
@@ -301,7 +234,7 @@ public final class S3ResourceProvider implements ResourceProvider {
 
 	@Override
 	public void setResources(Resources res) {
-		lock=res.createResourceLock(lockTimeout,true);
+		lock = res.createResourceLock(lockTimeout, true);
 	}
 
 	@Override
