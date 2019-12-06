@@ -18,8 +18,8 @@
 package org.lucee.extension.resource.s3;
 
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.jets3t.service.acl.AccessControlList;
 
@@ -44,7 +44,7 @@ public final class S3ResourceProvider implements ResourceProvider {
 	private ResourceLock lock;
 	private String scheme = "s3";
 	private Map arguments;
-	private Map<String, S3> s3s = new HashMap<String, S3>();
+	private Map<String, S3> s3s = new ConcurrentHashMap<String, S3>();
 
 	/**
 	 * initalize ram resource

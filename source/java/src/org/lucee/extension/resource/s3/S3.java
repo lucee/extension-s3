@@ -9,13 +9,12 @@ import java.lang.reflect.Method;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.jets3t.service.Constants;
 import org.jets3t.service.Jets3tProperties;
@@ -58,14 +57,12 @@ public class S3 {
 	private final long timeout;
 
 	private RestS3Service service;
-	// private Map<String,S3Info> info=new HashMap<String,S3Info>();
-	// private Map<String,Array> acl=new HashMap<String,Array>();
 
 	/////////////////////// CACHE ////////////////
 	private ValidUntilMap<S3BucketWrapper> buckets;
-	private final Map<String, ValidUntilMap<S3Info>> objects = new HashMap<String, ValidUntilMap<S3Info>>();
-	Map<String, ValidUntilElement<AccessControlList>> accessControlLists = new HashMap<String, ValidUntilElement<AccessControlList>>();
-	private Map<String, S3Info> exists = new HashMap<String, S3Info>();
+	private final Map<String, ValidUntilMap<S3Info>> objects = new ConcurrentHashMap<String, ValidUntilMap<S3Info>>();
+	Map<String, ValidUntilElement<AccessControlList>> accessControlLists = new ConcurrentHashMap<String, ValidUntilElement<AccessControlList>>();
+	private Map<String, S3Info> exists = new ConcurrentHashMap<String, S3Info>();
 
 	/////////////////////////////////////////////
 
@@ -485,26 +482,6 @@ public class S3 {
 		return null;
 	}
 
-	/*
-	 * private boolean _isDirectory(StorageObject so, StorageObject[] sisters) throws S3Exception {
-	 * if(so.isDirectoryPlaceholder()) return true;
-	 * 
-	 * // content length if(so.getContentLength()>0) return false;
-	 * 
-	 * // meta data Object o = so.getMetadata("Content-Type");
-	 * //System.out.println("- Content-Type:"+o); if(o instanceof String) { String ct=(String)o;
-	 * if("application/x-directory".equalsIgnoreCase(ct)) return true; if(ct.startsWith("audio/"))
-	 * return false; if(ct.startsWith("image/")) return false; if(ct.startsWith("text/")) return false;
-	 * if(ct.startsWith("video/")) return false; }
-	 * 
-	 * 
-	 * 
-	 * // when a file has "children" it is a directory if(sisters!=null) { String
-	 * name=improveObjectName(so.getName(), true); for(StorageObject sis:sisters) {
-	 * if(sis.getName().startsWith(name) && sis.getName().length()>name.length()) return true; } }
-	 * return so.getName().endsWith("/"); // i don't like this, but this is a pattern used with S3 }
-	 */
-
 	public StorageObjectsChunk listObjectsChunkedSilent(String bucketName, String objectName, int max, String priorLastKey) {
 		try {
 			return getS3Service().listObjectsChunked(bucketName, objectName, ",", max, priorLastKey);
@@ -531,12 +508,6 @@ public class S3 {
 			if (info.getBucketName().equals(bucketName)) return info;
 		}
 		return null;
-
-		/*
-		 * try { S3Bucket b = getS3Service().getBucket(bucketName); if(b!=null) { return new
-		 * S3BucketWrapper(b, System.currentTimeMillis()+timeout); } return null; } catch (ServiceException
-		 * se) { throw toS3Exception(se); }
-		 */
 	}
 
 	public void delete(String bucketName, boolean force) throws S3Exception {
@@ -669,10 +640,13 @@ public class S3 {
 
 	private static void _flush(Map<String, ?> map, String prefix, String exact) {
 		if (map == null) return;
-		Set<String> keySet = map.keySet();
-		String[] keys = keySet.toArray(new String[keySet.size()]);
-		for (String key: keys) {
-			if ((exact != null && key.equals(exact)) || key.startsWith(prefix)) {
+
+		Iterator<String> it = map.keySet().iterator();
+		String key;
+		while (it.hasNext()) {
+			key = it.next();
+			if (key == null) continue;
+			if ((exact != null && key.equals(exact)) || (prefix != null && key.startsWith(prefix))) {
 				map.remove(key);
 			}
 		}
@@ -837,7 +811,7 @@ public class S3 {
 	public void setMetaData(String bucketName, String objectName, Struct metadata) throws PageException, S3Exception {
 		Iterator<Entry<Key, Object>> it = metadata.entryIterator();
 		Entry<Key, Object> e;
-		Map<String, Object> data = new HashMap<String, Object>();
+		Map<String, Object> data = new ConcurrentHashMap<String, Object>();
 		Decision dec = CFMLEngineFactory.getInstance().getDecisionUtil();
 		Cast cas = CFMLEngineFactory.getInstance().getCastUtil();
 		Object value;
@@ -1183,12 +1157,8 @@ public class S3 {
 	public boolean getCustomCredentials() {
 		return customCredentials;
 	}
-	/*
-	 * public void setCustomCredentials(boolean customCredentials) {
-	 * this.customCredentials=customCredentials; }
-	 */
 
-	class ValidUntilMap<I> extends HashMap<String, I> {
+	class ValidUntilMap<I> extends ConcurrentHashMap<String, I> {
 		private static final long serialVersionUID = 238079099294942075L;
 		private final long validUntil;
 
