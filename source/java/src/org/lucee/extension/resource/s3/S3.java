@@ -1014,13 +1014,10 @@ public class S3 {
 			else {
 				service = new RestS3Service(new AWSCredentials(accessKeyId, secretAccessKey));
 			}
-			try {
-				service.listAllBuckets();
-			}
-			catch (S3ServiceException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
+			/*
+			 * try { service.listAllBuckets(); } catch (S3ServiceException e) { // TODO Auto-generated catch
+			 * block e.printStackTrace(); }
+			 */
 		}
 		return service;
 	}
