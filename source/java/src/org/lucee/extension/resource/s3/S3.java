@@ -8,6 +8,7 @@ import java.io.InputStream;
 import java.lang.reflect.Method;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -35,6 +36,7 @@ import org.lucee.extension.resource.s3.info.ParentObject;
 import org.lucee.extension.resource.s3.info.S3BucketWrapper;
 import org.lucee.extension.resource.s3.info.S3Info;
 import org.lucee.extension.resource.s3.info.StorageObjectWrapper;
+import org.lucee.extension.resource.s3.util.print;
 
 import lucee.loader.engine.CFMLEngineFactory;
 import lucee.loader.util.Util;
@@ -295,6 +297,15 @@ public class S3 {
 			list.add(iit.next());
 		}
 		return list;
+	}
+
+	public S3Object[] listObjects(String bucketName) throws S3Exception {
+		try {
+			return getS3Service().listObjects(improveBucketName(bucketName));
+		}
+		catch (ServiceException se) {
+			throw toS3Exception(se);
+		}
 	}
 
 	private void add(Map<String, S3Info> map, S3Info info, String prefix, boolean recursive, boolean addPseudoEntries, boolean onlyChildren) throws S3Exception {
@@ -571,6 +582,61 @@ public class S3 {
 		finally {
 			flushExists(bucketName, objectName);
 		}
+	}
+
+	/*
+	 * removes all objects inside a bucket, unless maxAge is bigger than 0, in that case only objects
+	 * are removed that exists for a longer time than max age.
+	 * 
+	 * @bucketName name of the bucket to clear
+	 * 
+	 * @maxAge max age of the objects to keep
+	 */
+	public void clear(String bucketName, long maxAge) throws S3Exception {
+		bucketName = improveBucketName(bucketName);
+		S3Service s = getS3Service();
+		try {
+			S3Object[] children = s.listObjects(bucketName);
+			if (children != null && children.length > 0) {
+				ObjectKeyAndVersion[] filtered = toObjectKeyAndVersions(children, maxAge);
+				if (filtered != null && filtered.length > 0) {
+					ObjectKeyAndVersion[][] blocks = toBlocks(filtered);
+					for (ObjectKeyAndVersion[] block: blocks) {
+						s.deleteMultipleObjects(bucketName, block);
+					}
+
+					flushExists(bucketName);
+				}
+			}
+		}
+		catch (ServiceException se) {
+			throw toS3Exception(se);
+		}
+	}
+
+	private static ObjectKeyAndVersion[][] toBlocks(ObjectKeyAndVersion[] filtered) {
+		List<ObjectKeyAndVersion[]> list = new ArrayList<>();
+		int blockSize = 1000;
+		if (filtered.length <= blockSize) {
+			return new ObjectKeyAndVersion[][] { filtered };
+		}
+		boolean doBreak = false;
+		int count = 0;
+		int from = 0, to = 0;
+		while (true) {
+			if (count++ > 5) break;
+			if (from + blockSize < filtered.length) {
+				to = from + blockSize - 1;
+			}
+			else {
+				to = filtered.length - 1;
+				doBreak = true;
+			}
+			list.add(Arrays.copyOfRange(filtered, from, to + 1));
+			if (doBreak) break;
+			from = to + 1;
+		}
+		return list.toArray(new ObjectKeyAndVersion[list.size()][blockSize]);
 	}
 
 	private void createParentDirectory(String bucketName, String objectName, boolean noCache) throws S3Exception {
@@ -1069,6 +1135,17 @@ public class S3 {
 			trg[i] = new ObjectKeyAndVersion(src[i].getKey(), src[i].getVersionId());
 		}
 		return trg;
+	}
+
+	private ObjectKeyAndVersion[] toObjectKeyAndVersions(S3Object[] src, long maxAge) {
+		if (maxAge <= 0) return toObjectKeyAndVersions(src);
+		List<ObjectKeyAndVersion> trg = new ArrayList<>();
+		long now = System.currentTimeMillis();
+		for (int i = 0; i < src.length; i++) {
+			print.e(src[i].getName() + ":" + new Date(now) + ":" + src[i].getLastModifiedDate() + ":" + ((now > (src[i].getLastModifiedDate().getTime() + maxAge))));
+			if (now > (src[i].getLastModifiedDate().getTime() + maxAge)) trg.add(new ObjectKeyAndVersion(src[i].getKey(), src[i].getVersionId()));
+		}
+		return trg.toArray(new ObjectKeyAndVersion[trg.size()]);
 	}
 
 	private ObjectKeyAndVersion[] toObjectKeyAndVersions(List<S3Info> src, String ignoreKey) {
