@@ -80,7 +80,7 @@ version: "${bundleversion}${build.number}${appendix}"
 id: "${id}"
 name: "${label}"
 description: "${description}"
-lucee-core-version: "${luceeCoreVersion}”
+lucee-core-version: "${luceeCoreVersion}"
 release-type: ${releaseType}
 start-bundles: false
 resource: "[{'class':'${class}','bundleName':'${bundlename}','bundleVersion':'${bundleversion}${build.number}${appendix}','scheme':'s3','lock-timeout':'10000'}]"
