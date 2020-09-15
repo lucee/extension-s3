@@ -77,7 +77,7 @@ public abstract class S3Function extends BIF {
 
 		if (Util.isEmpty(secretAccessKey, true) || Util.isEmpty(accessKeyId, true)) throw CFMLEngineFactory.getInstance().getExceptionUtil().createApplicationException(
 				"missing S3 credentials",
-				"you can define the credentials as argument for the function [accessKeyId, secretAccessKey], in  the application.cfc [this.s3.accessKeyId, this.s3.secretAccessKey] or in the system properties/enviroment variables [lucee.s3.secretaccesskey,lucee.s3.accesskeyid]");
+				"you can define the credentials as argument for the function [accessKeyId, secretAccessKey], in the application.cfc [this.s3.accessKeyId, this.s3.secretAccessKey] or in the system properties/environment variables [lucee.s3.secretaccesskey,lucee.s3.accesskeyid]");
 
 		S3Properties props = new S3Properties();
 		props.setSecretAccessKey(secretAccessKey);
