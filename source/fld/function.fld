@@ -368,5 +368,58 @@
 			<type>void</type>
 		</return>
 	</function>
-	
+
+
+	<!-- S3ClearBucket -->
+	<function>
+		<name>S3Delete</name>
+		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.S3Delete</class>
+		<description>Removes an object from S3.</description>
+		<argument>
+			<name>bucketName</name>
+			<alias>bucket</alias>
+			<type>string</type>
+			<required>Yes</required>
+			<description>Name of the bucket to list objects from.</description>
+	    </argument>
+		<argument>
+			<name>objectName</name>
+			<alias>object,path</alias>
+			<type>string</type>
+			<required>Yes</required>
+			<description>Name of the object (path) within the bucket of your object to delete.</description>
+		</argument>
+		<argument>
+			<name>forceDelete</name>
+			<type>boolean</type>
+			<required>No</required>
+			<default>0</default>
+			<description>Force non-empty folders to be deleted.</description>
+	    </argument>
+		<argument>
+			<name>accessKeyId</name>
+			<alias>accessKey</alias>
+			<type>string</type>
+			<required>No</required>
+			<description>S3 accessKeyId, if not defined it checks the system property/environment variable for [lucee.s3.accesskeyid].</description>
+	    </argument>
+		<argument>
+			<name>secretAccessKey</name>
+			<alias>secretkey</alias>
+			<type>string</type>
+			<required>No</required>
+			<description>S3 secretAccessKey, if not defined it checks the system property/environment variable for [lucee.s3.secretaccesskey].</description>
+	    </argument>
+		<argument>
+			<name>timeout</name>
+			<type>number</type>
+			<required>No</required>
+			<default>10000</default>
+			<description>timeout for this execution</description>
+	    </argument>
+		<return>
+			<type>void</type>
+		</return>
+	</function>
+
 </func-lib>
