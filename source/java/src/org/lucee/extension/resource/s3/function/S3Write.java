@@ -1,5 +1,7 @@
 package org.lucee.extension.resource.s3.function;
 
+import java.io.File;
+
 import org.jets3t.service.acl.AccessControlList;
 import org.lucee.extension.resource.s3.AccessControlListUtil;
 import org.lucee.extension.resource.s3.S3;
@@ -37,6 +39,10 @@ public class S3Write extends S3Function {
 			// binary
 			if (eng.getDecisionUtil().isBinary(value)) {
 				s3.write(bucketName, objectName, eng.getCastUtil().toBinary(value), mimeType, acl, location);
+			}
+			else if (value instanceof File) {
+				File f = (File) value;
+				s3.write(bucketName, objectName, f, acl, location);
 			}
 			else {
 				if (eng.getStringUtil().isEmpty(charset, true)) charset = null;

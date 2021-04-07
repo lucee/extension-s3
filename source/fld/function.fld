@@ -27,7 +27,7 @@
 			<alias>acl</alias>
 			<type>object</type>
 			<required>Yes</required>
-			<description>an array of structs, where each struct represents an ACL grant</description>
+			<description>an array of struct where each struct represents an ACL grant</description>
 	    </argument>
 		<return>
 			<type>void</type>
@@ -37,7 +37,7 @@
 	<function>
 		<name>StoreGetACL</name>
 		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.StoreGetACL</class>
-		<description>returns an array of structs, where each struct represents an ACL grant</description>
+		<description>returns an array of struct where each struct represents an ACL grant</description>
 		<argument>
 			<name>url</name>
 			<type>string</type>
@@ -141,14 +141,14 @@
 			<alias>accessKey</alias>
 			<type>string</type>
 			<required>No</required>
-			<description>S3 accessKeyId, if not defined it checks the system property/environment variable for [lucee.s3.accesskeyid].</description>
+			<description>S3 accessKeyId, if not defined it checks the system property/enviroment variable for [lucee.s3.accesskeyid].</description>
 	    </argument>
 		<argument>
 			<name>secretAccessKey</name>
 			<alias>secretkey</alias>
 			<type>string</type>
 			<required>No</required>
-			<description>S3 secretAccessKey, if not defined it checks the system property/environment variable for [lucee.s3.secretaccesskey].</description>
+			<description>S3 secretAccessKey, if not defined it checks the system property/enviroment variable for [lucee.s3.secretaccesskey].</description>
 	    </argument>
 		<argument>
 			<name>timeout</name>
@@ -185,14 +185,14 @@
 			<alias>accessKey</alias>
 			<type>string</type>
 			<required>No</required>
-			<description>S3 accessKeyId, if not defined it checks the system property/environment variable for [lucee.s3.accesskeyid].</description>
+			<description>S3 accessKeyId, if not defined it checks the system property/enviroment variable for [lucee.s3.accesskeyid].</description>
 	    </argument>
 		<argument>
 			<name>secretAccessKey</name>
 			<alias>secretkey</alias>
 			<type>string</type>
 			<required>No</required>
-			<description>S3 secretAccessKey, if not defined it checks the system property/environment variable for [lucee.s3.secretaccesskey].</description>
+			<description>S3 secretAccessKey, if not defined it checks the system property/enviroment variable for [lucee.s3.secretaccesskey].</description>
 	    </argument>
 		<argument>
 			<name>timeout</name>
@@ -250,7 +250,7 @@
 			<alias>aclObject</alias>
 			<type>object</type>
 			<required>No</required>
-			<description>an array of structs, where each struct represents an ACL grant</description>
+			<description>an array of struct where each struct represents an ACL grant</description>
 	    </argument>
 		<argument>
 			<name>location</name>
@@ -263,14 +263,14 @@
 			<alias>accessKey</alias>
 			<type>string</type>
 			<required>No</required>
-			<description>S3 accessKeyId, if not defined it checks the system property/environment variable for [lucee.s3.accesskeyid].</description>
+			<description>S3 accessKeyId, if not defined it checks the system property/enviroment variable for [lucee.s3.accesskeyid].</description>
 	    </argument>
 		<argument>
 			<name>secretAccessKey</name>
 			<alias>secretkey</alias>
 			<type>string</type>
 			<required>No</required>
-			<description>S3 secretAccessKey, if not defined it checks the system property/environment variable for [lucee.s3.secretaccesskey].</description>
+			<description>S3 secretAccessKey, if not defined it checks the system property/enviroment variable for [lucee.s3.secretaccesskey].</description>
 	    </argument>
 		<argument>
 			<name>timeout</name>
@@ -302,14 +302,14 @@
 			<alias>accessKey</alias>
 			<type>string</type>
 			<required>No</required>
-			<description>S3 accessKeyId, if not defined it checks the system property/environment variable for [lucee.s3.accesskeyid].</description>
+			<description>S3 accessKeyId, if not defined it checks the system property/enviroment variable for [lucee.s3.accesskeyid].</description>
 	    </argument>
 		<argument>
 			<name>secretAccessKey</name>
 			<alias>secretkey</alias>
 			<type>string</type>
 			<required>No</required>
-			<description>S3 secretAccessKey, if not defined it checks the system property/environment variable for [lucee.s3.secretaccesskey].</description>
+			<description>S3 secretAccessKey, if not defined it checks the system property/enviroment variable for [lucee.s3.secretaccesskey].</description>
 	    </argument>
 		<argument>
 			<name>timeout</name>
@@ -328,7 +328,7 @@
 	<function>
 		<name>S3ClearBucket</name>
 		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.S3ClearBucket</class>
-		<description>Removes all objects from a bucket, unless maxAge is set, in that case only objects that are older than maxAge are removed.</description>
+		<description>Removes all objects from a bucket, unless maxage is set, in that case only objects that are older than maxage are removed.</description>
 		<argument>
 			<name>bucketName</name>
 			<alias>bucket</alias>
@@ -341,21 +341,143 @@
 			<alias>age</alias>
 			<type>timespan</type>
 			<required>No</required>
-			<description>Max age of the object to keep, if not set all objects are removed.</description>
+			<description>Max age of the object we keep, if not set all objects are removed.</description>
 	    </argument>
 		<argument>
 			<name>accessKeyId</name>
 			<alias>accessKey</alias>
 			<type>string</type>
 			<required>No</required>
-			<description>S3 accessKeyId, if not defined it checks the system property/environment variable for [lucee.s3.accesskeyid].</description>
+			<description>S3 accessKeyId, if not defined it checks the system property/enviroment variable for [lucee.s3.accesskeyid].</description>
 	    </argument>
 		<argument>
 			<name>secretAccessKey</name>
 			<alias>secretkey</alias>
 			<type>string</type>
 			<required>No</required>
-			<description>S3 secretAccessKey, if not defined it checks the system property/environment variable for [lucee.s3.secretaccesskey].</description>
+			<description>S3 secretAccessKey, if not defined it checks the system property/enviroment variable for [lucee.s3.secretaccesskey].</description>
+	    </argument>
+		<argument>
+			<name>timeout</name>
+			<type>number</type>
+			<required>No</required>
+			<default>10000</default>
+			<description>timeout for this execution</description>
+	    </argument>
+		<return>
+			<type>void</type>
+		</return>
+	</function>
+
+
+
+	<!-- S3Copy -->
+	<function>
+		<name>S3Copy</name>
+		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.S3Copy</class>
+		<description>Copies an object in S3 from one bucket to an other.</description>
+		<argument>
+			<name>srcBucketName</name>
+			<alias>srcBucket,sourceBucketName,sourceBucket</alias>
+			<type>string</type>
+			<required>Yes</required>
+			<description>Name of the source bucket of your object to copy</description>
+	    </argument>
+		<argument>
+			<name>srcObjectName</name>
+			<alias>sourceObjectName,srcObject,sourceObject</alias>
+			<type>string</type>
+			<required>Yes</required>
+			<description>Name of the source object (path) within the bucket of your object to copy</description>
+	    </argument>
+		<argument>
+			<name>trgBucketName</name>
+			<alias>trgBucket,targetBucketName,targetBucket</alias>
+			<type>string</type>
+			<required>Yes</required>
+			<description>Name of the target bucket of your object to copy</description>
+	    </argument>
+		<argument>
+			<name>trgObjectName</name>
+			<alias>targetObjectName,trgObject,targetObject</alias>
+			<type>string</type>
+			<required>No</required>
+			<description>Name of the target object (path)for the target bucket. If not defined the source obbject name is used.</description>
+	    </argument>
+		<argument>
+			<name>accessKeyId</name>
+			<alias>accessKey</alias>
+			<type>string</type>
+			<required>No</required>
+			<description>S3 accessKeyId, if not defined it checks the system property/enviroment variable for [lucee.s3.accesskeyid].</description>
+	    </argument>
+		<argument>
+			<name>secretAccessKey</name>
+			<alias>secretkey</alias>
+			<type>string</type>
+			<required>No</required>
+			<description>S3 secretAccessKey, if not defined it checks the system property/enviroment variable for [lucee.s3.secretaccesskey].</description>
+	    </argument>
+		<argument>
+			<name>timeout</name>
+			<type>number</type>
+			<required>No</required>
+			<default>10000</default>
+			<description>timeout for this execution</description>
+	    </argument>
+		<return>
+			<type>void</type>
+		</return>
+	</function>
+
+
+
+	<!-- S3Move -->
+	<function>
+		<name>S3Move</name>
+		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.S3Move</class>
+		<description>Moves an object in S3 from one bucket to an other.</description>
+		<argument>
+			<name>srcBucketName</name>
+			<alias>srcBucket,sourceBucketName,sourceBucket</alias>
+			<type>string</type>
+			<required>Yes</required>
+			<description>Name of the source bucket of your object to move.</description>
+	    </argument>
+		<argument>
+			<name>srcObjectName</name>
+			<alias>sourceObjectName,srcObject,sourceObject</alias>
+			<type>string</type>
+			<required>Yes</required>
+			<description>Name of the source object (path) within the bucket of your object to move.</description>
+	    </argument>
+		<argument>
+			<name>trgBucketName</name>
+			<alias>trgBucket,targetBucketName,targetBucket</alias>
+			<type>string</type>
+			<required>Yes</required>
+			<description>Name of the target bucket of your object to move</description>
+	    </argument>
+		<argument>
+			<name>trgObjectName</name>
+			<alias>targetObjectName,trgObject,targetObject</alias>
+			<type>string</type>
+			<required>No</required>
+			<description>Name of the target object (path)for the target bucket. If not defined the source object name is used.</description>
+	    </argument>
+		<argument>
+			<name>accessKeyId</name>
+			<alias>accessKey</alias>
+			<type>string</type>
+			<required>No</required>
+			<description>S3 accessKeyId, if not defined it checks the system property/enviroment variable for [lucee.s3.accesskeyid].</description>
+	    </argument>
+		<argument>
+			<name>secretAccessKey</name>
+			<alias>secretkey</alias>
+			<type>string</type>
+			<required>No</required>
+			<description>S3 secretAccessKey, if not defined it checks the system property/enviroment variable for [lucee.s3.secretaccesskey].</description>
 	    </argument>
 		<argument>
 			<name>timeout</name>
