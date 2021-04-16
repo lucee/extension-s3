@@ -36,6 +36,7 @@ import org.lucee.extension.resource.s3.info.ParentObject;
 import org.lucee.extension.resource.s3.info.S3BucketWrapper;
 import org.lucee.extension.resource.s3.info.S3Info;
 import org.lucee.extension.resource.s3.info.StorageObjectWrapper;
+import org.lucee.extension.resource.s3.util.XMLUtil;
 import org.lucee.extension.resource.s3.util.print;
 
 import lucee.loader.engine.CFMLEngineFactory;
@@ -49,6 +50,14 @@ import lucee.runtime.util.Cast;
 import lucee.runtime.util.Decision;
 
 public class S3 {
+
+	static {
+		XMLUtil.validateDocumentBuilderFactory();
+	}
+
+	public static void main(String[] args) {
+
+	}
 
 	public static final String DEFAULT_HOST = "s3.amazonaws.com";
 
@@ -86,7 +95,8 @@ public class S3 {
 		try {
 			service.shutdown();
 		}
-		catch (ServiceException e) {}
+		catch (ServiceException e) {
+		}
 		service = null;
 	}
 
@@ -497,7 +507,8 @@ public class S3 {
 		try {
 			return getS3Service().listObjectsChunked(bucketName, objectName, ",", max, priorLastKey);
 		}
-		catch (Exception e) {}
+		catch (Exception e) {
+		}
 		return null;
 	}
 
@@ -1125,7 +1136,8 @@ public class S3 {
 			if (Util.isEmpty(str)) return defaultValue;
 			return toACL(str, defaultValue);
 		}
-		catch (Exception e) {}
+		catch (Exception e) {
+		}
 		return defaultValue;
 	}
 
