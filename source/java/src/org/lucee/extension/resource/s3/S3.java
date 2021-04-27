@@ -31,6 +31,7 @@ import org.jets3t.service.model.StorageObject;
 import org.jets3t.service.model.StorageOwner;
 import org.jets3t.service.model.container.ObjectKeyAndVersion;
 import org.jets3t.service.security.AWSCredentials;
+import org.jets3t.service.utils.MultipartUtils;
 import org.lucee.extension.resource.s3.info.NotExisting;
 import org.lucee.extension.resource.s3.info.ParentObject;
 import org.lucee.extension.resource.s3.info.S3BucketWrapper;
@@ -60,6 +61,9 @@ public class S3 {
 	}
 
 	public static final String DEFAULT_HOST = "s3.amazonaws.com";
+
+	private static final long MAX_PART_SIZE = 1024 * 1024 * 1024;
+	private static final long MAX_PART_SIZE_FOR_CHARACTERS = 900 * 1024 * 1024;
 
 	private final String host;
 	private final String secretAccessKey;
@@ -774,7 +778,18 @@ public class S3 {
 			String ct = toContentType(mimeType, charset, null);
 			if (ct != null) so.setContentType(ct);
 
-			_write(so, bucketName, objectName, acl, location);
+			// if we reach that threshold we need to get more percise
+			boolean split = false;
+			if (data.length() >= MAX_PART_SIZE_FOR_CHARACTERS) {
+				if (Util.isEmpty(charset)) {
+					if (data.getBytes().length >= MAX_PART_SIZE) split = true;
+				}
+				else {
+					if (data.getBytes(charset).length >= MAX_PART_SIZE) split = true;
+				}
+			}
+
+			_write(so, bucketName, objectName, acl, location, split);
 			flushExists(bucketName, objectName);
 		}
 		catch (NoSuchAlgorithmException e) {
@@ -791,7 +806,7 @@ public class S3 {
 			S3Object so = new S3Object(objectName, data);
 			if (!Util.isEmpty(mimeType)) so.setContentType(mimeType);
 
-			_write(so, bucketName, objectName, acl, location);
+			_write(so, bucketName, objectName, acl, location, data.length >= MAX_PART_SIZE);
 			flushExists(bucketName, objectName);
 		}
 		catch (NoSuchAlgorithmException e) {
@@ -809,7 +824,7 @@ public class S3 {
 			String mt = CFMLEngineFactory.getInstance().getResourceUtil().getMimeType(max1000(file), null);
 			if (mt != null) so.setContentType(mt);
 
-			_write(so, bucketName, objectName, acl, location);
+			_write(so, bucketName, objectName, acl, location, file.length() >= MAX_PART_SIZE);
 			flushExists(bucketName, objectName);
 		}
 		catch (NoSuchAlgorithmException e) {
@@ -817,14 +832,14 @@ public class S3 {
 		}
 	}
 
-	private void _write(S3Object so, String bucketName, String objectName, AccessControlList acl, String location) throws IOException {
+	private void _write(S3Object so, String bucketName, String objectName, AccessControlList acl, String location, boolean split) throws IOException {
 		try {
 
 			so.setName(objectName);
 
 			if (acl != null) so.setAcl(acl);
-
-			getS3Service().putObject(bucketName, so);
+			if (split) multiPut(bucketName, so);
+			else getS3Service().putObject(bucketName, so);
 		}
 		catch (S3ServiceException se) {
 			// does the bucket exist? if so we throw the exception
@@ -833,12 +848,28 @@ public class S3 {
 			createDirectory(bucketName, acl, location);
 			// now we try again
 			try {
-				getS3Service().putObject(bucketName, so);
+				if (split) multiPut(bucketName, so);
+				else getS3Service().putObject(bucketName, so);
 			}
 			catch (S3ServiceException e) {
 				throw toS3Exception(se);
 			}
 		}
+	}
+
+	private void multiPut(String bucketName, S3Object so) throws IOException {
+		List<StorageObject> objectsToUploadAsMultipart = new ArrayList<>();
+		objectsToUploadAsMultipart.add(so);
+		try {
+			new MultipartUtils(MAX_PART_SIZE).uploadObjects(bucketName, getS3Service(), objectsToUploadAsMultipart, null // eventListener : Provide
+																															// one to monitor the upload
+			// progress
+			);
+		}
+		catch (Exception e) {
+			throw CFMLEngineFactory.getInstance().getExceptionUtil().toIOException(e);
+		}
+
 	}
 
 	public Struct getMetaData(String bucketName, String objectName) throws S3Exception {
