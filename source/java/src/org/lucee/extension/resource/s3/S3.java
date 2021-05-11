@@ -17,6 +17,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 
+import javax.xml.parsers.FactoryConfigurationError;
+
 import org.jets3t.service.Constants;
 import org.jets3t.service.Jets3tProperties;
 import org.jets3t.service.S3Service;
@@ -54,10 +56,6 @@ public class S3 {
 
 	static {
 		XMLUtil.validateDocumentBuilderFactory();
-	}
-
-	public static void main(String[] args) {
-
 	}
 
 	public static final String DEFAULT_HOST = "s3.amazonaws.com";
@@ -101,6 +99,9 @@ public class S3 {
 		}
 		catch (ServiceException e) {
 		}
+		catch (FactoryConfigurationError fce) {
+			XMLUtil.validateDocumentBuilderFactory();
+		}
 		service = null;
 	}
 
@@ -131,6 +132,10 @@ public class S3 {
 		catch (ServiceException se) {
 			throw toS3Exception(se, "could not create the bucket [" + bucketName
 					+ "], please consult the following website to learn about Bucket Restrictions and limitations: https://docs.aws.amazon.com/AmazonS3/latest/dev/BucketRestrictions.html");
+		}
+		catch (FactoryConfigurationError fce) {
+			XMLUtil.validateDocumentBuilderFactory();
+			throw fce;
 		}
 	}
 
@@ -179,6 +184,10 @@ public class S3 {
 				throw toS3Exception(se);
 			}
 		}
+		catch (FactoryConfigurationError fce) {
+			XMLUtil.validateDocumentBuilderFactory();
+			throw fce;
+		}
 	}
 
 	public void createFile(String bucketName, String objectName, AccessControlList acl, String location) throws S3Exception {
@@ -207,6 +216,14 @@ public class S3 {
 			catch (S3ServiceException e) {
 				throw toS3Exception(se);
 			}
+			catch (FactoryConfigurationError fce) {
+				XMLUtil.validateDocumentBuilderFactory();
+				throw fce;
+			}
+		}
+		catch (FactoryConfigurationError fce) {
+			XMLUtil.validateDocumentBuilderFactory();
+			throw fce;
 		}
 	}
 
@@ -220,6 +237,10 @@ public class S3 {
 		catch (ServiceException se) {
 			throw toS3Exception(se);
 		}
+		catch (FactoryConfigurationError fce) {
+			XMLUtil.validateDocumentBuilderFactory();
+			throw fce;
+		}
 	}
 
 	public InputStream getInputStream(String bucketName, String objectName) throws S3Exception {
@@ -231,6 +252,10 @@ public class S3 {
 		}
 		catch (ServiceException se) {
 			throw toS3Exception(se);
+		}
+		catch (FactoryConfigurationError fce) {
+			XMLUtil.validateDocumentBuilderFactory();
+			throw fce;
 		}
 	}
 
@@ -273,6 +298,10 @@ public class S3 {
 		}
 		catch (ServiceException se) {
 			throw toS3Exception(se);
+		}
+		catch (FactoryConfigurationError fce) {
+			XMLUtil.validateDocumentBuilderFactory();
+			throw fce;
 		}
 	}
 
@@ -319,6 +348,10 @@ public class S3 {
 		}
 		catch (ServiceException se) {
 			throw toS3Exception(se);
+		}
+		catch (FactoryConfigurationError fce) {
+			XMLUtil.validateDocumentBuilderFactory();
+			throw fce;
 		}
 	}
 
@@ -501,6 +534,10 @@ public class S3 {
 			}
 			return info;
 		}
+		catch (FactoryConfigurationError fce) {
+			XMLUtil.validateDocumentBuilderFactory();
+			throw fce;
+		}
 		catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -510,6 +547,10 @@ public class S3 {
 	public StorageObjectsChunk listObjectsChunkedSilent(String bucketName, String objectName, int max, String priorLastKey) {
 		try {
 			return getS3Service().listObjectsChunked(bucketName, objectName, ",", max, priorLastKey);
+		}
+		catch (FactoryConfigurationError fce) {
+			XMLUtil.validateDocumentBuilderFactory();
+			throw fce;
 		}
 		catch (Exception e) {
 		}
@@ -551,6 +592,10 @@ public class S3 {
 		}
 		catch (ServiceException se) {
 			throw toS3Exception(se);
+		}
+		catch (FactoryConfigurationError fce) {
+			XMLUtil.validateDocumentBuilderFactory();
+			throw fce;
 		}
 	}
 
@@ -594,6 +639,10 @@ public class S3 {
 		catch (ServiceException se) {
 			throw toS3Exception(se);
 		}
+		catch (FactoryConfigurationError fce) {
+			XMLUtil.validateDocumentBuilderFactory();
+			throw fce;
+		}
 		finally {
 			flushExists(bucketName, objectName);
 		}
@@ -626,6 +675,10 @@ public class S3 {
 		}
 		catch (ServiceException se) {
 			throw toS3Exception(se);
+		}
+		catch (FactoryConfigurationError fce) {
+			XMLUtil.validateDocumentBuilderFactory();
+			throw fce;
 		}
 	}
 
@@ -696,6 +749,14 @@ public class S3 {
 			catch (ServiceException e) {
 				throw toS3Exception(se);
 			}
+			catch (FactoryConfigurationError fce) {
+				XMLUtil.validateDocumentBuilderFactory();
+				throw fce;
+			}
+		}
+		catch (FactoryConfigurationError fce) {
+			XMLUtil.validateDocumentBuilderFactory();
+			throw fce;
 		}
 	}
 
@@ -764,6 +825,10 @@ public class S3 {
 			catch (ServiceException e) {
 				throw toS3Exception(se);
 			}
+		}
+		catch (FactoryConfigurationError fce) {
+			XMLUtil.validateDocumentBuilderFactory();
+			throw fce;
 		}
 		createParentDirectory(srcBucketName, srcObjectName, true);
 	}
@@ -865,6 +930,10 @@ public class S3 {
 																															// one to monitor the upload
 			// progress
 			);
+		}
+		catch (FactoryConfigurationError fce) {
+			XMLUtil.validateDocumentBuilderFactory();
+			throw fce;
 		}
 		catch (Exception e) {
 			throw CFMLEngineFactory.getInstance().getExceptionUtil().toIOException(e);
@@ -1020,6 +1089,10 @@ public class S3 {
 		catch (ServiceException se) {
 			throw toS3Exception(se);
 		}
+		catch (FactoryConfigurationError fce) {
+			XMLUtil.validateDocumentBuilderFactory();
+			throw fce;
+		}
 	}
 
 	public void setAccessControlList(String bucketName, String objectName, Object objACL) throws S3Exception {
@@ -1041,6 +1114,10 @@ public class S3 {
 		}
 		catch (ServiceException se) {
 			throw toS3Exception(se);
+		}
+		catch (FactoryConfigurationError fce) {
+			XMLUtil.validateDocumentBuilderFactory();
+			throw fce;
 		}
 	}
 
@@ -1065,6 +1142,10 @@ public class S3 {
 		catch (ServiceException se) {
 			throw toS3Exception(se);
 		}
+		catch (FactoryConfigurationError fce) {
+			XMLUtil.validateDocumentBuilderFactory();
+			throw fce;
+		}
 	}
 
 	private AccessControlList getACL(S3Service s, S3Bucket bucket, String objectName) throws S3Exception {
@@ -1080,6 +1161,10 @@ public class S3 {
 		}
 		catch (ServiceException se) {
 			throw toS3Exception(se);
+		}
+		catch (FactoryConfigurationError fce) {
+			XMLUtil.validateDocumentBuilderFactory();
+			throw fce;
 		}
 	}
 
@@ -1097,7 +1182,10 @@ public class S3 {
 		catch (ServiceException se) {
 			throw toS3Exception(se);
 		}
-
+		catch (FactoryConfigurationError fce) {
+			XMLUtil.validateDocumentBuilderFactory();
+			throw fce;
+		}
 	}
 
 	private String toContentType(String mimeType, String charset, String defaultValue) {
@@ -1208,6 +1296,7 @@ public class S3 {
 	}
 
 	private S3Exception toS3Exception(ServiceException se, String detail) {
+
 		String msg = se.getErrorMessage();
 		if (Util.isEmpty(msg)) msg = se.getMessage();
 
