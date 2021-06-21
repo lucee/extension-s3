@@ -1202,20 +1202,36 @@ public class S3 {
 	private S3Service getS3Service() {
 
 		if (service == null) {
-			if (host != null && !host.isEmpty() && !host.equalsIgnoreCase(DEFAULT_HOST)) {
-				final Jets3tProperties props = Jets3tProperties.getInstance(Constants.JETS3T_PROPERTIES_FILENAME);
-				props.setProperty("s3service.s3-endpoint", host);
-				service = new RestS3Service(new AWSCredentials(accessKeyId, secretAccessKey), null, null, props);
+			synchronized (secretAccessKey) {
+				if (service == null) {
+					if (host != null && !host.isEmpty() && !host.equalsIgnoreCase(DEFAULT_HOST)) {
+						final Jets3tProperties props = Jets3tProperties.getInstance(Constants.JETS3T_PROPERTIES_FILENAME);
+						props.setProperty("s3service.s3-endpoint", host);
+						service = new RestS3Service(new AWSCredentials(accessKeyId, secretAccessKey), null, null, props);
+					}
+					else {
+						service = new RestS3Service(new AWSCredentials(accessKeyId, secretAccessKey));
+					}
+				}
 			}
-			else {
-				service = new RestS3Service(new AWSCredentials(accessKeyId, secretAccessKey));
-			}
-			/*
-			 * try { service.listAllBuckets(); } catch (S3ServiceException e) { // TODO Auto-generated catch
-			 * block e.printStackTrace(); }
-			 */
 		}
 		return service;
+	}
+
+	private void reset() {
+		synchronized (secretAccessKey) {
+			// we set srvice to null, so getS3Service has to wait
+			RestS3Service tmp = service;
+			service = null;
+
+			try {
+				tmp.shutdown();
+			}
+			catch (ServiceException e) {
+				e.printStackTrace();
+			}
+		}
+
 	}
 
 	public static AccessControlList toACL(String acl, AccessControlList defaultValue) {
@@ -1296,7 +1312,6 @@ public class S3 {
 	}
 
 	private S3Exception toS3Exception(ServiceException se, String detail) {
-
 		String msg = se.getErrorMessage();
 		if (Util.isEmpty(msg)) msg = se.getMessage();
 
