@@ -73,6 +73,7 @@ public class S3 {
 
 	/////////////////////// CACHE ////////////////
 	private ValidUntilMap<S3BucketWrapper> buckets;
+	private Map<String, S3BucketExists> existBuckets;
 	private final Map<String, ValidUntilMap<S3Info>> objects = new ConcurrentHashMap<String, ValidUntilMap<S3Info>>();
 	Map<String, ValidUntilElement<AccessControlList>> accessControlLists = new ConcurrentHashMap<String, ValidUntilElement<AccessControlList>>();
 	private Map<String, S3Info> exists = new ConcurrentHashMap<String, S3Info>();
@@ -455,7 +456,44 @@ public class S3 {
 
 	public boolean exists(String bucketName) throws S3Exception {
 		bucketName = improveBucketName(bucketName);
-		return get(bucketName) != null;
+
+		// this will load it and cache if necessary
+		try {
+			return get(bucketName) != null;
+		}
+		catch (S3Exception s3e) {
+			String msg = s3e.getMessage();
+			if (msg != null) { // i do not like that a lot, but the class of the exception is generic
+				msg = msg.toLowerCase();
+				if (msg.contains("access") && msg.contains("denied")) { // let's try to get the bucket in a different way
+					long now = System.currentTimeMillis();
+					if (existBuckets != null) {
+						S3BucketExists info = existBuckets.get(bucketName);
+						if (info != null) {
+							print.e("has cached info");
+							if (info.validUntil >= now) {
+								print.e("use cached info");
+								return info.exists;
+							}
+							else existBuckets.remove(bucketName);
+						}
+					}
+					else existBuckets = new ConcurrentHashMap<String, S3BucketExists>();
+					S3Service s = getS3Service();
+					try { // delete the content of the bucket
+							// in case bucket does not exist, it will throw an error
+						s.listObjects(bucketName, "sadasdsadasdasasdasd", null, Constants.DEFAULT_OBJECT_LIST_CHUNK_SIZE);
+						existBuckets.put(bucketName, new S3BucketExists(bucketName, now + timeout, true));
+						return true;
+					}
+					catch (ServiceException se) {
+						existBuckets.put(bucketName, new S3BucketExists(bucketName, now + timeout, false));
+						return false;
+					}
+				}
+			}
+			throw s3e;
+		}
 	}
 
 	public boolean exists(String bucketName, String objectName) throws S3Exception {
@@ -766,6 +804,7 @@ public class S3 {
 		buckets = null;
 		_flush(exists, prefix, null);
 		_flush(objects, prefix, null);
+		existBuckets.remove(bucketName);
 	}
 
 	private void flushExists(String bucketName, String objectName) throws S3Exception {
@@ -1445,6 +1484,18 @@ public class S3 {
 				if (index != -1 && index + 1 < sub.length()) return false;
 			}
 			return true;
+		}
+	}
+
+	public static class S3BucketExists {
+		private final String name;
+		private final long validUntil;
+		private final boolean exists;
+
+		public S3BucketExists(String name, long validUntil, boolean exists) {
+			this.name = name;
+			this.validUntil = validUntil;
+			this.exists = exists;
 		}
 	}
 }

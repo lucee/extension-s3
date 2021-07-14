@@ -55,6 +55,7 @@ public class S3BucketWrapper extends S3InfoSupport {
 		return true;
 	}
 
+	@Override
 	public String getLocation() {
 		return bucket.getLocation();
 	}
@@ -86,5 +87,11 @@ public class S3BucketWrapper extends S3InfoSupport {
 	@Override
 	public boolean isVirtual() {
 		return false;
+	}
+
+	@Override
+	public String toString() {
+
+		return bucket + ":" + validUntil;
 	}
 }

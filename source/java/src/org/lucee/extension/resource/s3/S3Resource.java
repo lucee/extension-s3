@@ -22,11 +22,12 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.util.ArrayList;
 import java.util.Iterator;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Set;
+
+import org.jets3t.service.acl.AccessControlList;
+import org.lucee.extension.resource.ResourceSupport;
+import org.lucee.extension.resource.s3.info.S3Info;
 
 import lucee.commons.io.res.Resource;
 import lucee.commons.io.res.ResourceProvider;
@@ -36,12 +37,6 @@ import lucee.loader.util.Util;
 import lucee.runtime.exp.PageException;
 import lucee.runtime.type.Array;
 import lucee.runtime.type.Struct;
-import lucee.runtime.util.Excepton;
-
-import org.jets3t.service.acl.AccessControlList;
-import org.lucee.extension.resource.ResourceSupport;
-import org.lucee.extension.resource.s3.info.S3Info;
-import org.lucee.extension.resource.s3.util.print;
 
 public final class S3Resource extends ResourceSupport {
 
@@ -140,12 +135,7 @@ public final class S3Resource extends ResourceSupport {
 	public InputStream getInputStream() throws IOException {
 		engine.getResourceUtil().checkGetInputStreamOK(this);
 		provider.read(this);
-		try {
-			return engine.getIOUtil().toBufferedInputStream(s3.getInputStream(bucketName, objectName));
-		}
-		catch (Exception e) {
-			throw new IOException(e.getMessage());
-		}
+		return engine.getIOUtil().toBufferedInputStream(s3.getInputStream(bucketName, objectName));
 	}
 
 	@Override
@@ -248,9 +238,6 @@ public final class S3Resource extends ResourceSupport {
 					engine.getIOUtil().copy(is = getInputStream(), baos, false, false);
 					barr = baos.toByteArray();
 				}
-				catch (Exception e) {
-					throw engine.getExceptionUtil().createPageRuntimeException(engine.getCastUtil().toPageException(e));
-				}
 				finally {
 					Util.closeEL(is);
 					Util.closeEL(os);
@@ -262,9 +249,6 @@ public final class S3Resource extends ResourceSupport {
 		}
 		catch (IOException e) {
 			throw e;
-		}
-		catch (Exception e) {
-			throw engine.getExceptionUtil().createPageRuntimeException(engine.getCastUtil().toPageException(e));
 		}
 	}
 
@@ -287,9 +271,9 @@ public final class S3Resource extends ResourceSupport {
 			if (isBucket()) return s3.exists(bucketName);
 			else return s3.isDirectory(bucketName, objectName + "/");
 		}
-		catch (S3Exception s3e) {
+		catch (IOException ioe) {
 			CFMLEngine e = CFMLEngineFactory.getInstance();
-			throw e.getExceptionUtil().createPageRuntimeException(e.getCastUtil().toPageException(s3e));
+			throw e.getCastUtil().toPageRuntimeException(ioe);
 		}
 	}
 
@@ -300,9 +284,9 @@ public final class S3Resource extends ResourceSupport {
 			if (isBucket()) return false;
 			else return s3.isFile(bucketName, objectName);
 		}
-		catch (S3Exception s3e) {
+		catch (IOException ioe) {
 			CFMLEngine e = CFMLEngineFactory.getInstance();
-			throw e.getExceptionUtil().createPageRuntimeException(e.getCastUtil().toPageException(s3e));
+			throw e.getCastUtil().toPageRuntimeException(ioe);
 		}
 	}
 
@@ -313,9 +297,9 @@ public final class S3Resource extends ResourceSupport {
 			if (isBucket()) return s3.exists(bucketName);
 			else return s3.exists(bucketName, objectName);
 		}
-		catch (S3Exception s3e) {
+		catch (IOException ioe) {
 			CFMLEngine e = CFMLEngineFactory.getInstance();
-			throw e.getExceptionUtil().createPageRuntimeException(e.getCastUtil().toPageException(s3e));
+			throw e.getCastUtil().toPageRuntimeException(ioe);
 		}
 	}
 
@@ -352,9 +336,9 @@ public final class S3Resource extends ResourceSupport {
 			else info = s3.get(bucketName, objectName + "/");
 			return info;
 		}
-		catch (S3Exception s3e) {
+		catch (IOException ioe) {
 			CFMLEngine e = CFMLEngineFactory.getInstance();
-			throw e.getExceptionUtil().createPageRuntimeException(e.getCastUtil().toPageException(s3e));
+			throw e.getCastUtil().toPageRuntimeException(ioe);
 		}
 	}
 
@@ -385,9 +369,8 @@ public final class S3Resource extends ResourceSupport {
 				}
 			}
 		}
-		catch (Exception t) {
-			t.printStackTrace();
-			return null;
+		catch (S3Exception e) {
+			throw CFMLEngineFactory.getInstance().getCastUtil().toPageRuntimeException(e);
 		}
 		return children;
 	}
@@ -438,7 +421,7 @@ public final class S3Resource extends ResourceSupport {
 			return s3.getAccessControlList(bucketName, getObjectName());
 		}
 		catch (Exception e) {
-			throw engine.getExceptionUtil().createPageRuntimeException(engine.getCastUtil().toPageException(e));
+			throw engine.getCastUtil().toPageRuntimeException(e);
 		}
 	}
 
@@ -447,7 +430,7 @@ public final class S3Resource extends ResourceSupport {
 			s3.setAccessControlList(bucketName, getObjectName(), objAcl);
 		}
 		catch (Exception e) {
-			throw engine.getExceptionUtil().createPageRuntimeException(engine.getCastUtil().toPageException(e));
+			throw engine.getCastUtil().toPageRuntimeException(e);
 		}
 	}
 
@@ -456,7 +439,7 @@ public final class S3Resource extends ResourceSupport {
 			s3.addAccessControlList(bucketName, getObjectName(), objAcl);
 		}
 		catch (Exception e) {
-			throw engine.getExceptionUtil().createPageRuntimeException(engine.getCastUtil().toPageException(e));
+			throw engine.getCastUtil().toPageRuntimeException(e);
 		}
 	}
 
@@ -465,7 +448,7 @@ public final class S3Resource extends ResourceSupport {
 			return s3.getMetaData(bucketName, getObjectName());
 		}
 		catch (Exception e) {
-			throw engine.getExceptionUtil().createPageRuntimeException(engine.getCastUtil().toPageException(e));
+			throw engine.getCastUtil().toPageRuntimeException(e);
 		}
 	}
 
@@ -474,7 +457,7 @@ public final class S3Resource extends ResourceSupport {
 			s3.setMetaData(bucketName, getObjectName(), metaData);
 		}
 		catch (Exception e) {
-			throw engine.getExceptionUtil().createPageRuntimeException(engine.getCastUtil().toPageException(e));
+			throw engine.getCastUtil().toPageRuntimeException(e);
 		}
 	}
 
@@ -521,6 +504,7 @@ public final class S3Resource extends ResourceSupport {
 		super.copyTo(to, append);
 	}
 
+	@Override
 	public void moveFile(Resource src, Resource trg) throws IOException {
 		if (src instanceof S3Resource && trg instanceof S3Resource) {
 
