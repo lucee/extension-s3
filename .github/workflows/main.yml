@@ -10,7 +10,7 @@ jobs:
 
     runs-on: ubuntu-latest
     env:
-      luceeVersion: 6.0.0.95-SNAPSHOT
+      luceeVersion: 6.0.0.109-SNAPSHOT
 
     steps:
     - uses: actions/checkout@v2   
@@ -47,7 +47,7 @@ jobs:
         repository: lucee/lucee
         path: lucee
     - name: Run Lucee Test Suite, labels="s3"
-      uses: zspitzer/lucee-script-engine-runner@main
+      uses: lucee/script-runner@main
       with:
         webroot: ${{ github.workspace }}/lucee/test
         execute: /bootstrap-tests.cfm
