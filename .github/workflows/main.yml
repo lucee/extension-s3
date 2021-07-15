@@ -55,5 +55,6 @@ jobs:
         extensionDir: ${{ github.workspace }}/dist
       env:
         testLabels: s3
+        testAdditional: ${{ github.workspace }}/tests
         S3_ACCESS_KEY_ID: ${{ secrets.S3_ACCESS_ID_TEST }}
         S3_SECRET_KEY: ${{ secrets.S3_SECRET_KEY_TEST }}
