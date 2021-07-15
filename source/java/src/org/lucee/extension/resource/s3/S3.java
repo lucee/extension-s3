@@ -40,7 +40,6 @@ import org.lucee.extension.resource.s3.info.S3BucketWrapper;
 import org.lucee.extension.resource.s3.info.S3Info;
 import org.lucee.extension.resource.s3.info.StorageObjectWrapper;
 import org.lucee.extension.resource.s3.util.XMLUtil;
-import org.lucee.extension.resource.s3.util.print;
 
 import lucee.loader.engine.CFMLEngineFactory;
 import lucee.loader.util.Util;
@@ -433,14 +432,20 @@ public class S3 {
 
 				StorageObjectWrapper tmp;
 				String name;
-				for (int i = 0; i < kids.length; i++) {
-					name = kids[i].getName();
-					tmp = new StorageObjectWrapper(this, kids[i], bucketName, validUntil);
+				for (S3Object kid: kids) {
+					name = kid.getName();
+					tmp = new StorageObjectWrapper(this, kid, bucketName, validUntil);
 
-					if (!hasObjName || name.equals(nameFile) || name.startsWith(nameDir)) _list.put(kids[i].getKey(), tmp);
+					if (!hasObjName || name.equals(nameFile) || name.startsWith(nameDir)) _list.put(kid.getKey(), tmp);
+					exists.put(toKey(kid.getBucketName(), name), tmp);
 
-					exists.put(toKey(kids[i].getBucketName(), kids[i].getName()), tmp);
+					int index;
+					while ((index = name.lastIndexOf('/')) != -1) {
+						name = name.substring(0, index);
+						exists.put(toKey(bucketName, name), new ParentObject(bucketName, name, null, validUntil));
+					}
 				}
+
 			}
 			return _list;
 		}
@@ -470,9 +475,7 @@ public class S3 {
 					if (existBuckets != null) {
 						S3BucketExists info = existBuckets.get(bucketName);
 						if (info != null) {
-							print.e("has cached info");
 							if (info.validUntil >= now) {
-								print.e("use cached info");
 								return info.exists;
 							}
 							else existBuckets.remove(bucketName);
@@ -534,9 +537,8 @@ public class S3 {
 			StorageObject[] objects = chunk == null ? null : chunk.getObjects();
 
 			if (objects == null || objects.length == 0) {
-				exists.put(toKey(bucketName, objectName), new NotExisting(bucketName, objectName, null, validUntil) // we do not return this, we just store it to cache that it does
-																													// not exis
-				);
+				exists.put(toKey(bucketName, objectName), new NotExisting(bucketName, objectName, null, validUntil)); // we do not return this, we just store it to cache that it
+																														// does
 				return null;
 			}
 
@@ -1328,7 +1330,6 @@ public class S3 {
 		List<ObjectKeyAndVersion> trg = new ArrayList<>();
 		long now = System.currentTimeMillis();
 		for (int i = 0; i < src.length; i++) {
-			print.e(src[i].getName() + ":" + new Date(now) + ":" + src[i].getLastModifiedDate() + ":" + ((now > (src[i].getLastModifiedDate().getTime() + maxAge))));
 			if (now > (src[i].getLastModifiedDate().getTime() + maxAge)) trg.add(new ObjectKeyAndVersion(src[i].getKey(), src[i].getVersionId()));
 		}
 		return trg.toArray(new ObjectKeyAndVersion[trg.size()]);
