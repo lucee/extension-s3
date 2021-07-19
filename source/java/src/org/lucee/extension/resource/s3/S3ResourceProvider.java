@@ -225,10 +225,10 @@ public final class S3ResourceProvider implements ResourceProvider {
 		}
 		else {
 			String _host = path.substring(0, index);
-			if (_host.equalsIgnoreCase(S3.DEFAULT_HOST) || _host.equalsIgnoreCase(host)) {
+			//if (_host.equalsIgnoreCase(S3.DEFAULT_HOST) || _host.equalsIgnoreCase(host)) {
 				properties.setHost(_host);
 				path = path.substring(index);
-			}
+			//}
 		}
 
 		// get from system.properties/env.var
