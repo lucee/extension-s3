@@ -56,6 +56,7 @@ public class S3 {
 	static {
 		XMLUtil.validateDocumentBuilderFactory();
 	}
+	private static final ConcurrentHashMap<String, Object> tokens = new ConcurrentHashMap<String, Object>();
 
 	public static final String DEFAULT_HOST = "s3.amazonaws.com";
 
@@ -66,6 +67,7 @@ public class S3 {
 	private final String secretAccessKey;
 	private final String accessKeyId;
 	private final boolean customCredentials;
+	private final String mappingName;
 	private final long timeout;
 
 	private RestS3Service service;
@@ -85,6 +87,7 @@ public class S3 {
 		this.accessKeyId = props.getAccessKeyId();
 		this.timeout = timeout;
 		this.customCredentials = props.getCustomCredentials();
+		this.mappingName = props.getMappingName();
 		// new Throwable().printStackTrace();
 	}
 
@@ -1243,7 +1246,7 @@ public class S3 {
 	private S3Service getS3Service() {
 
 		if (service == null) {
-			synchronized (secretAccessKey) {
+			synchronized (getToken(accessKeyId + ":" + secretAccessKey)) {
 				if (service == null) {
 					if (host != null && !host.isEmpty() && !host.equalsIgnoreCase(DEFAULT_HOST)) {
 						final Jets3tProperties props = Jets3tProperties.getInstance(Constants.JETS3T_PROPERTIES_FILENAME);
@@ -1260,7 +1263,7 @@ public class S3 {
 	}
 
 	private void reset() {
-		synchronized (secretAccessKey) {
+		synchronized (getToken(accessKeyId + ":" + secretAccessKey)) {
 			// we set srvice to null, so getS3Service has to wait
 			RestS3Service tmp = service;
 			service = null;
@@ -1269,7 +1272,7 @@ public class S3 {
 				tmp.shutdown();
 			}
 			catch (ServiceException e) {
-				e.printStackTrace();
+				e.printStackTrace(); // TODO log it
 			}
 		}
 
@@ -1415,8 +1418,21 @@ public class S3 {
 		return out.toByteArray();
 	}
 
+	public static Object getToken(String key) {
+		Object newLock = new Object();
+		Object lock = tokens.putIfAbsent(key, newLock);
+		if (lock == null) {
+			lock = newLock;
+		}
+		return lock;
+	}
+
 	public boolean getCustomCredentials() {
 		return customCredentials;
+	}
+
+	public String getMappingName() {
+		return mappingName;
 	}
 
 	class ValidUntilMap<I> extends ConcurrentHashMap<String, I> {

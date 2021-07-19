@@ -178,6 +178,10 @@ public final class S3Resource extends ResourceSupport {
 			}
 			sb.append("@");
 		}
+		else if (!Util.isEmpty(s3.getMappingName(), true)) {
+			sb.append(s3.getMappingName()).append("@");
+		}
+
 		if (doHost) sb.append(s3.getHost());
 
 		return sb.toString();
