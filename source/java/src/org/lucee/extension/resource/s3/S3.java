@@ -61,7 +61,7 @@ public class S3 {
 
 	private static final long MAX_PART_SIZE = 1024 * 1024 * 1024;
 	private static final long MAX_PART_SIZE_FOR_CHARACTERS = 900 * 1024 * 1024;
-
+	private static final ConcurrentHashMap<String, Object> tokens = new ConcurrentHashMap<String, Object>();
 	private final String host;
 	private final String secretAccessKey;
 	private final String accessKeyId;
@@ -1243,7 +1243,7 @@ public class S3 {
 	private S3Service getS3Service() {
 
 		if (service == null) {
-			synchronized (secretAccessKey) {
+			synchronized (getToken(accessKeyId + ":" + secretAccessKey)) {
 				if (service == null) {
 					if (host != null && !host.isEmpty() && !host.equalsIgnoreCase(DEFAULT_HOST)) {
 						final Jets3tProperties props = Jets3tProperties.getInstance(Constants.JETS3T_PROPERTIES_FILENAME);
@@ -1260,7 +1260,7 @@ public class S3 {
 	}
 
 	private void reset() {
-		synchronized (secretAccessKey) {
+		synchronized (getToken(accessKeyId + ":" + secretAccessKey)) {
 			// we set srvice to null, so getS3Service has to wait
 			RestS3Service tmp = service;
 			service = null;
@@ -1417,6 +1417,15 @@ public class S3 {
 
 	public boolean getCustomCredentials() {
 		return customCredentials;
+	}
+
+	public static Object getToken(String key) {
+		Object newLock = new Object();
+		Object lock = tokens.putIfAbsent(key, newLock);
+		if (lock == null) {
+			lock = newLock;
+		}
+		return lock;
 	}
 
 	class ValidUntilMap<I> extends ConcurrentHashMap<String, I> {
