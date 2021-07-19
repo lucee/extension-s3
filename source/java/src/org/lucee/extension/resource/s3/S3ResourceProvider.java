@@ -245,9 +245,9 @@ public final class S3ResourceProvider implements ResourceProvider {
 
 				if (Util.isEmpty(secretAccessKey, true) && Util.isEmpty(accessKeyId, true)) {
 					CFMLEngine eng = CFMLEngineFactory.getInstance();
-					throw eng.getExceptionUtil().createPageRuntimeException(eng.getCastUtil()
-							.toPageException(new S3Exception("there are no default credentials available for this this S3 path [s3://" + rawPath + "]. "
-									+ "Default credentials can be defined in the Application.cfc (like this.vfs.s3.accessKeyId = \"...\"; this.vfs.s3.awsSecretKey = \"...\";), "
+					throw eng.getExceptionUtil().createPageRuntimeException(eng.getCastUtil().toPageException(eng.getExceptionUtil().createApplicationException(
+							"there are no default credentials available for this this S3 path [s3://" + rawPath + "].",
+							"Default credentials can be defined in the Application.cfc (like this.vfs.s3.accessKeyId = \"...\"; this.vfs.s3.awsSecretKey = \"...\";), "
 									+ "in the enviroment variables (like LUCEE_VFS_S3_ACCESSKEYID=...;LUCEE_VFS_S3_SECRETKEY=...;), "
 									+ "in the system properties variables (like lucee.vfs.s3.accesskeyid=...;lucee.vfs.s3.accesskeyid=...;). The S3 Extension now also supports to define multiple endpoints you can use all at the same time.")));
 				}
@@ -263,10 +263,10 @@ public final class S3ResourceProvider implements ResourceProvider {
 
 				if (Util.isEmpty(secretAccessKey, true) && Util.isEmpty(accessKeyId, true)) {
 					CFMLEngine eng = CFMLEngineFactory.getInstance();
-					throw eng.getExceptionUtil().createPageRuntimeException(eng.getCastUtil()
-							.toPageException(new S3Exception("there are no credentials available for this this S3 path [s3://" + rawPath + "] for the name [" + mappingName + "]. "
-									+ "Credentials can be defined in the Application.cfc (like this.vfs.s3[\"" + mappingName + "\"].accessKeyId = \"...\"; this.vfs.s3[\""
-									+ mappingName + " \"].awsSecretKey = \"...\";), " + "in the enviroment variables (like LUCEE_VFS_S3_" + mappingName.toUpperCase()
+					throw eng.getExceptionUtil().createPageRuntimeException(eng.getCastUtil().toPageException(eng.getExceptionUtil().createApplicationException(
+							"there are no credentials available for this this S3 path [s3://" + rawPath + "] for the name [" + mappingName + "].",
+							"Credentials can be defined in the Application.cfc (like this.vfs.s3[\"" + mappingName + "\"].accessKeyId = \"...\"; this.vfs.s3[\"" + mappingName
+									+ " \"].awsSecretKey = \"...\";), " + "in the enviroment variables (like LUCEE_VFS_S3_" + mappingName.toUpperCase()
 									+ "_ACCESSKEYID=...;LUCEE_VFS_S3_" + mappingName.toUpperCase() + "_SECRETKEY=...;), " + "in the system properties variables (like lucee.vfs.s3."
 									+ mappingName.toLowerCase() + ".accesskeyid=...;lucee.vfs.s3." + mappingName.toLowerCase() + ".secretkey=...;)")));
 				}
