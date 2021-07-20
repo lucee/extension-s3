@@ -173,7 +173,7 @@ public class S3 {
 			flushExists(bucketName, objectName);
 		}
 		catch (ServiceException se) {
-			if (get(bucketName) != null) throw toS3Exception(se);
+			if (exists(bucketName, true)) throw toS3Exception(se);
 
 			S3Bucket bucket = createDirectory(bucketName, acl, location);
 			try {
@@ -206,7 +206,7 @@ public class S3 {
 			flushExists(bucketName, objectName);
 		}
 		catch (ServiceException se) {
-			if (get(bucketName) != null) throw toS3Exception(se);
+			if (exists(bucketName, true)) throw toS3Exception(se);
 
 			S3Bucket bucket = createDirectory(bucketName, acl, location);
 			try {
@@ -457,6 +457,15 @@ public class S3 {
 	private String toKey(String bucketName, String objectName) {
 		if (objectName == null) objectName = "";
 		return improveBucketName(bucketName) + ":" + improveObjectName(objectName, false);
+	}
+
+	private boolean exists(String bucketName, boolean defaultValue) throws S3Exception {
+		try {
+			return exists(bucketName);
+		}
+		catch (Exception e) {
+			return defaultValue;
+		}
 	}
 
 	public boolean exists(String bucketName) throws S3Exception {
