@@ -1250,7 +1250,22 @@ public class S3 {
 				if (service == null) {
 					if (host != null && !host.isEmpty() && !host.equalsIgnoreCase(DEFAULT_HOST)) {
 						final Jets3tProperties props = Jets3tProperties.getInstance(Constants.JETS3T_PROPERTIES_FILENAME);
-						props.setProperty("s3service.s3-endpoint", host);
+						int index = host.indexOf(':');
+						if (index == -1) props.setProperty("s3service.s3-endpoint", host); // no port, no protocol
+						else {
+							int index2 = host.toLowerCase().indexOf("http", 0); // http(s)://localhost:9000 prefix?
+							if (index2 == -1){ // no http prefix
+								props.setProperty("s3service.s3-endpoint", host.substring(0, index));
+								props.setProperty("s3service.s3-endpoint-http-port", host.substring(index + 1));
+							} else { // with http(s) prefix
+								String protocol = host.substring(0,host.indexOf(":"));
+								props.setProperty("s3service.https-only", protocol.equalsIgnoreCase("http") ? "false" : "true" );
+								String _host = host.substring(host.lastIndexOf("/") + 1);
+								index = _host.indexOf(':');
+								props.setProperty("s3service.s3-endpoint", _host.substring(0, index));
+								props.setProperty("s3service.s3-endpoint-http-port", _host.substring(index + 1));
+							}
+						}
 						service = new RestS3Service(new AWSCredentials(accessKeyId, secretAccessKey), null, null, props);
 					}
 					else {
