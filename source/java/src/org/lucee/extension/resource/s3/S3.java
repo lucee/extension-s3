@@ -34,8 +34,10 @@ import org.jets3t.service.model.StorageOwner;
 import org.jets3t.service.model.container.ObjectKeyAndVersion;
 import org.jets3t.service.security.AWSCredentials;
 import org.jets3t.service.utils.MultipartUtils;
+import org.lucee.extension.resource.s3.info.AccessDeniedBukcet;
 import org.lucee.extension.resource.s3.info.NotExisting;
 import org.lucee.extension.resource.s3.info.ParentObject;
+import org.lucee.extension.resource.s3.info.S3BucketInfo;
 import org.lucee.extension.resource.s3.info.S3BucketWrapper;
 import org.lucee.extension.resource.s3.info.S3Info;
 import org.lucee.extension.resource.s3.info.StorageObjectWrapper;
@@ -176,7 +178,7 @@ public class S3 {
 			flushExists(bucketName, objectName);
 		}
 		catch (ServiceException se) {
-			if (get(bucketName) != null) throw toS3Exception(se);
+			if (exists(bucketName, true)) throw toS3Exception(se);
 
 			S3Bucket bucket = createDirectory(bucketName, acl, location);
 			try {
@@ -209,7 +211,7 @@ public class S3 {
 			flushExists(bucketName, objectName);
 		}
 		catch (ServiceException se) {
-			if (get(bucketName) != null) throw toS3Exception(se);
+			if (exists(bucketName, true)) throw toS3Exception(se);
 
 			S3Bucket bucket = createDirectory(bucketName, acl, location);
 			try {
@@ -462,6 +464,15 @@ public class S3 {
 		return improveBucketName(bucketName) + ":" + improveObjectName(objectName, false);
 	}
 
+	public boolean exists(String bucketName, boolean defaultValue) throws S3Exception {
+		try {
+			return exists(bucketName);
+		}
+		catch (Exception e) {
+			return defaultValue;
+		}
+	}
+
 	public boolean exists(String bucketName) throws S3Exception {
 		bucketName = improveBucketName(bucketName);
 
@@ -470,35 +481,45 @@ public class S3 {
 			return get(bucketName) != null;
 		}
 		catch (S3Exception s3e) {
-			String msg = s3e.getMessage();
-			if (msg != null) { // i do not like that a lot, but the class of the exception is generic
-				msg = msg.toLowerCase();
-				if (msg.contains("access") && msg.contains("denied")) { // let's try to get the bucket in a different way
-					long now = System.currentTimeMillis();
-					if (existBuckets != null) {
-						S3BucketExists info = existBuckets.get(bucketName);
-						if (info != null) {
-							if (info.validUntil >= now) {
-								return info.exists;
-							}
-							else existBuckets.remove(bucketName);
-						}
-					}
-					else existBuckets = new ConcurrentHashMap<String, S3BucketExists>();
-					S3Service s = getS3Service();
-					try { // delete the content of the bucket
-							// in case bucket does not exist, it will throw an error
-						s.listObjects(bucketName, "sadasdsadasdasasdasd", null, Constants.DEFAULT_OBJECT_LIST_CHUNK_SIZE);
-						existBuckets.put(bucketName, new S3BucketExists(bucketName, now + timeout, true));
-						return true;
-					}
-					catch (ServiceException se) {
-						existBuckets.put(bucketName, new S3BucketExists(bucketName, now + timeout, false));
-						return false;
-					}
-				}
-			}
+			if (isAccessDenied(s3e)) return existsNotTouchBucketItself(bucketName);
 			throw s3e;
+		}
+	}
+
+	private boolean isAccessDenied(S3Exception s3e) {
+		String msg = s3e.getMessage();
+		if (msg != null) { // i do not like that a lot, but the class of the exception is generic
+			msg = msg.toLowerCase();
+			if (msg.contains("access") && msg.contains("denied")) { // let's try to get the bucket in a different way
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private boolean existsNotTouchBucketItself(String bucketName) throws S3Exception {
+
+		long now = System.currentTimeMillis();
+		if (existBuckets != null) {
+			S3BucketExists info = existBuckets.get(bucketName);
+			if (info != null) {
+				if (info.validUntil >= now) {
+					return info.exists;
+				}
+				else existBuckets.remove(bucketName);
+			}
+		}
+		else existBuckets = new ConcurrentHashMap<String, S3BucketExists>();
+		S3Service s = getS3Service();
+		try { // delete the content of the bucket
+				// in case bucket does not exist, it will throw an error
+			s.listObjects(bucketName, "sadasdsadasdasasdasd", null, Constants.DEFAULT_OBJECT_LIST_CHUNK_SIZE);
+			existBuckets.put(bucketName, new S3BucketExists(bucketName, now + timeout, true));
+			return true;
+		}
+		catch (ServiceException se) {
+			existBuckets.put(bucketName, new S3BucketExists(bucketName, now + timeout, false));
+			return false;
 		}
 	}
 
@@ -600,7 +621,7 @@ public class S3 {
 		return null;
 	}
 
-	public S3BucketWrapper get(String bucketName) throws S3Exception {
+	public S3BucketInfo get(String bucketName) throws S3Exception {
 		bucketName = improveBucketName(bucketName);
 
 		// buckets cache
@@ -611,7 +632,15 @@ public class S3 {
 		}
 
 		// this will load it and cache if necessary
-		List<S3Info> list = list(false, false);
+		List<S3Info> list;
+		try {
+			list = list(false, false);
+		}
+		catch (S3Exception s3e) {
+			if (isAccessDenied(s3e) && existsNotTouchBucketItself(bucketName)) return new AccessDeniedBukcet(bucketName, timeout + System.currentTimeMillis(), s3e);
+			throw s3e;
+		}
+
 		Iterator<S3Info> it = list.iterator();
 		while (it.hasNext()) {
 			info = (S3BucketWrapper) it.next();
@@ -780,7 +809,7 @@ public class S3 {
 		catch (ServiceException se) {
 			if (get(trgBucketName) != null) throw toS3Exception(se);
 
-			S3BucketWrapper so = get(srcBucketName);
+			S3Info so = get(srcBucketName);
 			String loc = so.getLocation();
 
 			createDirectory(trgBucketName, null, loc);
@@ -856,7 +885,7 @@ public class S3 {
 		catch (ServiceException se) {
 			if (get(trgBucketName) != null) throw toS3Exception(se);
 
-			S3BucketWrapper so = get(srcBucketName);
+			S3Info so = get(srcBucketName);
 			String loc = so.getLocation();
 
 			createDirectory(trgBucketName, null, loc);
@@ -1048,7 +1077,7 @@ public class S3 {
 		objectName = improveObjectName(objectName);
 
 		if (Util.isEmpty(objectName)) {
-			S3BucketWrapper bw = get(bucketName);
+			S3BucketInfo bw = get(bucketName);
 			if (bw == null) throw new S3Exception("there is no bucket [" + bucketName + "]");
 			S3Bucket b = bw.getBucket();
 			b.addAllMetadata(data); // INFO seems not to be possible at all
