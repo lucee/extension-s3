@@ -1293,6 +1293,7 @@ public class S3 {
 								index = _host.indexOf(':');
 								props.setProperty("s3service.s3-endpoint", _host.substring(0, index));
 								props.setProperty("s3service.s3-endpoint-http-port", _host.substring(index + 1));
+								props.setProperty("s3service.disable-dns-buckets", "true");
 							}
 						}
 						service = new RestS3Service(new AWSCredentials(accessKeyId, secretAccessKey), null, null, props);

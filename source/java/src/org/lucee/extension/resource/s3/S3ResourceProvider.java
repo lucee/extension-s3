@@ -166,9 +166,9 @@ public final class S3ResourceProvider implements ResourceProvider {
 		storage.setValue(defaultLocation);
 
 		int atIndex = path.indexOf('@');
-		int slashIndex = path.indexOf('/');
+		int slashIndex = path.indexOf('/', atIndex); // secret keys can contain /
 		if (slashIndex == -1) {
-			slashIndex = path.length();
+			//slashIndex = path.length(); // never used!
 			path += "/";
 		}
 		int index;
@@ -214,32 +214,30 @@ public final class S3ResourceProvider implements ResourceProvider {
 				//
 			}
 		}
-		path = prettifyPath(path.substring(atIndex + 1));
-		index = path.indexOf('/');
-		properties.setHost(host);
-		if (index == -1) {
-			if (path.equalsIgnoreCase(S3.DEFAULT_HOST) || path.equalsIgnoreCase(host)) {
-				properties.setHost(path);
-				path = "/";
-			}
-		}
-		else {
-			//if (_host.equalsIgnoreCase(S3.DEFAULT_HOST) || _host.equalsIgnoreCase(host)) {
-			int index2 = path.indexOf('/', index+1);
-			if (index2 == -1) {
-				//String _host = path.substring(0, index);
-				//properties.setHost(_host);
-				//path = path.substring(index);
+		String srcPath = path;
+		if ( (slashIndex - atIndex) == 1 ){ 
+			// key/secret@/bucket 
+			path = prettifyPath(path.substring(atIndex + 1));
+		} else {
+			int doubleIndex = path.indexOf("://", atIndex); // do we have a http(s)://
+			if (doubleIndex > 0) {
+				// key/secret@http://localhost:9000/bucket 
+				index = path.indexOf('/', doubleIndex+3 );
+				host = path.substring(atIndex+1, index);
+				path = prettifyPath(path.substring(index));
 			} else {
-				// two slashes in the host string means there's a http prefix on the host (single / due to prettifyPath)
-				host = path.substring(0, index2); // i.e. http:/localhost:9000
-				properties.setHost(host);
-				path = path.substring(index2);
+				path = prettifyPath(path.substring(atIndex + 1));
+				index = path.indexOf('/');
+				if (index == -1) {
+					path = "/";
+				} else if ( (slashIndex - atIndex) != 1 ) { 
+					// key/secret@storage.googleapis.com/bucket 
+					host = path.substring(0, index); 
+					path = path.substring(index);
+				}
 			}
-			
-			//}
 		}
-
+		properties.setHost(host);	
 		// get from system.properties/env.var
 		if (Util.isEmpty(accessKeyId, true)) {
 			if (Util.isEmpty(mappingName)) {
