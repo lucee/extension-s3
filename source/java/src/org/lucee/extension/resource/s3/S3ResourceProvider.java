@@ -148,7 +148,7 @@ public final class S3ResourceProvider implements ResourceProvider {
 
 			if (propColl != null && propColl.getDefault() != null) {
 				S3Properties s3prop = propColl.getDefault();
-				prefix += "has default:" + s3prop.getAccessKeyId() + ";";
+				prefix += "has default:" + s3prop + ";";
 				accessKeyId = s3prop.getAccessKeyId();
 				secretAccessKey = s3prop.getSecretAccessKey();
 				host = s3prop.getHost();
