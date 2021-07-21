@@ -5,14 +5,16 @@ import java.util.Map;
 import org.jets3t.service.model.S3Bucket;
 import org.jets3t.service.model.StorageOwner;
 
-public class S3BucketWrapper extends S3InfoSupport implements S3BucketInfo {
+public class AccessDeniedBukcet extends S3InfoSupport implements S3BucketInfo {
 
-	private S3Bucket bucket;
+	private String bucketName;
 	private long validUntil;
+	private Exception exp;
 
-	public S3BucketWrapper(S3Bucket bucket, long validUntil) {
-		this.bucket = bucket;
+	public AccessDeniedBukcet(String bucketName, long validUntil, Exception exp) {
+		this.bucketName = bucketName;
 		this.validUntil = validUntil;
+		this.exp = exp;
 	}
 
 	@Override
@@ -22,7 +24,7 @@ public class S3BucketWrapper extends S3InfoSupport implements S3BucketInfo {
 
 	@Override
 	public long getLastModified() {
-		return bucket.getCreationDate().getTime();
+		throw new RuntimeException(exp);
 	}
 
 	@Override
@@ -47,7 +49,7 @@ public class S3BucketWrapper extends S3InfoSupport implements S3BucketInfo {
 
 	@Override
 	public String getBucketName() {
-		return bucket.getName();
+		return bucketName;
 	}
 
 	@Override
@@ -57,7 +59,7 @@ public class S3BucketWrapper extends S3InfoSupport implements S3BucketInfo {
 
 	@Override
 	public String getLocation() {
-		return bucket.getLocation();
+		return null;
 	}
 
 	@Override
@@ -65,8 +67,9 @@ public class S3BucketWrapper extends S3InfoSupport implements S3BucketInfo {
 		return validUntil;
 	}
 
+	@Override
 	public S3Bucket getBucket() {
-		return bucket;
+		throw new RuntimeException(exp);
 	}
 
 	@Override
@@ -76,12 +79,12 @@ public class S3BucketWrapper extends S3InfoSupport implements S3BucketInfo {
 
 	@Override
 	public StorageOwner getOwner() {
-		return bucket.getOwner();
+		throw new RuntimeException(exp);
 	}
 
 	@Override
 	public Map<String, Object> getMetaData() {
-		return bucket.getMetadataMap();
+		throw new RuntimeException(exp);
 	}
 
 	@Override
@@ -91,7 +94,7 @@ public class S3BucketWrapper extends S3InfoSupport implements S3BucketInfo {
 
 	@Override
 	public String toString() {
-
-		return bucket + ":" + validUntil;
+		return bucketName + ":" + validUntil;
 	}
+
 }
