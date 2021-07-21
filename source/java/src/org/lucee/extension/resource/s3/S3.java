@@ -1337,6 +1337,15 @@ public class S3 {
 		return defaultValue;
 	}
 
+	public static String toACL(AccessControlList acl, String defaultValue) {
+		if (acl == null) return defaultValue;
+		if (AccessControlList.REST_CANNED_PUBLIC_READ_WRITE.equals(acl)) return "public-read-write";
+		if (AccessControlList.REST_CANNED_PUBLIC_READ.equals(acl)) return "public-read";
+		if (AccessControlList.REST_CANNED_PRIVATE.equals(acl)) return "private";
+		if (AccessControlList.REST_CANNED_AUTHENTICATED_READ.equals(acl)) return "authenticated-read";
+		return defaultValue;
+	}
+
 	public static AccessControlList toACL(Properties prop, AccessControlList defaultValue) {
 		try {
 			Method m = prop.getClass().getMethod("getACL", new Class[0]);

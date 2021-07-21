@@ -8,6 +8,7 @@ import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.jets3t.service.acl.AccessControlList;
 import org.lucee.extension.resource.s3.S3;
 import org.lucee.extension.resource.s3.S3Properties;
 
@@ -21,6 +22,7 @@ import lucee.runtime.exp.PageException;
 import lucee.runtime.ext.function.BIF;
 import lucee.runtime.type.Collection.Key;
 import lucee.runtime.type.Struct;
+import lucee.runtime.type.dt.TimeSpan;
 import lucee.runtime.util.Creation;
 
 public class ApplicationSettings {
@@ -96,8 +98,9 @@ public class ApplicationSettings {
 				}
 
 				if (data != null && !data.isEmpty()) {
-					if (hasS3Props(data)) {
-						S3Properties s3prop = toS3Properties(eng, data);
+					S3Properties s3prop = toS3Properties(eng, data, null);
+
+					if (s3prop != null) {
 						coll = new S3PropertiesCollection();
 						coll.setDefault(s3prop);
 						propsColl.put(key, coll);
@@ -119,12 +122,13 @@ public class ApplicationSettings {
 						if (!(e.getValue() instanceof Struct)) continue;
 
 						sub = (Struct) e.getValue();
-						if (hasS3Props(sub)) {
+						S3Properties s3prop = toS3Properties(eng, sub, null);
+						if (s3prop != null) {
 							if (coll == null) {
 								coll = new S3PropertiesCollection();
 								propsColl.put(key, coll);
 							}
-							coll.setMapping(e.getKey(), toS3Properties(eng, sub));
+							coll.setMapping(e.getKey(), s3prop);
 						}
 					}
 				}
@@ -133,37 +137,54 @@ public class ApplicationSettings {
 		return coll;
 	}
 
-	private static boolean hasS3Props(Struct sct) {
-		return sct.get(AWS_ACCESS_KEY_ID, null) != null || sct.get(ACCESS_KEY_ID, null) != null || sct.get(SECRET_KEY, null) != null || sct.get(AWS_SECRET_KEY, null) != null;
-	}
-
-	private static S3Properties toS3Properties(CFMLEngine eng, Struct sct) throws PageException {
-		S3Properties props = new S3Properties();
+	private static S3Properties toS3Properties(CFMLEngine eng, Struct sct, S3Properties defaultValue) throws PageException {
+		S3Properties props = null;
 
 		// accesskey_id
 		String str = eng.getCastUtil().toString(sct.get(AWS_ACCESS_KEY_ID, null), null);
 		if (eng.getStringUtil().isEmpty(str)) str = eng.getCastUtil().toString(sct.get(ACCESS_KEY_ID, null), null);
-		if (Util.isEmpty(str)) throw eng.getExceptionUtil().createApplicationException("key [" + ACCESS_KEY_ID + "] is required but is not part of the S3 struct.");
-		props.setAccessKeyId(str);
+		if (!Util.isEmpty(str)) {
+			if (props == null) props = new S3Properties();
+			props.setAccessKeyId(str);
+		}
 
 		// secret key
 		str = eng.getCastUtil().toString(sct.get(AWS_SECRET_KEY, null), null);
 		if (eng.getStringUtil().isEmpty(str)) str = eng.getCastUtil().toString(sct.get(SECRET_KEY, null), null);
-		if (Util.isEmpty(str)) throw eng.getExceptionUtil().createApplicationException("key [" + SECRET_KEY + "] is required but is not part of the S3 struct.");
-		props.setSecretAccessKey(str);
+		if (!Util.isEmpty(str)) {
+			if (props == null) props = new S3Properties();
+			props.setSecretAccessKey(str);
+		}
 
 		// host
 		str = eng.getCastUtil().toString(sct.get(HOST, null), null);
 		if (eng.getStringUtil().isEmpty(str)) str = eng.getCastUtil().toString(sct.get(SERVER, null), null);
-		if (!Util.isEmpty(str)) props.setHost(str);
+		if (!Util.isEmpty(str)) {
+			if (props == null) props = new S3Properties();
+			props.setHost(str);
+		}
 
+		// location
 		str = eng.getCastUtil().toString(sct.get(DEFAULT_LOCATION, null), null);
-		if (!Util.isEmpty(str)) props.setLocation(str);
+		if (!Util.isEmpty(str)) {
+			if (props == null) props = new S3Properties();
+			props.setLocation(str);
+		}
 
 		// ACL
-		props.setACL(S3.toACL(eng.getCastUtil().toString(sct.get(ACL, null), null), null));
+		AccessControlList acl = S3.toACL(eng.getCastUtil().toString(sct.get(ACL, null), null), null);
+		if (acl != null) {
+			if (props == null) props = new S3Properties();
+			props.setACL(acl);
+		}
+
 		// Cache
-		props.setCache(eng.getCastUtil().toTimespan(sct.get(CACHE, null), null));
+		TimeSpan cache = eng.getCastUtil().toTimespan(sct.get(CACHE, null), null);
+		if (cache != null) {
+			if (props == null) props = new S3Properties();
+			props.setCache(cache);
+		}
+
 		return props;
 	}
 
