@@ -133,6 +133,7 @@ public final class S3ResourceProvider implements ResourceProvider {
 		String defaultLocation;
 		AccessControlList defaultACL;
 		S3PropertiesCollection propColl = null;
+
 		{
 
 			if (pc != null) {

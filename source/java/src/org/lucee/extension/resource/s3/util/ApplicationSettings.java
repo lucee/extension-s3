@@ -144,6 +144,7 @@ public class ApplicationSettings {
 			}
 		}
 		return coll;
+
 	}
 
 	private static S3Properties getDefault(S3PropertiesCollection coll) {
@@ -177,7 +178,7 @@ public class ApplicationSettings {
 		// host
 		str = eng.getCastUtil().toString(sct.get(HOST, null), null);
 		if (eng.getStringUtil().isEmpty(str)) str = eng.getCastUtil().toString(sct.get(SERVER, null), null);
-		if (!Util.isEmpty(str)) {
+		if (!Util.isEmpty(str) && !str.equalsIgnoreCase(S3.DEFAULT_HOST)) {
 			if (props == null) props = new S3Properties();
 			props.setHost(str);
 		}
