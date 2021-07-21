@@ -224,7 +224,7 @@ public class TestCase {
 
 			// we accept this because S3 accept this, so if ACF does not, that is a bug/limitation in ACF.
 			String sub = "a";
-			if (!s3.isFile(bucketName, sub)) ;
+			if (!s3.isFile(bucketName, sub));
 			s3.write(bucketName, sub, "", null, null, null, null);
 			assertTrue(s3.exists(bucketName, sub));
 			assertTrue(s3.isDirectory(bucketName, sub));
