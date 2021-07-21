@@ -3,7 +3,9 @@
 
 name: Java CI
 
-on: [push, pull_request,workflow_dispatch]
+on: [push, pull_request, workflow_dispatch]
+
+concurrency: s3_extension
  
 jobs:
   build:
