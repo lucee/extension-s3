@@ -133,6 +133,8 @@ public final class S3ResourceProvider implements ResourceProvider {
 		String defaultLocation;
 		AccessControlList defaultACL;
 		S3PropertiesCollection propColl = null;
+		String prefix = "";
+
 		{
 
 			if (pc != null) {
@@ -146,6 +148,7 @@ public final class S3ResourceProvider implements ResourceProvider {
 
 			if (propColl != null && propColl.getDefault() != null) {
 				S3Properties s3prop = propColl.getDefault();
+				prefix += "has default:" + s3prop.getAccessKeyId() + ";";
 				accessKeyId = s3prop.getAccessKeyId();
 				secretAccessKey = s3prop.getSecretAccessKey();
 				host = s3prop.getHost();
@@ -155,6 +158,7 @@ public final class S3ResourceProvider implements ResourceProvider {
 				properties.setCache(s3prop.getCache());
 			}
 			else {
+				prefix += "has NO default;";
 				accessKeyId = null;
 				secretAccessKey = null;
 				host = S3.DEFAULT_HOST;
@@ -162,6 +166,7 @@ public final class S3ResourceProvider implements ResourceProvider {
 				defaultACL = AccessControlList.REST_CANNED_PUBLIC_READ;
 			}
 		}
+		prefix += "accessKeyId1:" + accessKeyId + ";";
 		properties.setACL(defaultACL);
 		storage.setValue(defaultLocation);
 
@@ -214,6 +219,7 @@ public final class S3ResourceProvider implements ResourceProvider {
 				//
 			}
 		}
+		prefix += "accessKeyId2:" + accessKeyId + ";";
 		path = prettifyPath(path.substring(atIndex + 1));
 		index = path.indexOf('/');
 		properties.setHost(host);
@@ -246,7 +252,7 @@ public final class S3ResourceProvider implements ResourceProvider {
 				if (Util.isEmpty(secretAccessKey, true) && Util.isEmpty(accessKeyId, true)) {
 					CFMLEngine eng = CFMLEngineFactory.getInstance();
 					throw eng.getExceptionUtil().createPageRuntimeException(eng.getCastUtil().toPageException(eng.getExceptionUtil().createApplicationException(
-							"there are no default credentials available for this this S3 path [s3://" + rawPath + "].",
+							prefix + "there are no default credentials available for this this S3 path [s3://" + rawPath + "].",
 							"Default credentials can be defined in the Application.cfc (like this.vfs.s3.accessKeyId = \"...\"; this.vfs.s3.awsSecretKey = \"...\";), "
 									+ "in the enviroment variables (like LUCEE_VFS_S3_ACCESSKEYID=...;LUCEE_VFS_S3_SECRETKEY=...;), "
 									+ "in the system properties variables (like lucee.vfs.s3.accesskeyid=...;lucee.vfs.s3.accesskeyid=...;). The S3 Extension now also supports to define multiple endpoints you can use all at the same time.")));
