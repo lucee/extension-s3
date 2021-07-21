@@ -67,3 +67,4 @@ jobs:
         S3_CUSTOM_HOST: "localhost:9000"
         S3_GOOGLE_ACCESS_KEY_ID: ${{ secrets.S3_GOOGLE_SECRET_KEY }}
         S3_GOOGLE_SECRET_KEY: ${{ secrets.S3_GOOGLE_ACCESS_KEY_ID }}
+        S3_GOOGLE_HOST: "storage.googleapis.com"
