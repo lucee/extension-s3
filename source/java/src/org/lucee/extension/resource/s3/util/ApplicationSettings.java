@@ -89,6 +89,7 @@ public class ApplicationSettings {
 				}
 			}
 			final Struct sct = (Struct) bif.invoke(pc, new Object[] { Boolean.TRUE });
+			coll = new S3PropertiesCollection();
 			Struct data;
 			{
 				// read default s3 properties
@@ -102,7 +103,6 @@ public class ApplicationSettings {
 					S3Properties s3prop = toS3Properties(eng, data, null);
 
 					if (s3prop != null) {
-						coll = new S3PropertiesCollection();
 						coll.setDefault(s3prop);
 						propsColl.put(key, coll);
 					}
