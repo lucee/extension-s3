@@ -838,7 +838,7 @@ public class S3 {
 		buckets = null;
 		_flush(exists, prefix, null);
 		_flush(objects, prefix, null);
-		existBuckets.remove(bucketName);
+		if (existBuckets != null) existBuckets.remove(bucketName);
 	}
 
 	private void flushExists(String bucketName, String objectName) throws S3Exception {
@@ -1349,6 +1349,15 @@ public class S3 {
 		if ("authenticate_read".equals(acl)) return AccessControlList.REST_CANNED_AUTHENTICATED_READ;
 		if ("authenticateread".equals(acl)) return AccessControlList.REST_CANNED_AUTHENTICATED_READ;
 
+		return defaultValue;
+	}
+
+	public static String toACL(AccessControlList acl, String defaultValue) {
+		if (acl == null) return defaultValue;
+		if (AccessControlList.REST_CANNED_PUBLIC_READ_WRITE.equals(acl)) return "public-read-write";
+		if (AccessControlList.REST_CANNED_PUBLIC_READ.equals(acl)) return "public-read";
+		if (AccessControlList.REST_CANNED_PRIVATE.equals(acl)) return "private";
+		if (AccessControlList.REST_CANNED_AUTHENTICATED_READ.equals(acl)) return "authenticated-read";
 		return defaultValue;
 	}
 
