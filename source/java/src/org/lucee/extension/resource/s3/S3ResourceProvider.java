@@ -232,9 +232,8 @@ public final class S3ResourceProvider implements ResourceProvider {
 				//path = path.substring(index);
 			} else {
 				// two slashes in the host string means there's a http prefix on the host (single / due to prettifyPath)
-				String _host = path.substring(0, index2); // i.e. http:/localhost:9000
-				properties.setHost(_host);
-				host = _host;
+				host = path.substring(0, index2); // i.e. http:/localhost:9000
+				properties.setHost(host);
 				path = path.substring(index2);
 			}
 			
