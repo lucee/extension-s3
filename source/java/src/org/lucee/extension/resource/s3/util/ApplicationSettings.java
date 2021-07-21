@@ -20,6 +20,7 @@ import lucee.runtime.PageContext;
 import lucee.runtime.config.Config;
 import lucee.runtime.exp.PageException;
 import lucee.runtime.ext.function.BIF;
+import lucee.runtime.net.s3.Properties;
 import lucee.runtime.type.Collection.Key;
 import lucee.runtime.type.Struct;
 import lucee.runtime.type.dt.TimeSpan;
@@ -108,6 +109,14 @@ public class ApplicationSettings {
 				}
 			}
 
+			Properties prop = pc.getApplicationContext().getS3(); // we still have to do this, otherwise cfapplication tag would no longer work
+			if (prop != null) {
+				if (!Util.isEmpty(prop.getAccessKeyId())) getDefault(coll).setAccessKeyId(prop.getAccessKeyId());
+				if (!Util.isEmpty(prop.getSecretAccessKey())) getDefault(coll).setSecretAccessKey(prop.getSecretAccessKey());
+				if (!Util.isEmpty(prop.getDefaultLocation())) getDefault(coll).setLocation(prop.getDefaultLocation());
+				if (!Util.isEmpty(prop.getHost())) getDefault(coll).setHost(prop.getHost());
+			}
+
 			// read all mapped properties
 			{
 				Object o = sct.get(_VFS, null);
@@ -135,6 +144,15 @@ public class ApplicationSettings {
 			}
 		}
 		return coll;
+	}
+
+	private static S3Properties getDefault(S3PropertiesCollection coll) {
+		S3Properties s3prop = coll.getDefault();
+		if (s3prop == null) {
+			s3prop = new S3Properties();
+			coll.setDefault(s3prop);
+		}
+		return s3prop;
 	}
 
 	private static S3Properties toS3Properties(CFMLEngine eng, Struct sct, S3Properties defaultValue) throws PageException {
