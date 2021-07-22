@@ -64,7 +64,8 @@ public class ApplicationSettings {
 	}
 
 	public static S3PropertiesCollection readS3PropertiesCollection(PageContext pc) throws PageException {
-		String key = pc.getId() + ":" + pc.getStartTime();
+		Properties prop = pc.getApplicationContext().getS3();
+		String key = "" + prop.hashCode();
 
 		S3PropertiesCollection existing = propsColl.get(key);
 		if (existing != null) {
@@ -109,8 +110,8 @@ public class ApplicationSettings {
 				}
 			}
 
-			Properties prop = pc.getApplicationContext().getS3(); // we still have to do this, otherwise cfapplication tag would no longer work
 			if (prop != null) {
+				if (coll == null) coll = new S3PropertiesCollection();
 				if (!Util.isEmpty(prop.getAccessKeyId())) getDefault(coll).setAccessKeyId(prop.getAccessKeyId());
 				if (!Util.isEmpty(prop.getSecretAccessKey())) getDefault(coll).setSecretAccessKey(prop.getSecretAccessKey());
 				if (!Util.isEmpty(prop.getDefaultLocation())) getDefault(coll).setLocation(prop.getDefaultLocation());
