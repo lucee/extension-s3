@@ -65,7 +65,10 @@ public class ApplicationSettings {
 
 	public static S3PropertiesCollection readS3PropertiesCollection(PageContext pc) throws PageException {
 		Properties prop = pc.getApplicationContext().getS3();
-		String key = "" + prop.hashCode();
+		String key;
+		
+		if (prop == null) key = "none";
+		else key = "" + prop.hashCode();
 
 		S3PropertiesCollection existing = propsColl.get(key);
 		if (existing != null) {
@@ -90,7 +93,6 @@ public class ApplicationSettings {
 				}
 			}
 			final Struct sct = (Struct) bif.invoke(pc, new Object[] { Boolean.TRUE });
-			coll = new S3PropertiesCollection();
 			Struct data;
 			{
 				// read default s3 properties
@@ -104,6 +106,7 @@ public class ApplicationSettings {
 					S3Properties s3prop = toS3Properties(eng, data, null);
 
 					if (s3prop != null) {
+						coll = new S3PropertiesCollection();
 						coll.setDefault(s3prop);
 						propsColl.put(key, coll);
 					}
