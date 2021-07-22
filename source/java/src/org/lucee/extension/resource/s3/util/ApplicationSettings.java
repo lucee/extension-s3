@@ -111,6 +111,7 @@ public class ApplicationSettings {
 			}
 
 			if (prop != null) {
+				if (coll == null) coll = new S3PropertiesCollection();
 				if (!Util.isEmpty(prop.getAccessKeyId())) getDefault(coll).setAccessKeyId(prop.getAccessKeyId());
 				if (!Util.isEmpty(prop.getSecretAccessKey())) getDefault(coll).setSecretAccessKey(prop.getSecretAccessKey());
 				if (!Util.isEmpty(prop.getDefaultLocation())) getDefault(coll).setLocation(prop.getDefaultLocation());
