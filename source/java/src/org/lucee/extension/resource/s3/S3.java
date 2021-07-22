@@ -561,9 +561,15 @@ public class S3 {
 			StorageObject[] objects = chunk == null ? null : chunk.getObjects();
 
 			if (objects == null || objects.length == 0) {
-				exists.put(toKey(bucketName, objectName), new NotExisting(bucketName, objectName, null, validUntil)); // we do not return this, we just store it to cache that it
-																														// does
-				return null;
+				List commonPrefixes = new ArrayList();
+				commonPrefixes.addAll(Arrays.asList(chunk.getCommonPrefixes()));
+				if (commonPrefixes.contains(nameDir)){
+					// pseudo directory
+					exists.put(toKey(bucketName, nameFile), info = new ParentObject(bucketName, nameDir, null, validUntil));
+				} else {
+					exists.put(toKey(bucketName, objectName), new NotExisting(bucketName, objectName, null, validUntil)); // we do not return this, we just store it to cache that it
+					return null;
+				}
 			}
 
 			String targetName;
