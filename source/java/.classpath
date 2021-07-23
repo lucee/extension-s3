@@ -10,17 +10,15 @@
 	<classpathentry kind="lib" path="libs/javax.servlet-api-3.1.0.jar"/>
 	<classpathentry kind="lib" path="libs/jsp-api-2.2.jar"/>
 	<classpathentry kind="lib" path="libs/org.apache.felix.framework-4.2.1.jar"/>
-	<classpathentry kind="lib" path="libs/jackson-core-asl-1.9.13.jar"/>
-	<classpathentry kind="lib" path="libs/jackson-mapper-asl-1.9.13.jar"/>
-	<classpathentry kind="lib" path="libs/log4j-1.2.17.jar"/>
-	<classpathentry kind="lib" path="libs/commons-codec-1.9.jar"/>
-	<classpathentry kind="lib" path="libs/org.lucee.bouncycastle.bcprov-1.52.0.jar"/>
-	<classpathentry kind="lib" path="libs/commons-logging-1.2.0.jar"/>
-	<classpathentry kind="lib" path="libs/javax.mail.activation-1.6.2.0000L.jar"/>
 	<classpathentry kind="lib" path="libs/org.lucee.httpcomponents.httpclient-4.5.10.jar"/>
 	<classpathentry kind="lib" path="libs/org.lucee.httpcomponents.httpcore-4.4.12.jar"/>
 	<classpathentry kind="lib" path="libs/lucee.jar"/>
-	<classpathentry kind="lib" path="libs/java.xmlbuilder-1.1.0.0002L.jar"/>
-	<classpathentry kind="lib" path="libs/org.lucee.jets3t-0.9.4.0010L.jar"/>
+	<classpathentry kind="lib" path="libs/bcprov-1.62.jar"/>
+	<classpathentry kind="lib" path="libs/com.fasterxml.jackson.core.jackson-annotations-2.9.0.jar"/>
+	<classpathentry kind="lib" path="libs/com.fasterxml.jackson.core.jackson-core-2.9.7.jar"/>
+	<classpathentry kind="lib" path="libs/com.fasterxml.jackson.core.jackson-databind-2.9.7.jar"/>
+	<classpathentry kind="lib" path="libs/org.apache.commons.commons-codec-1.15.0.jar"/>
+	<classpathentry kind="lib" path="libs/org.lucee.jets3t-0.9.7.0001L.jar"/>
+	<classpathentry kind="lib" path="libs/slf4j.api-1.7.30.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
