@@ -1277,14 +1277,11 @@ public class S3 {
 		if (service == null) {
 			synchronized (getToken(accessKeyId + ":" + secretAccessKey)) {
 				if (service == null) {
+					final Jets3tProperties props = Jets3tProperties.getInstance(Constants.JETS3T_PROPERTIES_FILENAME);
 					if (host != null && !host.isEmpty() && !host.equalsIgnoreCase(DEFAULT_HOST)) {
-						final Jets3tProperties props = Jets3tProperties.getInstance(Constants.JETS3T_PROPERTIES_FILENAME);
 						props.setProperty("s3service.s3-endpoint", host);
-						service = new RestS3Service(new AWSCredentials(accessKeyId, secretAccessKey), null, null, props);
 					}
-					else {
-						service = new RestS3Service(new AWSCredentials(accessKeyId, secretAccessKey));
-					}
+					service = new RestS3Service(new AWSCredentials(accessKeyId, secretAccessKey), null, null, props);
 				}
 			}
 		}
