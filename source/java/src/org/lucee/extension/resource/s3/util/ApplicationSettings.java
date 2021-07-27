@@ -65,11 +65,8 @@ public class ApplicationSettings {
 
 	public static S3PropertiesCollection readS3PropertiesCollection(PageContext pc) throws PageException {
 		Properties prop = pc.getApplicationContext().getS3();
-		String key;
+		String key = prop == null ? pc.getId() + ":" + pc.getStartTime() : "" + prop.hashCode();
 		
-		if (prop == null) key = "none";
-		else key = "" + prop.hashCode();
-
 		S3PropertiesCollection existing = propsColl.get(key);
 		if (existing != null) {
 			return existing;

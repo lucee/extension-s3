@@ -216,7 +216,10 @@ public final class S3ResourceProvider implements ResourceProvider {
 			}
 		}
 		String srcPath = path;
-		if ( (slashIndex - atIndex) == 1 ){ 
+		if (atIndex == -1){
+			// no host information, skip parsing, ie. s3://bucketname/ etc
+			path = prettifyPath(path);
+		} else if ( (slashIndex - atIndex) == 1 ){ 
 			// key/secret@/bucket 
 			path = prettifyPath(path.substring(atIndex + 1));
 		} else {
