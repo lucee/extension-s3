@@ -561,20 +561,19 @@ public class S3 {
 			long validUntil = System.currentTimeMillis() + timeout;
 			StorageObject[] objects = chunk == null ? null : chunk.getObjects();
 
-			if (objects == null || objects.length == 0) {
-				List commonPrefixes = new ArrayList();
-				if (chunk.getCommonPrefixes().length > 0){
-					//String[] cp = chunk.getCommonPrefixes();
-					//aprint.o(cp.toString());
-					commonPrefixes.addAll(Arrays.asList(chunk.getCommonPrefixes()));
-				}
+			List commonPrefixes = new ArrayList();
+			if (chunk.getCommonPrefixes().length > 0){
+				//String[] cp = chunk.getCommonPrefixes();
+				//aprint.o(cp.toString());
+				commonPrefixes.addAll(Arrays.asList(chunk.getCommonPrefixes()));
 				if (commonPrefixes.contains(nameDir)){
 					// pseudo directory
 					exists.put(toKey(bucketName, nameFile), info = new ParentObject(bucketName, nameDir, null, validUntil));
-				} else {
-					exists.put(toKey(bucketName, objectName), new NotExisting(bucketName, objectName, null, validUntil)); // we do not return this, we just store it to cache that it
-					return null;
 				}
+			}
+
+			if (info == null && (objects == null || objects.length == 0)) {
+				exists.put(toKey(bucketName, objectName), new NotExisting(bucketName, objectName, null, validUntil)); // we do not return this, we just store it to cache that it				
 			}
 
 			String targetName;
