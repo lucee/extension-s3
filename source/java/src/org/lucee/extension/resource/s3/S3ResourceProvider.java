@@ -241,6 +241,8 @@ public final class S3ResourceProvider implements ResourceProvider {
 				}
 			}
 		}
+		if (host.endsWith("/")) 
+			host = host.substring(0, host.length() - 1); // strip trailing / after hostname with http://localhost:9000/
 		properties.setHost(host);	
 		// get from system.properties/env.var
 		if (Util.isEmpty(accessKeyId, true)) {

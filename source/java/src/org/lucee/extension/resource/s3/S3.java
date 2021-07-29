@@ -42,6 +42,7 @@ import org.lucee.extension.resource.s3.info.S3BucketWrapper;
 import org.lucee.extension.resource.s3.info.S3Info;
 import org.lucee.extension.resource.s3.info.StorageObjectWrapper;
 import org.lucee.extension.resource.s3.util.XMLUtil;
+//import org.lucee.extension.resource.s3.util.aprint;
 
 import lucee.loader.engine.CFMLEngineFactory;
 import lucee.loader.util.Util;
@@ -562,7 +563,11 @@ public class S3 {
 
 			if (objects == null || objects.length == 0) {
 				List commonPrefixes = new ArrayList();
-				commonPrefixes.addAll(Arrays.asList(chunk.getCommonPrefixes()));
+				if (chunk.getCommonPrefixes().length > 0){
+					//String[] cp = chunk.getCommonPrefixes();
+					//aprint.o(cp.toString());
+					commonPrefixes.addAll(Arrays.asList(chunk.getCommonPrefixes()));
+				}
 				if (commonPrefixes.contains(nameDir)){
 					// pseudo directory
 					exists.put(toKey(bucketName, nameFile), info = new ParentObject(bucketName, nameDir, null, validUntil));
@@ -1283,30 +1288,29 @@ public class S3 {
 		if (service == null) {
 			synchronized (getToken(accessKeyId + ":" + secretAccessKey)) {
 				if (service == null) {
-					if (host != null && !host.isEmpty() && !host.equalsIgnoreCase(DEFAULT_HOST)) {
-						final Jets3tProperties props = Jets3tProperties.getInstance(Constants.JETS3T_PROPERTIES_FILENAME);
-						int index = host.indexOf(':');
-						if (index == -1) props.setProperty("s3service.s3-endpoint", host); // no port, no protocol
-						else {
-							int index2 = host.toLowerCase().indexOf("http", 0); // http(s)://localhost:9000 prefix?
-							if (index2 == -1){ // no http prefix
-								props.setProperty("s3service.s3-endpoint", host.substring(0, index));
-								props.setProperty("s3service.s3-endpoint-http-port", host.substring(index + 1));
+					final Jets3tProperties props = Jets3tProperties.getInstance(Constants.JETS3T_PROPERTIES_FILENAME);
+					props.clearAllProperties();
+					//if (host != null && !host.isEmpty() && !host.equalsIgnoreCase(DEFAULT_HOST)) {
+						int hasPort = host.indexOf(':');
+						if (hasPort == -1) {
+							props.setProperty("s3service.s3-endpoint", host); // no port, no protocol
+						} else {
+							int hasHttp = host.toLowerCase().indexOf("http", 0); // http(s)://localhost:9000 prefix?
+							if (hasHttp == -1){ // no http prefix
+								props.setProperty("s3service.s3-endpoint", host.substring(0, hasPort));
+								props.setProperty("s3service.s3-endpoint-http-port", host.substring(hasPort + 1));
 							} else { // with http(s) prefix
 								String protocol = host.substring(0,host.indexOf(":"));
 								props.setProperty("s3service.https-only", protocol.equalsIgnoreCase("http") ? "false" : "true" );
 								String _host = host.substring(host.lastIndexOf("/") + 1);
-								index = _host.indexOf(':');
-								props.setProperty("s3service.s3-endpoint", _host.substring(0, index));
-								props.setProperty("s3service.s3-endpoint-http-port", _host.substring(index + 1));
+								hasPort = _host.indexOf(':');
+								props.setProperty("s3service.s3-endpoint", _host.substring(0, hasPort));
+								props.setProperty("s3service.s3-endpoint-http-port", _host.substring(hasPort + 1));
 								props.setProperty("s3service.disable-dns-buckets", "true");
 							}
 						}
-						service = new RestS3Service(new AWSCredentials(accessKeyId, secretAccessKey), null, null, props);
-					}
-					else {
-						service = new RestS3Service(new AWSCredentials(accessKeyId, secretAccessKey));
-					}
+					//}
+					service = new RestS3Service(new AWSCredentials(accessKeyId, secretAccessKey), null, null, props);
 				}
 			}
 		}
