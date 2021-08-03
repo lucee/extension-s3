@@ -182,7 +182,7 @@ public final class S3Resource extends ResourceSupport {
 			sb.append(s3.getMappingName()).append("@");
 		}
 
-		if (doHost){ 
+		if (doHost && s3.getCustomCredentials()){ 
 			if (sb.substring(sb.length()-1) != "@")
 				sb.append("@");
 			sb.append(s3.getHost());
