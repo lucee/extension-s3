@@ -42,7 +42,6 @@ import org.lucee.extension.resource.s3.info.S3BucketWrapper;
 import org.lucee.extension.resource.s3.info.S3Info;
 import org.lucee.extension.resource.s3.info.StorageObjectWrapper;
 import org.lucee.extension.resource.s3.util.XMLUtil;
-//import org.lucee.extension.resource.s3.util.aprint;
 
 import lucee.loader.engine.CFMLEngineFactory;
 import lucee.loader.util.Util;
@@ -315,8 +314,10 @@ public class S3 {
 	 * list all allements in a specific bucket
 	 * 
 	 * @param bucketName name of the bucket
+	 * @param objectName name of the object
 	 * @param recursive show all objects (recursive==true) or direct kids
 	 * @param listPseudoFolder if recursive false also list the "folder" of objects with sub folders
+	 * @param onlyChildren 
 	 * @return
 	 * @throws S3Exception
 	 * 
@@ -424,8 +425,8 @@ public class S3 {
 			// not cached
 			ValidUntilMap<S3Info> _list = timeout <= 0 || noCache ? null : objects.get(key);
 			if (_list == null || _list.validUntil < System.currentTimeMillis()) {
+				/*
 				S3Object[] kids = hasObjName ? getS3Service().listObjects(bucketName, nameFile, ",") : getS3Service().listObjects(bucketName);
-
 				long validUntil = System.currentTimeMillis() + timeout;
 				_list = new ValidUntilMap<S3Info>(validUntil);
 				objects.put(key, _list);
@@ -451,13 +452,64 @@ public class S3 {
 						exists.put(toKey(bucketName, name), new ParentObject(bucketName, name, null, validUntil));
 					}
 				}
+				*/
+
+				/* ------------------------ chunked, which includes prefixes ------------------------------ */
+				StorageObjectsChunk chunk = hasObjName ? 
+					listObjectsChunkedAll(bucketName, nameFile, ",", -1)
+					: listObjectsChunkedAll(bucketName, null, null, -1);
+				StorageObject[] _objects = chunk == null ? null : chunk.getObjects();
+				S3Info info;
+
+				long validUntil = System.currentTimeMillis() + timeout;
+				int index;
+				_list = new ValidUntilMap<S3Info>(validUntil);
+				objects.put(key, _list);
+				
+				ArrayList<String> commonPrefixes = new ArrayList();
+				if (chunk.getCommonPrefixes().length > 0){
+					commonPrefixes.addAll(Arrays.asList(chunk.getCommonPrefixes()));
+					for (String cp: commonPrefixes){
+						info =  new ParentObject(bucketName, cp, null, validUntil);
+						if (!hasObjName || cp.equals(nameFile) || cp.startsWith(nameDir)) _list.put(cp, info);
+						exists.put(toKey(bucketName, cp), info);
+						// add parent pseudo folders
+						while ((index = cp.lastIndexOf('/')) != -1) {
+							cp = cp.substring(0, index);
+							exists.put(toKey(bucketName, cp), new ParentObject(bucketName, cp, null, validUntil));
+						}
+					}
+				}
+
+				String name;
+				StorageObjectWrapper tmp;
+				StorageObject stoObj = null;
+				// direct match
+				for (StorageObject kids: _objects) {
+					name = kids.getName();
+					tmp = new StorageObjectWrapper(this, stoObj = kids, bucketName, validUntil);
+
+					if (!hasObjName || name.equals(nameFile) || name.startsWith(nameDir)) _list.put(kids.getKey(), tmp);
+					exists.put(toKey(kids.getBucketName(), name), tmp);
+
+					// add parent pseudo folders
+					while ((index = name.lastIndexOf('/')) != -1) {
+						name = name.substring(0, index);
+						exists.put(toKey(bucketName, name), new ParentObject(bucketName, name, null, validUntil));
+					}
+				}
 
 			}
 			return _list;
 		}
-		catch (ServiceException se) {
-			throw toS3Exception(se);
+		catch (FactoryConfigurationError fce) {
+			XMLUtil.validateDocumentBuilderFactory();
+			throw fce;
 		}
+		catch (Exception e) {
+			e.printStackTrace();
+		}
+		return null;
 	}
 
 	private String toKey(String bucketName, String objectName) {
@@ -560,11 +612,12 @@ public class S3 {
 
 			long validUntil = System.currentTimeMillis() + timeout;
 			StorageObject[] objects = chunk == null ? null : chunk.getObjects();
-
-			List commonPrefixes = new ArrayList();
-			if (chunk.getCommonPrefixes().length > 0){
-				//String[] cp = chunk.getCommonPrefixes();
-				//aprint.o(cp.toString());
+			String x = "1";
+			if (objectName.indexOf("ss") > 0)
+				x = "2";
+			
+			if (chunk !=null && chunk.getCommonPrefixes().length > 0){
+				List commonPrefixes = new ArrayList();
 				commonPrefixes.addAll(Arrays.asList(chunk.getCommonPrefixes()));
 				if (commonPrefixes.contains(nameDir)){
 					// pseudo directory
@@ -576,35 +629,37 @@ public class S3 {
 				exists.put(toKey(bucketName, objectName), new NotExisting(bucketName, objectName, null, validUntil)); // we do not return this, we just store it to cache that it				
 			}
 
-			String targetName;
-			StorageObject stoObj = null;
-			// direct match
-			for (StorageObject so: objects) {
-				targetName = so.getName();
-				if (nameFile.equals(targetName) || nameDir.equals(targetName)) {
-					exists.put(toKey(bucketName, nameFile), info = new StorageObjectWrapper(this, stoObj = so, bucketName, validUntil));
-				}
-			}
-
-			// pseudo directory?
-			if (info == null) {
+			if (objects != null){
+				String targetName;
+				StorageObject stoObj = null;
+				// direct match
 				for (StorageObject so: objects) {
 					targetName = so.getName();
-					if (nameDir.length() < targetName.length() && targetName.startsWith(nameDir)) {
-						exists.put(toKey(bucketName, nameFile), info = new ParentObject(bucketName, nameDir, null, validUntil));
+					if (nameFile.equals(targetName) || nameDir.equals(targetName)) {
+						exists.put(toKey(bucketName, nameFile), info = new StorageObjectWrapper(this, stoObj = so, bucketName, validUntil));
 					}
 				}
-			}
 
-			for (StorageObject obj: objects) {
-				if (stoObj != null && stoObj.equals(obj)) continue;
-				exists.put(toKey(obj.getBucketName(), obj.getName()), new StorageObjectWrapper(this, obj, bucketName, validUntil));
-			}
+				// pseudo directory?
+				if (info == null) {
+					for (StorageObject so: objects) {
+						targetName = so.getName();
+						if (nameDir.length() < targetName.length() && targetName.startsWith(nameDir)) {
+							exists.put(toKey(bucketName, nameFile), info = new ParentObject(bucketName, nameDir, null, validUntil));
+						}
+					}
+				}
 
-			if (info == null) {
-				exists.put(toKey(bucketName, objectName), new NotExisting(bucketName, objectName, null, validUntil) // we do not return this, we just store it to cache that it does
-																													// not exis
-				);
+				for (StorageObject obj: objects) {
+					if (stoObj != null && stoObj.equals(obj)) continue;
+					exists.put(toKey(obj.getBucketName(), obj.getName()), new StorageObjectWrapper(this, obj, bucketName, validUntil));
+				}
+
+				if (info == null) {
+					exists.put(toKey(bucketName, objectName), new NotExisting(bucketName, objectName, null, validUntil) // we do not return this, we just store it to cache that it does
+																														// not exis
+					);
+				}
 			}
 			return info;
 		}
@@ -621,6 +676,19 @@ public class S3 {
 	public StorageObjectsChunk listObjectsChunkedSilent(String bucketName, String objectName, int max, String priorLastKey) {
 		try {
 			return getS3Service().listObjectsChunked(bucketName, objectName, ",", max, priorLastKey);
+		}
+		catch (FactoryConfigurationError fce) {
+			XMLUtil.validateDocumentBuilderFactory();
+			throw fce;
+		}
+		catch (Exception e) {
+		}
+		return null;
+	}
+
+	public StorageObjectsChunk listObjectsChunkedAll(String bucketName, String objectName, String delim, int max) {
+		try {
+			return getS3Service().listObjectsChunked(bucketName, objectName, delim, max, "", true);
 		}
 		catch (FactoryConfigurationError fce) {
 			XMLUtil.validateDocumentBuilderFactory();
@@ -701,9 +769,17 @@ public class S3 {
 			}
 
 			ObjectKeyAndVersion[] keys = toObjectKeyAndVersions(list, null);
-			if (!force
-					&& (keys.length > 1 || (keys.length == 1 && keys[0].getKey().length() > nameDir.length() && keys[0].getKey().substring(nameDir.length()).indexOf('/') != -1))) {
-				throw new S3Exception("can't delete directory " + bucketName + "/" + objectName + ", directory is not empty");
+			if (!force){
+				String _key;
+				if (keys.length > 0)
+					_key = keys[0].getKey();
+			
+				if (keys.length > 1 || (keys.length == 1 
+						&& keys[0].getKey().length() > nameDir.length() 
+						&& keys[0].getKey().substring(nameDir.length()).indexOf('/') != -1)
+				) {
+					throw new S3Exception("can't delete directory " + bucketName + "/" + objectName + ", directory is not empty");
+				}
 			}
 
 			// clear cache
