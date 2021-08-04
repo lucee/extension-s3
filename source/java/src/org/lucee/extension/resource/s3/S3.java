@@ -318,6 +318,7 @@ public class S3 {
 	 * @param recursive show all objects (recursive==true) or direct kids
 	 * @param listPseudoFolder if recursive false also list the "folder" of objects with sub folders
 	 * @param onlyChildren 
+	 * @param noCache 
 	 * @return
 	 * @throws S3Exception
 	 * 
@@ -465,6 +466,12 @@ public class S3 {
 				int index;
 				_list = new ValidUntilMap<S3Info>(validUntil);
 				objects.put(key, _list);
+
+				// add bucket
+				if (!hasObjName && !onlyChildren) {
+					S3Bucket b = getS3Service().getBucket(bucketName);
+					_list.put("", new S3BucketWrapper(b, validUntil));
+				}
 				
 				ArrayList<String> commonPrefixes = new ArrayList();
 				if (chunk.getCommonPrefixes().length > 0){
@@ -612,16 +619,19 @@ public class S3 {
 
 			long validUntil = System.currentTimeMillis() + timeout;
 			StorageObject[] objects = chunk == null ? null : chunk.getObjects();
-			String x = "1";
-			if (objectName.indexOf("ss") > 0)
-				x = "2";
-			
+
 			if (chunk !=null && chunk.getCommonPrefixes().length > 0){
-				List commonPrefixes = new ArrayList();
+				ArrayList<String> commonPrefixes = new ArrayList();
+				int index;
 				commonPrefixes.addAll(Arrays.asList(chunk.getCommonPrefixes()));
-				if (commonPrefixes.contains(nameDir)){
-					// pseudo directory
-					exists.put(toKey(bucketName, nameFile), info = new ParentObject(bucketName, nameDir, null, validUntil));
+				for (String cp: commonPrefixes){
+					while ((index = cp.lastIndexOf('/')) != -1) {
+						cp = cp.substring(0, index);
+						if (cp.equals(nameFile) || cp.equals(nameDir))
+							exists.put(toKey(bucketName, cp), info = new ParentObject(bucketName, cp, null, validUntil));
+						else
+							exists.put(toKey(bucketName, cp), new ParentObject(bucketName, cp, null, validUntil));
+					}
 				}
 			}
 
@@ -770,13 +780,10 @@ public class S3 {
 
 			ObjectKeyAndVersion[] keys = toObjectKeyAndVersions(list, null);
 			if (!force){
-				String _key;
-				if (keys.length > 0)
-					_key = keys[0].getKey();
-			
+				// TODO not sure of the logic here, why was it checking only for a sub directory?
 				if (keys.length > 1 || (keys.length == 1 
 						&& keys[0].getKey().length() > nameDir.length() 
-						&& keys[0].getKey().substring(nameDir.length()).indexOf('/') != -1)
+						&& keys[0].getKey().substring(nameDir.length()).length() > 0) //indexOf('/') != -1)
 				) {
 					throw new S3Exception("can't delete directory " + bucketName + "/" + objectName + ", directory is not empty");
 				}
