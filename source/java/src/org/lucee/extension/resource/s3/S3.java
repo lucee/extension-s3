@@ -136,7 +136,7 @@ public class S3 {
 		}
 		catch (ServiceException se) {
 			throw toS3Exception(se, "could not create the bucket [" + bucketName
-					+ "], please consult the following website to learn about Bucket Restrictions and limitations: https://docs.aws.amazon.com/AmazonS3/latest/dev/BucketRestrictions.html");
+					+ "] at [" + host + "], please consult the following website to learn about Bucket Restrictions and limitations: https://docs.aws.amazon.com/AmazonS3/latest/dev/BucketRestrictions.html");
 		}
 		catch (FactoryConfigurationError fce) {
 			XMLUtil.validateDocumentBuilderFactory();
@@ -474,7 +474,7 @@ public class S3 {
 				}
 				
 				ArrayList<String> commonPrefixes = new ArrayList();
-				if (chunk.getCommonPrefixes().length > 0){
+				if (chunk != null && chunk.getCommonPrefixes().length > 0){
 					commonPrefixes.addAll(Arrays.asList(chunk.getCommonPrefixes()));
 					for (String cp: commonPrefixes){
 						info =  new ParentObject(bucketName, cp, null, validUntil);
@@ -487,22 +487,23 @@ public class S3 {
 						}
 					}
 				}
+				if ( _objects != null ){
+					String name;
+					StorageObjectWrapper tmp;
+					StorageObject stoObj = null;
+					// direct match
+					for (StorageObject kids: _objects) {
+						name = kids.getName();
+						tmp = new StorageObjectWrapper(this, stoObj = kids, bucketName, validUntil);
 
-				String name;
-				StorageObjectWrapper tmp;
-				StorageObject stoObj = null;
-				// direct match
-				for (StorageObject kids: _objects) {
-					name = kids.getName();
-					tmp = new StorageObjectWrapper(this, stoObj = kids, bucketName, validUntil);
+						if (!hasObjName || name.equals(nameFile) || name.startsWith(nameDir)) _list.put(kids.getKey(), tmp);
+						exists.put(toKey(kids.getBucketName(), name), tmp);
 
-					if (!hasObjName || name.equals(nameFile) || name.startsWith(nameDir)) _list.put(kids.getKey(), tmp);
-					exists.put(toKey(kids.getBucketName(), name), tmp);
-
-					// add parent pseudo folders
-					while ((index = name.lastIndexOf('/')) != -1) {
-						name = name.substring(0, index);
-						exists.put(toKey(bucketName, name), new ParentObject(bucketName, name, null, validUntil));
+						// add parent pseudo folders
+						while ((index = name.lastIndexOf('/')) != -1) {
+							name = name.substring(0, index);
+							exists.put(toKey(bucketName, name), new ParentObject(bucketName, name, null, validUntil));
+						}
 					}
 				}
 
