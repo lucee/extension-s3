@@ -215,14 +215,14 @@
 			<alias>bucket</alias>
 			<type>string</type>
 			<required>Yes</required>
-			<description>Name of the bucket of your object to read</description>
+			<description>Name of the bucket to write to</description>
 	    </argument>
 		<argument>
 			<name>objectName</name>
 			<alias>object,path</alias>
 			<type>string</type>
 			<required>Yes</required>
-			<description>Name of the object (path) within the bucket of your object to read</description>
+			<description>Name of the object (path) within the bucket of your object to write to</description>
 	    </argument>
 		<argument>
 			<name>value</name>
