@@ -178,6 +178,7 @@ public final class S3Resource extends ResourceSupport {
 			}
 			sb.append("@");
 		}
+
 		if (doHost) sb.append(s3.getHost());
 
 		return sb.toString();
@@ -208,6 +209,11 @@ public final class S3Resource extends ResourceSupport {
 		return new S3Resource(engine, s3, props, isBucket() ? null : location, provider, getInnerParent());// MUST direkter machen
 	}
 
+	public S3Resource getBucket() {
+		if (isRoot()) return null;
+		return new S3Resource(engine, s3, props, isBucket() ? null : location, provider, "/" + bucketName);
+	}
+
 	public boolean isRoot() {
 		return bucketName == null;
 	}
@@ -224,8 +230,14 @@ public final class S3Resource extends ResourceSupport {
 	@Override
 	public OutputStream getOutputStream(boolean append) throws IOException {
 
-		engine.getResourceUtil().checkGetOutputStreamOK(this);
-		// provider.lock(this);
+		if (isDirectory()) throw new IOException("can't write directory [" + getPath() + "] as a file");
+
+		if (!isRoot() && !isBucket()) {
+			S3Resource bucket = getBucket();
+			if (bucket != null) {
+				if (!bucket.exists()) throw new IOException("can't write object [" + getPath() + "] as a file, missing parent bucket [" + bucket.getPath() + "]");
+			}
+		}
 
 		try {
 			byte[] barr = null;
