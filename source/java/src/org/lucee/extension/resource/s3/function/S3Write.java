@@ -1,6 +1,8 @@
 package org.lucee.extension.resource.s3.function;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.lang.reflect.Method;
 
 import org.jets3t.service.acl.AccessControlList;
 import org.lucee.extension.resource.s3.AccessControlListUtil;
@@ -8,6 +10,7 @@ import org.lucee.extension.resource.s3.S3;
 import org.lucee.extension.resource.s3.S3Exception;
 import org.lucee.extension.resource.s3.S3ResourceProvider;
 
+import lucee.commons.io.res.Resource;
 import lucee.loader.engine.CFMLEngine;
 import lucee.loader.engine.CFMLEngineFactory;
 import lucee.runtime.PageContext;
@@ -36,6 +39,8 @@ public class S3Write extends S3Function {
 			// create S3 Instance
 			S3 s3 = S3ResourceProvider.getS3(toS3Properties(pc, accessKeyId, secretAccessKey), toTimeout(timeout));
 
+			value = toResource(pc, value);
+
 			// binary
 			if (eng.getDecisionUtil().isBinary(value)) {
 				s3.write(bucketName, objectName, eng.getCastUtil().toBinary(value), mimeType, acl, location);
@@ -43,6 +48,12 @@ public class S3Write extends S3Function {
 			else if (value instanceof File) {
 				File f = (File) value;
 				s3.write(bucketName, objectName, f, acl, location);
+			}
+			else if (value instanceof Resource) {
+				Resource res = (Resource) value;
+				ByteArrayOutputStream baos = new ByteArrayOutputStream();
+				eng.getIOUtil().copy(res.getInputStream(), baos, true, true);
+				s3.write(bucketName, objectName, baos.toByteArray(), mimeType, acl, location);
 			}
 			else {
 				if (eng.getStringUtil().isEmpty(charset, true)) charset = null;
@@ -53,6 +64,44 @@ public class S3Write extends S3Function {
 			throw eng.getCastUtil().toPageException(e);
 		}
 		return null;
+	}
+
+	public static Object toResource(PageContext pc, Object value) {
+		if (value instanceof CharSequence) {
+			String str = value.toString();
+			if (str.length() <= 10240) {
+				try {
+					return CFMLEngineFactory.getInstance().getResourceUtil().toResourceExisting(pc, str);
+				}
+				catch (Exception e) {
+				}
+			}
+		}
+		if (value instanceof Resource || value instanceof File) return value;
+
+		// getResource
+		try {
+			Method m = value.getClass().getMethod("getResource", new Class[0]);
+			if (m != null) {
+				Object obj = m.invoke(value, new Object[0]);
+				if (obj instanceof Resource) return obj;
+			}
+		}
+		catch (Exception e) {
+		}
+
+		// getFile
+		try {
+			Method m = value.getClass().getMethod("getFile", new Class[0]);
+			if (m != null) {
+				Object obj = m.invoke(value, new Object[0]);
+				if (obj instanceof File) return obj;
+			}
+		}
+		catch (Exception e) {
+		}
+
+		return value;
 	}
 
 	@Override

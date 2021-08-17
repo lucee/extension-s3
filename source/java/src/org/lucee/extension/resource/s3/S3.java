@@ -1281,6 +1281,7 @@ public class S3 {
 					if (host != null && !host.isEmpty() && !host.equalsIgnoreCase(DEFAULT_HOST)) {
 						props.setProperty("s3service.s3-endpoint", host);
 					}
+					props.setProperty("storage-service.request-signature-version", "AWS4-HMAC-SHA256");
 					service = new RestS3Service(new AWSCredentials(accessKeyId, secretAccessKey), null, null, props);
 				}
 			}
