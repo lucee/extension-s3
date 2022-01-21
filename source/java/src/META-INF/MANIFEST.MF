@@ -7,10 +7,9 @@ Require-Bundle: org.lucee.bouncycastle.bcprov;bundle-version=1.52.0,
  org.lucee.commons.logging,
  org.lucee.httpcomponents.httpcore;bundle-version=4.4.12,
  org.lucee.httpcomponents.httpclient;bundle-version=4.5.10,
- org.lucee.jets3t;bundle-version=0.9.4.0010L,
+ org.lucee.jets3t;bundle-version=0.9.7.0001L,
  jackson-core-asl;bundle-version=1.9.13,
  jackson-mapper-asl;bundle-version=1.9.13,
- log4j;bundle-version=1.2.17,
  java.xmlbuilder;bundle-version=1.1.0.0002L,
  javax.mail.activation;bundle-version=1.6.2.0000L
  
