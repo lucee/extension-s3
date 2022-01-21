@@ -3,6 +3,7 @@ package org.lucee.extension.resource.s3;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Method;
@@ -41,6 +42,7 @@ import org.lucee.extension.resource.s3.info.S3Info;
 import org.lucee.extension.resource.s3.info.StorageObjectWrapper;
 import org.lucee.extension.resource.s3.util.XMLUtil;
 
+import lucee.commons.io.res.Resource;
 import lucee.loader.engine.CFMLEngineFactory;
 import lucee.loader.util.Util;
 import lucee.runtime.exp.PageException;
@@ -947,6 +949,30 @@ public class S3 {
 		}
 	}
 
+	public void write(String bucketName, String objectName, Resource res, AccessControlList acl, String location) throws IOException, NoSuchAlgorithmException {
+		if (res instanceof File) {
+			write(bucketName, objectName, (File) res, acl, location);
+			return;
+		}
+		if (!res.exists()) {
+			throw new FileNotFoundException("Cannot read from file: " + res.getAbsolutePath());
+		}
+		bucketName = improveBucketName(bucketName);
+		objectName = improveObjectName(objectName, false);
+		flushExists(bucketName, objectName);
+
+		InputStream is = null;
+		try {
+			S3Object so = S3ObjectFactory.getInstance(res);
+
+			_write(so, bucketName, objectName, acl, location, res.length() >= MAX_PART_SIZE);
+			flushExists(bucketName, objectName);
+		}
+		finally {
+			Util.closeEL(is);
+		}
+	}
+
 	private void _write(S3Object so, String bucketName, String objectName, AccessControlList acl, String location, boolean split) throws IOException {
 		try {
 
@@ -1407,8 +1433,22 @@ public class S3 {
 		return location;
 	}
 
-	private byte[] max1000(File file) throws IOException {
+	public static byte[] max1000(File file) throws IOException {
 		FileInputStream in = new FileInputStream(file);
+		ByteArrayOutputStream out = new ByteArrayOutputStream();
+		try {
+			final byte[] buffer = new byte[1000];
+			int len;
+			if ((len = in.read(buffer)) != -1) out.write(buffer, 0, len);
+		}
+		finally {
+			Util.closeEL(in, out);
+		}
+		return out.toByteArray();
+	}
+
+	public static byte[] max1000(Resource res) throws IOException {
+		InputStream in = res.getInputStream();
 		ByteArrayOutputStream out = new ByteArrayOutputStream();
 		try {
 			final byte[] buffer = new byte[1000];

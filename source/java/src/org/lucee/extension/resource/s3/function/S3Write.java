@@ -1,6 +1,5 @@
 package org.lucee.extension.resource.s3.function;
 
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.lang.reflect.Method;
 
@@ -46,14 +45,10 @@ public class S3Write extends S3Function {
 				s3.write(bucketName, objectName, eng.getCastUtil().toBinary(value), mimeType, acl, location);
 			}
 			else if (value instanceof File) {
-				File f = (File) value;
-				s3.write(bucketName, objectName, f, acl, location);
+				s3.write(bucketName, objectName, (File) value, acl, location);
 			}
 			else if (value instanceof Resource) {
-				Resource res = (Resource) value;
-				ByteArrayOutputStream baos = new ByteArrayOutputStream();
-				eng.getIOUtil().copy(res.getInputStream(), baos, true, true);
-				s3.write(bucketName, objectName, baos.toByteArray(), mimeType, acl, location);
+				s3.write(bucketName, objectName, (Resource) value, acl, location);
 			}
 			else {
 				if (eng.getStringUtil().isEmpty(charset, true)) charset = null;
