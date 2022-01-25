@@ -817,7 +817,7 @@ public class S3 {
 		buckets = null;
 		_flush(exists, prefix, null);
 		_flush(objects, prefix, null);
-		existBuckets.remove(bucketName);
+		if (existBuckets != null) existBuckets.remove(bucketName);
 	}
 
 	private void flushExists(String bucketName, String objectName) throws S3Exception {
