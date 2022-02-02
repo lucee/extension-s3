@@ -20,6 +20,6 @@
 	<classpathentry kind="lib" path="libs/org.lucee.httpcomponents.httpcore-4.4.12.jar"/>
 	<classpathentry kind="lib" path="libs/lucee.jar"/>
 	<classpathentry kind="lib" path="libs/java.xmlbuilder-1.1.0.0002L.jar"/>
-	<classpathentry kind="lib" path="libs/org.lucee.jets3t-0.9.4.0011L.jar"/>
+	<classpathentry kind="lib" path="libs/org.lucee.jets3t-0.9.4.0014L.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

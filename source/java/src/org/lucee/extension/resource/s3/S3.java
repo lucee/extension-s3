@@ -34,12 +34,12 @@ import org.jets3t.service.model.StorageObject;
 import org.jets3t.service.model.StorageOwner;
 import org.jets3t.service.model.container.ObjectKeyAndVersion;
 import org.jets3t.service.security.AWSCredentials;
-import org.jets3t.service.utils.MultipartUtils;
 import org.lucee.extension.resource.s3.info.NotExisting;
 import org.lucee.extension.resource.s3.info.ParentObject;
 import org.lucee.extension.resource.s3.info.S3BucketWrapper;
 import org.lucee.extension.resource.s3.info.S3Info;
 import org.lucee.extension.resource.s3.info.StorageObjectWrapper;
+import org.lucee.extension.resource.s3.util.MultipartUtil;
 import org.lucee.extension.resource.s3.util.XMLUtil;
 
 import lucee.commons.io.res.Resource;
@@ -61,8 +61,9 @@ public class S3 {
 
 	public static final String DEFAULT_HOST = "s3.amazonaws.com";
 
-	private static final long MAX_PART_SIZE = 1024 * 1024 * 1024;
-	private static final long MAX_PART_SIZE_FOR_CHARACTERS = 900 * 1024 * 1024;
+	private static final long MAX_SINGLE_SIZE = 1024 * 1024 * 1024;
+	private static final long MAX_SINGLE_SIZE_FOR_CHARACTERS = 900 * 1024 * 1024;
+	private static final long MAX_PART_SIZE = 100 * 1024 * 1024;
 	private static final ConcurrentHashMap<String, Object> tokens = new ConcurrentHashMap<String, Object>();
 	private final String host;
 	private final String secretAccessKey;
@@ -897,12 +898,12 @@ public class S3 {
 
 			// if we reach that threshold we need to get more percise
 			boolean split = false;
-			if (data.length() >= MAX_PART_SIZE_FOR_CHARACTERS) {
+			if (data.length() >= MAX_SINGLE_SIZE_FOR_CHARACTERS) {
 				if (Util.isEmpty(charset)) {
-					if (data.getBytes().length >= MAX_PART_SIZE) split = true;
+					if (data.getBytes().length >= MAX_SINGLE_SIZE) split = true;
 				}
 				else {
-					if (data.getBytes(charset).length >= MAX_PART_SIZE) split = true;
+					if (data.getBytes(charset).length >= MAX_SINGLE_SIZE) split = true;
 				}
 			}
 
@@ -923,7 +924,7 @@ public class S3 {
 			S3Object so = new S3Object(objectName, data);
 			if (!Util.isEmpty(mimeType)) so.setContentType(mimeType);
 
-			_write(so, bucketName, objectName, acl, location, data.length >= MAX_PART_SIZE);
+			_write(so, bucketName, objectName, acl, location, data.length >= MAX_SINGLE_SIZE);
 			flushExists(bucketName, objectName);
 		}
 		catch (NoSuchAlgorithmException e) {
@@ -941,7 +942,7 @@ public class S3 {
 			String mt = CFMLEngineFactory.getInstance().getResourceUtil().getMimeType(max1000(file), null);
 			if (mt != null) so.setContentType(mt);
 
-			_write(so, bucketName, objectName, acl, location, file.length() >= MAX_PART_SIZE);
+			_write(so, bucketName, objectName, acl, location, file.length() >= MAX_SINGLE_SIZE);
 			flushExists(bucketName, objectName);
 		}
 		catch (NoSuchAlgorithmException e) {
@@ -965,7 +966,7 @@ public class S3 {
 		try {
 			S3Object so = S3ObjectFactory.getInstance(res);
 
-			_write(so, bucketName, objectName, acl, location, res.length() >= MAX_PART_SIZE);
+			_write(so, bucketName, objectName, acl, location, res.length() >= MAX_SINGLE_SIZE);
 			flushExists(bucketName, objectName);
 		}
 		finally {
@@ -979,7 +980,7 @@ public class S3 {
 			so.setName(objectName);
 
 			if (acl != null) so.setAcl(acl);
-			if (split) multiPut(bucketName, so);
+			if (split) multiPut(bucketName, so, acl, location);
 			else getS3Service().putObject(bucketName, so);
 		}
 		catch (S3ServiceException se) {
@@ -989,7 +990,7 @@ public class S3 {
 			createDirectory(bucketName, acl, location);
 			// now we try again
 			try {
-				if (split) multiPut(bucketName, so);
+				if (split) multiPut(bucketName, so, acl, location);
 				else getS3Service().putObject(bucketName, so);
 			}
 			catch (S3ServiceException e) {
@@ -998,18 +999,25 @@ public class S3 {
 		}
 	}
 
-	private void multiPut(String bucketName, S3Object so) throws IOException {
+	private void multiPut(String bucketName, S3Object so, AccessControlList acl, String location) throws IOException, S3ServiceException {
 		List<StorageObject> objectsToUploadAsMultipart = new ArrayList<>();
 		objectsToUploadAsMultipart.add(so);
+
+		// the following method will not create the bucket
+		if (!exists(bucketName)) createDirectory(bucketName, acl, location);
+
 		try {
-			new MultipartUtils(MAX_PART_SIZE).uploadObjects(bucketName, getS3Service(), objectsToUploadAsMultipart, null // eventListener : Provide
-																															// one to monitor the upload
+			new MultipartUtil(MAX_PART_SIZE).uploadObjects(bucketName, getS3Service(), objectsToUploadAsMultipart, null // eventListener : Provide
+			// one to monitor the upload
 			// progress
 			);
 		}
 		catch (FactoryConfigurationError fce) {
 			XMLUtil.validateDocumentBuilderFactory();
 			throw fce;
+		}
+		catch (S3ServiceException e) {
+			throw e;
 		}
 		catch (Exception e) {
 			throw CFMLEngineFactory.getInstance().getExceptionUtil().toIOException(e);
@@ -1383,7 +1391,7 @@ public class S3 {
 		return toS3Exception(se, null);
 	}
 
-	private S3Exception toS3Exception(ServiceException se, String detail) {
+	public static S3Exception toS3Exception(ServiceException se, String detail) {
 		String msg = se.getErrorMessage();
 		if (Util.isEmpty(msg)) msg = se.getMessage();
 
