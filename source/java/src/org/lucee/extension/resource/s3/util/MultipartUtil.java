@@ -12,7 +12,6 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jets3t.service.Jets3tProperties;
 import org.jets3t.service.S3Service;
-import org.jets3t.service.S3ServiceException;
 import org.jets3t.service.ServiceException;
 import org.jets3t.service.io.SegmentedRepeatableFileInputStream;
 import org.jets3t.service.model.MultipartUpload;
@@ -158,7 +157,8 @@ public class MultipartUtil {
 	 *
 	 * @throws Exception
 	 */
-	public void uploadObjects(String bucketName, S3Service s3Service, List<StorageObject> objectsForMultipartUpload, S3ServiceEventListener eventListener) throws Exception {
+	public void uploadObjects(String bucketName, S3Service s3Service, List<StorageObject> objectsForMultipartUpload, S3ServiceEventListener eventListener)
+			throws ServiceException, IOException {
 		if (objectsForMultipartUpload == null || objectsForMultipartUpload.size() < 1) {
 			return;
 		}
@@ -225,8 +225,8 @@ public class MultipartUtil {
 					partObject.closeDataInputStream();
 				}
 			}
-			if (e instanceof S3ServiceException) throw e;
-			throw new Exception("Multipart upload failed", e);
+			if (e instanceof ServiceException) throw (ServiceException) e;
+			throw new IOException("Multipart upload failed", e);
 		}
 	}
 

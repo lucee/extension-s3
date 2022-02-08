@@ -23,7 +23,6 @@ import javax.xml.parsers.FactoryConfigurationError;
 import org.jets3t.service.Constants;
 import org.jets3t.service.Jets3tProperties;
 import org.jets3t.service.S3Service;
-import org.jets3t.service.S3ServiceException;
 import org.jets3t.service.ServiceException;
 import org.jets3t.service.StorageObjectsChunk;
 import org.jets3t.service.acl.AccessControlList;
@@ -183,7 +182,7 @@ public class S3 {
 				S3Object so = getS3Service().putObject(bucket, object);
 				flushExists(bucketName, objectName);
 			}
-			catch (S3ServiceException e) {
+			catch (ServiceException e) {
 				throw toS3Exception(se);
 			}
 		}
@@ -216,7 +215,7 @@ public class S3 {
 				getS3Service().putObject(bucket, object);
 				flushExists(bucketName, objectName);
 			}
-			catch (S3ServiceException e) {
+			catch (ServiceException e) {
 				throw toS3Exception(se);
 			}
 			catch (FactoryConfigurationError fce) {
@@ -983,7 +982,7 @@ public class S3 {
 			if (split) multiPut(bucketName, so, acl, location);
 			else getS3Service().putObject(bucketName, so);
 		}
-		catch (S3ServiceException se) {
+		catch (ServiceException se) {
 			// does the bucket exist? if so we throw the exception
 			if (get(bucketName) != null) throw toS3Exception(se);
 			// if the bucket does not exist, we do create it
@@ -993,13 +992,13 @@ public class S3 {
 				if (split) multiPut(bucketName, so, acl, location);
 				else getS3Service().putObject(bucketName, so);
 			}
-			catch (S3ServiceException e) {
+			catch (ServiceException e) {
 				throw toS3Exception(se);
 			}
 		}
 	}
 
-	private void multiPut(String bucketName, S3Object so, AccessControlList acl, String location) throws IOException, S3ServiceException {
+	private void multiPut(String bucketName, S3Object so, AccessControlList acl, String location) throws IOException, ServiceException {
 		List<StorageObject> objectsToUploadAsMultipart = new ArrayList<>();
 		objectsToUploadAsMultipart.add(so);
 
@@ -1016,7 +1015,7 @@ public class S3 {
 			XMLUtil.validateDocumentBuilderFactory();
 			throw fce;
 		}
-		catch (S3ServiceException e) {
+		catch (ServiceException e) {
 			throw e;
 		}
 		catch (Exception e) {
@@ -1393,9 +1392,20 @@ public class S3 {
 
 	public static S3Exception toS3Exception(ServiceException se, String detail) {
 		String msg = se.getErrorMessage();
-		if (Util.isEmpty(msg)) msg = se.getMessage();
+		if (Util.isEmpty(msg, true)) msg = se.getMessage();
 
-		S3Exception ioe = Util.isEmpty(detail) ? new S3Exception(msg) : new S3Exception(msg + ";" + detail);
+		// local message
+		String lm = se.getLocalizedMessage();
+		if (!Util.isEmpty(lm, true) && lm.equals(msg)) msg += ";" + lm;
+
+		// error code
+		String ec = se.getErrorCode();
+		if (!Util.isEmpty(ec, true)) msg += ";error-code" + ec;
+
+		// detail
+		if (!Util.isEmpty(detail, true)) msg += ";" + detail;
+
+		S3Exception ioe = new S3Exception(msg);
 		ioe.initCause(se);
 		ioe.setStackTrace(se.getStackTrace());
 		return ioe;
