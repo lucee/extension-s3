@@ -1,16 +1,14 @@
 package org.lucee.extension.resource.s3.info;
 
-import java.util.Map;
-
-import org.jets3t.service.model.S3Bucket;
-import org.jets3t.service.model.StorageOwner;
+import com.amazonaws.services.s3.model.Bucket;
+import com.amazonaws.services.s3.model.Owner;
 
 public class S3BucketWrapper extends S3InfoSupport {
 
-	private S3Bucket bucket;
+	private Bucket bucket;
 	private long validUntil;
 
-	public S3BucketWrapper(S3Bucket bucket, long validUntil) {
+	public S3BucketWrapper(Bucket bucket, long validUntil) {
 		this.bucket = bucket;
 		this.validUntil = validUntil;
 	}
@@ -56,16 +54,11 @@ public class S3BucketWrapper extends S3InfoSupport {
 	}
 
 	@Override
-	public String getLocation() {
-		return bucket.getLocation();
-	}
-
-	@Override
 	public long validUntil() {
 		return validUntil;
 	}
 
-	public S3Bucket getBucket() {
+	public Bucket getBucket() {
 		return bucket;
 	}
 
@@ -75,13 +68,8 @@ public class S3BucketWrapper extends S3InfoSupport {
 	}
 
 	@Override
-	public StorageOwner getOwner() {
+	public Owner getOwner() {
 		return bucket.getOwner();
-	}
-
-	@Override
-	public Map<String, Object> getMetaData() {
-		return bucket.getMetadataMap();
 	}
 
 	@Override

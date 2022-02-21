@@ -22,41 +22,32 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
 
-import lucee.loader.engine.CFMLEngineFactory;
-import lucee.loader.util.Util;
-
-import org.jets3t.service.model.S3Object;
-import org.jets3t.service.model.StorageObject;
-import org.jets3t.service.model.StorageOwner;
 import org.lucee.extension.resource.s3.S3;
 import org.lucee.extension.resource.s3.S3Exception;
-import org.lucee.extension.resource.s3.util.print;
-import org.xml.sax.SAXException;
+
+import com.amazonaws.services.s3.model.Owner;
+import com.amazonaws.services.s3.model.S3ObjectSummary;
 
 public final class StorageObjectWrapper extends S3InfoSupport {
 
 	private final S3 s3;
-	private final StorageObject so;
+	private final S3ObjectSummary so;
 	private long validUntil;
-	private String bucketName;
 	private Boolean isDirectory;
 
-	public StorageObjectWrapper(S3 s3, StorageObject so, String bucketName, long validUntil) {
+	public StorageObjectWrapper(S3 s3, S3ObjectSummary so, long validUntil) {
 		this.s3 = s3;
 		this.so = so;
-		this.bucketName = bucketName;
 		this.validUntil = validUntil;
 	}
 
 	/**
 	 * @return the bucketName
 	 */
+	@Override
 	public String getBucketName() {
-		return bucketName;
+		return so.getBucketName();
 	}
 
 	/**
@@ -69,6 +60,7 @@ public final class StorageObjectWrapper extends S3InfoSupport {
 	/**
 	 * @return the key
 	 */
+	@Override
 	public String getName() {
 		return getObjectName();
 	}
@@ -78,7 +70,7 @@ public final class StorageObjectWrapper extends S3InfoSupport {
 	 */
 	@Override
 	public long getLastModified() {
-		return so.getLastModifiedDate() == null ? 0 : so.getLastModifiedDate().getTime();
+		return so.getLastModified() == null ? 0 : so.getLastModified().getTime();
 	}
 
 	/**
@@ -93,7 +85,7 @@ public final class StorageObjectWrapper extends S3InfoSupport {
 	 */
 	@Override
 	public long getSize() {
-		return so.getContentLength();
+		return so.getSize();
 	}
 
 	/**
@@ -107,7 +99,7 @@ public final class StorageObjectWrapper extends S3InfoSupport {
 	 * @return the ownerIdKey
 	 */
 	public String getOwnerId() {
-		StorageOwner owner = so.getOwner();
+		Owner owner = so.getOwner();
 		return owner == null ? null : owner.getId();
 	}
 
@@ -115,7 +107,7 @@ public final class StorageObjectWrapper extends S3InfoSupport {
 	 * @return the ownerDisplayName
 	 */
 	public String getOwnerDisplayName() {
-		StorageOwner owner = so.getOwner();
+		Owner owner = so.getOwner();
 		return owner == null ? null : owner.getDisplayName();
 	}
 
@@ -158,7 +150,7 @@ public final class StorageObjectWrapper extends S3InfoSupport {
 		if (isDirectory != null) return isDirectory.booleanValue();
 
 		if (so.isDirectoryPlaceholder()) return isDirectory = true;
-		if (so.getContentLength() > 0) return isDirectory = false;
+		if (so.getSize() > 0) return isDirectory = false;
 		Object o = so.getMetadata("Content-Type");
 		// System.out.println("- Content-Type:"+o);
 		if (o instanceof String) {
@@ -185,7 +177,7 @@ public final class StorageObjectWrapper extends S3InfoSupport {
 
 	@Override
 	public String getObjectName() {
-		return so.getName();
+		return so.getKey();
 	}
 
 	@Override
@@ -198,23 +190,13 @@ public final class StorageObjectWrapper extends S3InfoSupport {
 		return validUntil;
 	}
 
-	public StorageObject getStorageObject() {
+	public S3ObjectSummary getStorageObject() {
 		return so;
 	}
 
 	@Override
-	public StorageOwner getOwner() {
+	public Owner getOwner() {
 		return so.getOwner();
-	}
-
-	@Override
-	public String getLocation() {
-		return null;
-	}
-
-	@Override
-	public Map<String, Object> getMetaData() {
-		return so.getMetadataMap();
 	}
 
 	@Override

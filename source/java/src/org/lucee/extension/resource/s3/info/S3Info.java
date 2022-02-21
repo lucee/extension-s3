@@ -18,9 +18,7 @@
  **/
 package org.lucee.extension.resource.s3.info;
 
-import java.util.Map;
-
-import org.jets3t.service.model.StorageOwner;
+import com.amazonaws.services.s3.model.Owner;
 
 public interface S3Info {
 
@@ -44,11 +42,11 @@ public interface S3Info {
 
 	public long validUntil();
 
-	public StorageOwner getOwner();
+	public Owner getOwner();
 
-	public String getLocation();
+	// public String getLocation();
 
-	public Map<String, Object> getMetaData();
+	// public Map<String, Object> getMetaData();
 
 	/**
 	 * is this a pseudo object or an object really physically exists

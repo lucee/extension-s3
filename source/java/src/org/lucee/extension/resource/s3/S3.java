@@ -20,19 +20,13 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import javax.xml.parsers.FactoryConfigurationError;
 
-import org.jets3t.service.Constants;
-import org.jets3t.service.Jets3tProperties;
 import org.jets3t.service.S3Service;
-import org.jets3t.service.ServiceException;
 import org.jets3t.service.StorageObjectsChunk;
-import org.jets3t.service.acl.AccessControlList;
 import org.jets3t.service.impl.rest.httpclient.RestS3Service;
 import org.jets3t.service.model.S3Bucket;
-import org.jets3t.service.model.S3Object;
 import org.jets3t.service.model.StorageObject;
 import org.jets3t.service.model.StorageOwner;
 import org.jets3t.service.model.container.ObjectKeyAndVersion;
-import org.jets3t.service.security.AWSCredentials;
 import org.lucee.extension.resource.s3.info.NotExisting;
 import org.lucee.extension.resource.s3.info.ParentObject;
 import org.lucee.extension.resource.s3.info.S3BucketWrapper;
@@ -40,6 +34,18 @@ import org.lucee.extension.resource.s3.info.S3Info;
 import org.lucee.extension.resource.s3.info.StorageObjectWrapper;
 import org.lucee.extension.resource.s3.util.MultipartUtil;
 import org.lucee.extension.resource.s3.util.XMLUtil;
+import org.osgi.framework.ServiceException;
+
+import com.amazonaws.auth.AWSStaticCredentialsProvider;
+import com.amazonaws.auth.BasicAWSCredentials;
+import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration;
+import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.AmazonS3ClientBuilder;
+import com.amazonaws.services.s3.model.AccessControlList;
+import com.amazonaws.services.s3.model.Bucket;
+import com.amazonaws.services.s3.model.ObjectListing;
+import com.amazonaws.services.s3.model.S3Object;
+import com.amazonaws.services.s3.model.S3ObjectSummary;
 
 import lucee.commons.io.res.Resource;
 import lucee.loader.engine.CFMLEngineFactory;
@@ -70,7 +76,7 @@ public class S3 {
 	private final boolean customCredentials;
 	private final long timeout;
 
-	private RestS3Service service;
+	private AmazonS3 service;
 
 	/////////////////////// CACHE ////////////////
 	private ValidUntilMap<S3BucketWrapper> buckets;
@@ -79,15 +85,17 @@ public class S3 {
 	Map<String, ValidUntilElement<AccessControlList>> accessControlLists = new ConcurrentHashMap<String, ValidUntilElement<AccessControlList>>();
 	private Map<String, S3Info> exists = new ConcurrentHashMap<String, S3Info>();
 
+	private String region;
+
 	/////////////////////////////////////////////
 
-	public S3(S3Properties props, long timeout) {
+	public S3(S3Properties props, long timeout, String region) {
 		this.host = props.getHost();
 		this.secretAccessKey = props.getSecretAccessKey();
 		this.accessKeyId = props.getAccessKeyId();
 		this.timeout = timeout;
 		this.customCredentials = props.getCustomCredentials();
-		// new Throwable().printStackTrace();
+		this.region = Util.isEmpty(region, true) ? null : region.trim();
 	}
 
 	public String getHost() {
@@ -275,11 +283,11 @@ public class S3 {
 
 			// no cache for buckets
 			if (timeout <= 0 || buckets == null || buckets.validUntil < System.currentTimeMillis()) {
-				S3Bucket[] s3buckets = getS3Service().listAllBuckets();
+				List<Bucket> s3buckets = getS3Service().listBuckets();
 				long now = System.currentTimeMillis();
 				buckets = new ValidUntilMap<S3BucketWrapper>(now + timeout);
-				for (int i = 0; i < s3buckets.length; i++) {
-					buckets.put(s3buckets[i].getName(), new S3BucketWrapper(s3buckets[i], now + timeout));
+				for (Bucket s3b: s3buckets) {
+					buckets.put(s3b.getName(), new S3BucketWrapper(s3b, now + timeout));
 				}
 			}
 
@@ -420,7 +428,9 @@ public class S3 {
 			// not cached
 			ValidUntilMap<S3Info> _list = timeout <= 0 || noCache ? null : objects.get(key);
 			if (_list == null || _list.validUntil < System.currentTimeMillis()) {
-				S3Object[] kids = hasObjName ? getS3Service().listObjects(bucketName, nameFile, ",") : getS3Service().listObjects(bucketName);
+
+				ObjectListing list = (hasObjName ? getS3Service().listObjects(bucketName, nameFile) : getS3Service().listObjects(bucketName));
+				List<S3ObjectSummary> kids = list.getObjectSummaries();
 
 				long validUntil = System.currentTimeMillis() + timeout;
 				_list = new ValidUntilMap<S3Info>(validUntil);
@@ -428,15 +438,23 @@ public class S3 {
 
 				// add bucket
 				if (!hasObjName && !onlyChildren) {
-					S3Bucket b = getS3Service().getBucket(bucketName);
-					_list.put("", new S3BucketWrapper(b, validUntil));
+					outer: while (true) {
+						for (Bucket b: getS3Service().listBuckets()) {
+							// TOD is there a more direct way?
+							if (b.getName().equals(list.getBucketName())) {
+								_list.put("", new S3BucketWrapper(b, validUntil));
+								break outer;
+							}
+						}
+						throw new S3Exception("could not find bucket [" + bucketName + "]");// should never happen!
+					}
 				}
 
 				StorageObjectWrapper tmp;
 				String name;
-				for (S3Object kid: kids) {
-					name = kid.getName();
-					tmp = new StorageObjectWrapper(this, kid, bucketName, validUntil);
+				for (S3ObjectSummary kid: kids) {
+					name = kid.getKey();
+					tmp = new StorageObjectWrapper(this, kid, validUntil);
 
 					if (!hasObjName || name.equals(nameFile) || name.startsWith(nameDir)) _list.put(kid.getKey(), tmp);
 					exists.put(toKey(kid.getBucketName(), name), tmp);
@@ -472,48 +490,16 @@ public class S3 {
 
 	public boolean exists(String bucketName) throws S3Exception {
 		bucketName = improveBucketName(bucketName);
+		// TODO cache the result
+		return getS3Service().doesBucketExistV2(bucketName);
 
-		// this will load it and cache if necessary
-		try {
-			return get(bucketName) != null;
-		}
-		catch (S3Exception s3e) {
-			String msg = s3e.getMessage();
-			if (msg != null) { // i do not like that a lot, but the class of the exception is generic
-				msg = msg.toLowerCase();
-				if (msg.contains("access") && msg.contains("denied")) { // let's try to get the bucket in a different way
-					long now = System.currentTimeMillis();
-					if (existBuckets != null) {
-						S3BucketExists info = existBuckets.get(bucketName);
-						if (info != null) {
-							if (info.validUntil >= now) {
-								return info.exists;
-							}
-							else existBuckets.remove(bucketName);
-						}
-					}
-					else existBuckets = new ConcurrentHashMap<String, S3BucketExists>();
-					S3Service s = getS3Service();
-					try { // delete the content of the bucket
-							// in case bucket does not exist, it will throw an error
-						s.listObjects(bucketName, "sadasdsadasdasasdasd", null, Constants.DEFAULT_OBJECT_LIST_CHUNK_SIZE);
-						existBuckets.put(bucketName, new S3BucketExists(bucketName, now + timeout, true));
-						return true;
-					}
-					catch (ServiceException se) {
-						existBuckets.put(bucketName, new S3BucketExists(bucketName, now + timeout, false));
-						return false;
-					}
-				}
-			}
-			throw s3e;
-		}
 	}
 
 	public boolean exists(String bucketName, String objectName) throws S3Exception {
 		if (Util.isEmpty(objectName)) return exists(bucketName);
-		S3Info info = get(bucketName, objectName);
-		return info != null && info.exists();
+
+		// TODO cache the result
+		return getS3Service().doesObjectExist(improveBucketName(bucketName), improveObjectName(objectName));
 	}
 
 	public boolean isDirectory(String bucketName, String objectName) throws S3Exception {
@@ -1282,16 +1268,25 @@ public class S3 {
 		return getS3Service().createSignedGetUrl(bucketName, objectName, new Date(System.currentTimeMillis() + time), false);
 	}
 
-	private S3Service getS3Service() {
+	private AmazonS3 getS3Service() {
 
 		if (service == null) {
 			synchronized (getToken(accessKeyId + ":" + secretAccessKey)) {
 				if (service == null) {
-					final Jets3tProperties props = Jets3tProperties.getInstance(Constants.JETS3T_PROPERTIES_FILENAME);
+
+					AmazonS3ClientBuilder builder = AmazonS3ClientBuilder.standard();
+					// credentials
+					builder.withCredentials(new AWSStaticCredentialsProvider(new BasicAWSCredentials(accessKeyId, secretAccessKey)));
+
+					// region or endpoint and region
 					if (host != null && !host.isEmpty() && !host.equalsIgnoreCase(DEFAULT_HOST)) {
-						props.setProperty("s3service.s3-endpoint", host);
+						builder.withEndpointConfiguration(new EndpointConfiguration(host, region));
 					}
-					service = new RestS3Service(new AWSCredentials(accessKeyId, secretAccessKey), null, null, props);
+					else if (region != null) {
+						builder.withRegion(region);
+					}
+					service = builder.build();
+
 				}
 			}
 		}
