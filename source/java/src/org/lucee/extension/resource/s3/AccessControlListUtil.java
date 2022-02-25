@@ -23,13 +23,14 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
-import org.jets3t.service.acl.AccessControlList;
-import org.jets3t.service.acl.CanonicalGrantee;
-import org.jets3t.service.acl.EmailAddressGrantee;
-import org.jets3t.service.acl.GrantAndPermission;
-import org.jets3t.service.acl.GranteeInterface;
-import org.jets3t.service.acl.GroupGrantee;
-import org.jets3t.service.acl.Permission;
+import com.amazonaws.services.s3.model.AccessControlList;
+import com.amazonaws.services.s3.model.CannedAccessControlList;
+import com.amazonaws.services.s3.model.CanonicalGrantee;
+import com.amazonaws.services.s3.model.EmailAddressGrantee;
+import com.amazonaws.services.s3.model.Grant;
+import com.amazonaws.services.s3.model.Grantee;
+import com.amazonaws.services.s3.model.GroupGrantee;
+import com.amazonaws.services.s3.model.Permission;
 
 import lucee.loader.engine.CFMLEngine;
 import lucee.loader.engine.CFMLEngineFactory;
@@ -155,7 +156,7 @@ public class AccessControlListUtil {
 		return hash().hashCode();
 	}
 
-	public static AccessControlList toAccessControlList(Object objACL) throws S3Exception {
+	public static Object toAccessControlList(Object objACL) throws S3Exception {
 		CFMLEngine engine = CFMLEngineFactory.getInstance();
 		Decision dec = engine.getDecisionUtil();
 		Cast cast = engine.getCastUtil();
@@ -163,7 +164,7 @@ public class AccessControlListUtil {
 		// String
 		if (dec.isSimpleValue(objACL)) {
 			String str = cast.toString(objACL, "");
-			AccessControlList acl = S3.toACL(str, null);
+			CannedAccessControlList acl = S3.toACL(str, null);
 			if (acl == null) throw new S3Exception("invalid access control list definition [" + str + "]");
 			return acl;
 		}
@@ -180,44 +181,44 @@ public class AccessControlListUtil {
 		throw new S3Exception("access control list must be an array or a string");
 	}
 
-	public static GrantAndPermission[] toGrantAndPermissions(Object obj) throws S3Exception, PageException {
+	public static Grant[] toGrantAndPermissions(Object obj) throws S3Exception, PageException {
 		CFMLEngine engine = CFMLEngineFactory.getInstance();
 		if (engine.getDecisionUtil().isArray(obj)) return toGrantAndPermissions(engine.getCastUtil().toArray(obj));
 
-		GrantAndPermission gap = toGrantAndPermission(engine.getCastUtil().toStruct(obj));
-		return new GrantAndPermission[] { gap };
+		Grant gap = toGrantAndPermission(engine.getCastUtil().toStruct(obj));
+		return new Grant[] { gap };
 	}
 
-	public static GrantAndPermission[] toGrantAndPermissions(Array arr) throws S3Exception {
+	public static Grant[] toGrantAndPermissions(Array arr) throws S3Exception {
 		Cast caster = CFMLEngineFactory.getInstance().getCastUtil();
 		if (arr == null) throw new S3Exception("ACL Object must be a Array of Structs");
 
 		Struct sct;
 		Iterator<Object> it = arr.valueIterator();
-		List<GrantAndPermission> acl = new ArrayList<GrantAndPermission>();
+		List<Grant> acl = new ArrayList<Grant>();
 		while (it.hasNext()) {
 			sct = caster.toStruct(it.next(), null);
 			if (sct == null) throw new S3Exception("ACL Object must be a Array of Structs");
 			acl.add(toGrantAndPermission(sct));
 		}
-		return acl.toArray(new GrantAndPermission[acl.size()]);
+		return acl.toArray(new Grant[acl.size()]);
 	}
 
-	public static GrantAndPermission toGrantAndPermission(Struct sct) throws S3Exception {
+	public static Grant toGrantAndPermission(Struct sct) throws S3Exception {
 		// Permission
 		Permission perm = toPermission(sct);
 
 		// Group
-		GranteeInterface grantee = toGroupGrantee(sct);
-		if (grantee != null) return new GrantAndPermission(grantee, perm);
+		Grantee grantee = toGroupGrantee(sct);
+		if (grantee != null) return new Grant(grantee, perm);
 
 		// Email
 		grantee = toEmailAddressGrantee(sct);
-		if (grantee != null) return new GrantAndPermission(grantee, perm);
+		if (grantee != null) return new Grant(grantee, perm);
 
 		// Canonical
 		grantee = toCanonicalGrantee(sct);
-		if (grantee != null) return new GrantAndPermission(grantee, perm);
+		if (grantee != null) return new Grant(grantee, perm);
 
 		throw new S3Exception("missing Grantee definition");
 	}
@@ -232,11 +233,11 @@ public class AccessControlListUtil {
 		String p = permission;
 		permission = removeWordDelimter(permission);
 
-		if ("FULLCONTROL".equals(permission)) return Permission.PERMISSION_FULL_CONTROL;
-		else if ("WRITEACP".equals(permission)) return Permission.PERMISSION_WRITE_ACP;
-		else if ("READACP".equals(permission)) return Permission.PERMISSION_READ_ACP;
-		else if ("WRITE".equals(permission)) return Permission.PERMISSION_WRITE;
-		else if ("READ".equals(permission)) return Permission.PERMISSION_READ;
+		if ("FULLCONTROL".equals(permission)) return Permission.FullControl;
+		else if ("WRITEACP".equals(permission)) return Permission.WriteAcp;
+		else if ("READACP".equals(permission)) return Permission.ReadAcp;
+		else if ("WRITE".equals(permission)) return Permission.Write;
+		else if ("READ".equals(permission)) return Permission.Read;
 		else throw new S3Exception("invalid permission definition [" + p + "], valid permissions are [FULL_CONTROL, WRITE, WRITE_ACP, READ, READ_ACP]");
 	}
 
@@ -250,10 +251,10 @@ public class AccessControlListUtil {
 			if (group == null) throw new S3Exception("invalid object type for group definition");
 
 			group = removeWordDelimter(group);
-			if ("all".equalsIgnoreCase(group) || "allusers".equalsIgnoreCase(group)) return GroupGrantee.ALL_USERS;
+			if ("all".equalsIgnoreCase(group) || "allusers".equalsIgnoreCase(group)) return GroupGrantee.AllUsers;
 			if ("authenticated".equalsIgnoreCase(group) || "AuthenticatedUser".equalsIgnoreCase(group) || "AuthenticatedUsers".equalsIgnoreCase(group))
-				return GroupGrantee.AUTHENTICATED_USERS;
-			if ("logdelivery".equalsIgnoreCase(group)) return GroupGrantee.LOG_DELIVERY;
+				return GroupGrantee.AuthenticatedUsers;
+			if ("logdelivery".equalsIgnoreCase(group)) return GroupGrantee.LogDelivery;
 			throw new S3Exception("invalid group definition [" + group + "], valid group defintions are are " + "[all,authenticated,log_delivery]");
 		}
 		return null;
@@ -284,23 +285,21 @@ public class AccessControlListUtil {
 		return null;
 	}
 
-	public static Array toArray(GrantAndPermission[] grantAndPerms) {
+	public static Array toArray(List<Grant> grants) {
 		CFMLEngine engine = CFMLEngineFactory.getInstance();
 		Struct sct;
-		GrantAndPermission gap;
 		Array arr = engine.getCreationUtil().createArray();
-		if (grantAndPerms != null && grantAndPerms.length > 0) {
-			for (int i = 0; i < grantAndPerms.length; i++) {
-				gap = grantAndPerms[i];
-				sct = toStruct(gap.getGrantee());
-				sct.setEL(engine.getCreationUtil().createKey("permission"), gap.getPermission().toString());
+		if (grants != null && grants.size() > 0) {
+			for (Grant g: grants) {
+				sct = toStruct(g.getGrantee());
+				sct.setEL(engine.getCreationUtil().createKey("permission"), g.getPermission().toString());
 				arr.appendEL(sct);
 			}
 		}
 		return arr;
 	}
 
-	private static Struct toStruct(GranteeInterface grantee) {
+	private static Struct toStruct(Grantee grantee) {
 		CFMLEngine engine = CFMLEngineFactory.getInstance();
 		Creation creator = engine.getCreationUtil();
 
@@ -309,9 +308,9 @@ public class AccessControlListUtil {
 
 		// Group
 		if (grantee instanceof GroupGrantee) {
-			if (GroupGrantee.ALL_USERS.equals(grantee)) sct.setEL(creator.createKey("group"), "all");
-			else if (GroupGrantee.AUTHENTICATED_USERS.equals(grantee)) sct.setEL(creator.createKey("group"), "authenticated");
-			else if (GroupGrantee.LOG_DELIVERY.equals(grantee)) sct.setEL(creator.createKey("group"), "log_delivery");
+			if (GroupGrantee.AllUsers.equals(grantee)) sct.setEL(creator.createKey("group"), "all");
+			else if (GroupGrantee.AuthenticatedUsers.equals(grantee)) sct.setEL(creator.createKey("group"), "authenticated");
+			else if (GroupGrantee.LogDelivery.equals(grantee)) sct.setEL(creator.createKey("group"), "log_delivery");
 		}
 
 		// E-Mail

@@ -21,7 +21,7 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-import org.jets3t.service.acl.AccessControlList;
+import com.amazonaws.services.s3.model.CannedAccessControlList;
 
 import lucee.commons.io.res.Resource;
 import lucee.commons.io.res.ResourceLock;
@@ -83,7 +83,7 @@ public final class S3ResourceProvider implements ResourceProvider {
 		String key = props.toString() + ":" + cache;
 		S3 s3 = s3s.get(key);
 		if (s3 == null) {
-			s3s.put(key, s3 = new S3(props, cache));
+			s3s.put(key, s3 = new S3(props, cache, null, true, CFMLEngineFactory.getInstance().getThreadConfig().getLog("application")));
 		}
 		return s3;
 	}
@@ -123,7 +123,7 @@ public final class S3ResourceProvider implements ResourceProvider {
 		boolean hasCustomCredentials = false;
 		String accessKeyId, host, secretAccessKey;
 		String defaultLocation;
-		AccessControlList defaultACL;
+		CannedAccessControlList defaultACL;
 		{
 			Properties prop = null;
 			if (pc != null) prop = pc.getApplicationContext().getS3();
@@ -133,14 +133,14 @@ public final class S3ResourceProvider implements ResourceProvider {
 				host = prop.getHost();
 				secretAccessKey = prop.getSecretAccessKey();
 				defaultLocation = prop.getDefaultLocation();
-				defaultACL = S3.toACL(prop, AccessControlList.REST_CANNED_PUBLIC_READ);
+				defaultACL = S3.toACL(prop, CannedAccessControlList.PublicRead);
 			}
 			else {
 				accessKeyId = null;
 				secretAccessKey = null;
 				host = S3.DEFAULT_HOST;
 				defaultLocation = null;
-				defaultACL = AccessControlList.REST_CANNED_PUBLIC_READ;
+				defaultACL = CannedAccessControlList.PublicRead;
 			}
 		}
 		properties.setACL(defaultACL);

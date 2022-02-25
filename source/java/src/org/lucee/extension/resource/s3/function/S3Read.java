@@ -1,8 +1,9 @@
 package org.lucee.extension.resource.s3.function;
 
-import org.jets3t.service.model.S3Object;
 import org.lucee.extension.resource.s3.S3;
 import org.lucee.extension.resource.s3.S3ResourceProvider;
+
+import com.amazonaws.services.s3.model.S3Object;
 
 import lucee.loader.engine.CFMLEngine;
 import lucee.loader.engine.CFMLEngineFactory;
@@ -23,7 +24,7 @@ public class S3Read extends S3Function {
 			S3Object obj = s3.getData(bucketName, objectName);
 
 			// copy data
-			return eng.getIOUtil().toString(obj.getDataInputStream(), toCharset(pc, charset));
+			return eng.getIOUtil().toString(obj.getObjectContent(), toCharset(pc, charset));
 
 		}
 		catch (Exception e) {

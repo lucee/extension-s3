@@ -25,9 +25,10 @@ import java.io.OutputStream;
 import java.util.Iterator;
 import java.util.List;
 
-import org.jets3t.service.acl.AccessControlList;
 import org.lucee.extension.resource.ResourceSupport;
 import org.lucee.extension.resource.s3.info.S3Info;
+
+import com.amazonaws.services.s3.model.CannedAccessControlList;
 
 import lucee.commons.io.res.Resource;
 import lucee.commons.io.res.ResourceProvider;
@@ -51,7 +52,7 @@ public final class S3Resource extends ResourceSupport {
 	private final S3Properties props;
 	long infoLastAccessw = 0;
 	private String location = null;
-	private AccessControlList acl;// ="public-read";
+	private CannedAccessControlList acl;// ="public-read";
 
 	private S3Resource(CFMLEngine engine, S3 s3, S3Properties props, String location, S3ResourceProvider provider, String buckedName, String objectName) {
 		super(engine);
@@ -508,7 +509,7 @@ public final class S3Resource extends ResourceSupport {
 			S3Resource t = (S3Resource) to;
 			// whe have the same container
 			if (f.s3.getAccessKeyId().equals(t.s3.getAccessKeyId()) && f.s3.getSecretAccessKey().equals(t.s3.getSecretAccessKey())) {
-				s3.copy(f.bucketName, f.objectName, t.bucketName, t.objectName);
+				s3.copy(f.bucketName, f.objectName, t.bucketName, t.objectName, null, null);
 				return;
 			}
 
@@ -524,7 +525,7 @@ public final class S3Resource extends ResourceSupport {
 			S3Resource s3Trg = (S3Resource) trg;
 			// we have the same container
 			if (s3Trg.s3.getAccessKeyId().equals(s3Src.s3.getAccessKeyId()) && s3Trg.s3.getSecretAccessKey().equals(s3Src.s3.getSecretAccessKey())) {
-				s3.move(s3Src.bucketName, s3Src.objectName, s3Trg.bucketName, s3Trg.objectName);
+				s3.move(s3Src.bucketName, s3Src.objectName, s3Trg.bucketName, s3Trg.objectName, null, null);
 				return;
 			}
 		}

@@ -2,9 +2,10 @@ package org.lucee.extension.resource.s3.function;
 
 import java.io.ByteArrayOutputStream;
 
-import org.jets3t.service.model.S3Object;
 import org.lucee.extension.resource.s3.S3;
 import org.lucee.extension.resource.s3.S3ResourceProvider;
+
+import com.amazonaws.services.s3.model.S3Object;
 
 import lucee.loader.engine.CFMLEngine;
 import lucee.loader.engine.CFMLEngineFactory;
@@ -25,7 +26,7 @@ public class S3ReadBinary extends S3Function {
 
 			// copy data
 			ByteArrayOutputStream baos = new ByteArrayOutputStream();
-			eng.getIOUtil().copy(obj.getDataInputStream(), baos, true, true);
+			eng.getIOUtil().copy(obj.getObjectContent(), baos, true, true);
 
 			return baos.toByteArray();
 		}

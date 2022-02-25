@@ -1,15 +1,16 @@
 package org.lucee.extension.resource.s3;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Method;
+import java.net.URL;
+import java.nio.charset.Charset;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -18,44 +19,50 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 
-import javax.xml.parsers.FactoryConfigurationError;
-
-import org.jets3t.service.S3Service;
-import org.jets3t.service.StorageObjectsChunk;
-import org.jets3t.service.impl.rest.httpclient.RestS3Service;
-import org.jets3t.service.model.S3Bucket;
-import org.jets3t.service.model.StorageObject;
-import org.jets3t.service.model.StorageOwner;
-import org.jets3t.service.model.container.ObjectKeyAndVersion;
 import org.lucee.extension.resource.s3.info.NotExisting;
 import org.lucee.extension.resource.s3.info.ParentObject;
 import org.lucee.extension.resource.s3.info.S3BucketWrapper;
 import org.lucee.extension.resource.s3.info.S3Info;
 import org.lucee.extension.resource.s3.info.StorageObjectWrapper;
-import org.lucee.extension.resource.s3.util.MultipartUtil;
 import org.lucee.extension.resource.s3.util.XMLUtil;
-import org.osgi.framework.ServiceException;
 
+import com.amazonaws.AmazonServiceException;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration;
+import com.amazonaws.regions.Regions;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.model.AccessControlList;
 import com.amazonaws.services.s3.model.Bucket;
+import com.amazonaws.services.s3.model.CannedAccessControlList;
+import com.amazonaws.services.s3.model.CopyObjectRequest;
+import com.amazonaws.services.s3.model.CreateBucketRequest;
+import com.amazonaws.services.s3.model.DeleteObjectsRequest;
+import com.amazonaws.services.s3.model.DeleteObjectsRequest.KeyVersion;
+import com.amazonaws.services.s3.model.ListVersionsRequest;
 import com.amazonaws.services.s3.model.ObjectListing;
+import com.amazonaws.services.s3.model.ObjectMetadata;
+import com.amazonaws.services.s3.model.Owner;
+import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
+import com.amazonaws.services.s3.model.S3VersionSummary;
+import com.amazonaws.services.s3.model.VersionListing;
 
+import lucee.commons.io.log.Log;
 import lucee.commons.io.res.Resource;
+import lucee.loader.engine.CFMLEngine;
 import lucee.loader.engine.CFMLEngineFactory;
 import lucee.loader.util.Util;
 import lucee.runtime.exp.PageException;
 import lucee.runtime.net.s3.Properties;
 import lucee.runtime.type.Array;
 import lucee.runtime.type.Collection.Key;
+import lucee.runtime.type.Query;
 import lucee.runtime.type.Struct;
 import lucee.runtime.util.Cast;
+import lucee.runtime.util.Creation;
 import lucee.runtime.util.Decision;
 
 public class S3 {
@@ -66,9 +73,6 @@ public class S3 {
 
 	public static final String DEFAULT_HOST = "s3.amazonaws.com";
 
-	private static final long MAX_SINGLE_SIZE = 1024 * 1024 * 1024;
-	private static final long MAX_SINGLE_SIZE_FOR_CHARACTERS = 900 * 1024 * 1024;
-	private static final long MAX_PART_SIZE = 100 * 1024 * 1024;
 	private static final ConcurrentHashMap<String, Object> tokens = new ConcurrentHashMap<String, Object>();
 	private final String host;
 	private final String secretAccessKey;
@@ -76,43 +80,56 @@ public class S3 {
 	private final boolean customCredentials;
 	private final long timeout;
 
-	private AmazonS3 service;
+	// private AmazonS3 service;
+	private Map<String, AmazonS3> services = new ConcurrentHashMap<>();
 
 	/////////////////////// CACHE ////////////////
 	private ValidUntilMap<S3BucketWrapper> buckets;
 	private Map<String, S3BucketExists> existBuckets;
 	private final Map<String, ValidUntilMap<S3Info>> objects = new ConcurrentHashMap<String, ValidUntilMap<S3Info>>();
 	Map<String, ValidUntilElement<AccessControlList>> accessControlLists = new ConcurrentHashMap<String, ValidUntilElement<AccessControlList>>();
+	Map<String, Regions> regions = new ConcurrentHashMap<String, Regions>();
+	Map<String, Regions> bucketRegions = new ConcurrentHashMap<String, Regions>();
 	private Map<String, S3Info> exists = new ConcurrentHashMap<String, S3Info>();
+	private Log log;
 
-	private String region;
+	private String defaultRegion;
 
-	/////////////////////////////////////////////
-
-	public S3(S3Properties props, long timeout, String region) {
+	/**
+	 * 
+	 * @param props S3 Properties
+	 * @param timeout
+	 * @param defaultRegion region used to create new buckets in case no bucket is defined
+	 * @param cacheRegions
+	 * @param log
+	 * @throws S3Exception
+	 */
+	public S3(S3Properties props, long timeout, String defaultRegion, boolean cacheRegions, Log log) {
 		this.host = props.getHost();
 		this.secretAccessKey = props.getSecretAccessKey();
 		this.accessKeyId = props.getAccessKeyId();
 		this.timeout = timeout;
 		this.customCredentials = props.getCustomCredentials();
-		this.region = Util.isEmpty(region, true) ? null : region.trim();
+		if (Util.isEmpty(defaultRegion, true)) defaultRegion = Regions.US_EAST_2.toString();
+		else {
+			try {
+				defaultRegion = toRegions(defaultRegion).toString();
+			}
+			catch (S3Exception e) {
+				defaultRegion = Regions.US_EAST_2.toString();
+			}
+		}
+		if (cacheRegions) {
+			new CacheRegions().start();
+		}
+		this.log = log;
+
+		regions.put("US", Regions.US_EAST_1);
+
 	}
 
 	public String getHost() {
 		return host;
-	}
-
-	private void flush() {
-		if (service == null) return;
-		try {
-			service.shutdown();
-		}
-		catch (ServiceException e) {
-		}
-		catch (FactoryConfigurationError fce) {
-			XMLUtil.validateDocumentBuilderFactory();
-		}
-		service = null;
 	}
 
 	public String getAccessKeyId() {
@@ -123,30 +140,68 @@ public class S3 {
 		return secretAccessKey;
 	}
 
-	public S3Bucket createDirectory(String bucketName, AccessControlList acl, String location) throws S3Exception {
+	/**
+	 * 
+	 * @param bucketName name of the bucket to create
+	 * @param acl access control list
+	 * @param region region (location) of the new bucket, if not defined, the default region defined
+	 *            with the constructor is used
+	 * @return the bucket created
+	 * @throws S3Exception
+	 */
+	public Bucket createDirectory(String bucketName, Object acl, String targetRegion) throws S3Exception {
 		// flushExists(bucketName);
-
 		bucketName = improveBucketName(bucketName);
-		String l = improveLocation(location);
+		targetRegion = improveLocation(targetRegion);
+
+		CreateBucketRequest cbr = new CreateBucketRequest(bucketName);
+		if (acl != null) setACL(cbr, acl);
+
 		try {
-			S3Bucket bucket;
-			if (!Util.isEmpty(l, true)) {
-				if (acl != null) bucket = getS3Service().createBucket(bucketName, l, acl);
-				else bucket = getS3Service().createBucket(bucketName, l);
+			String region;
+			if (Util.isEmpty(targetRegion)) region = defaultRegion;
+			else region = targetRegion;
+
+			Bucket b;
+			try {
+				b = getS3Service(null, region).createBucket(cbr);
 			}
-			else bucket = getS3Service().createBucket(bucketName);
-			// buckets.put(bucketName, new S3BucketWrapper(bucket, validUntil()));
-			flushExists(bucketName);
-			return bucket;
+			catch (AmazonServiceException ase) {
+				// TODO better way to handle this situation
+				// The authorization header is malformed; the region 'us-east-1' is wrong; expecting 'us-east-2'
+				if (Util.isEmpty(targetRegion) && "AuthorizationHeaderMalformed".equals(ase.getErrorCode()) && ase.getErrorMessage().indexOf("is wrong; expecting") != -1) {
+					region = extractExpectedRegion(ase.getErrorMessage(), ase);
+					b = getS3Service(null, region).createBucket(cbr);
+				}
+				else throw ase;
+			}
+
+			if (!Util.isEmpty(region)) bucketRegions.put(bucketName, toRegions(region));
+			flushExists(bucketName, false);
+			return b;
 		}
-		catch (ServiceException se) {
+		catch (AmazonServiceException se) {
 			throw toS3Exception(se, "could not create the bucket [" + bucketName
 					+ "], please consult the following website to learn about Bucket Restrictions and limitations: https://docs.aws.amazon.com/AmazonS3/latest/dev/BucketRestrictions.html");
 		}
-		catch (FactoryConfigurationError fce) {
-			XMLUtil.validateDocumentBuilderFactory();
-			throw fce;
+	}
+
+	private String extractExpectedRegion(String msg, AmazonServiceException ase) {
+
+		// The authorization header is malformed; the region 'us-east-1' is wrong; expecting 'us-east-2'
+		int startIndex = msg.indexOf("expecting '");
+		if (startIndex != -1) {
+			int endIndex = msg.indexOf("'", startIndex + 11);
+			if (endIndex > startIndex) {
+				try {
+					return toRegions(msg.substring(startIndex + 11, endIndex)).toString();
+				}
+				catch (S3Exception e) {
+					if (log != null) log.error("s3", e);
+				}
+			}
 		}
+		throw ase;
 	}
 
 	private long validUntil() {
@@ -155,85 +210,95 @@ public class S3 {
 
 	/**
 	 * 
-	 * @param bucketName name of the bucket
-	 * @param objectName name of the object
-	 * @param acl
-	 * @param storage only used when creating a non existing bucket
-	 * @throws IOException
+	 * @param bucketName target bucket to create if not already exists
+	 * @param objectName object to create
+	 * @param acl access control list
+	 * @param region if bucket is not already existing, it get created using that region, if it is not
+	 *            defined the default region defined with the constructor is used
+	 * @throws S3Exception
 	 */
-	public void createDirectory(String bucketName, String objectName, AccessControlList acl, String location) throws S3Exception {
+	public void createDirectory(String bucketName, String objectName, Object acl, final String region) throws S3Exception {
 		if (Util.isEmpty(objectName)) {
-			createDirectory(bucketName, acl, location);
+			createDirectory(bucketName, acl, region);
 			return;
 		}
 
 		bucketName = improveBucketName(bucketName);
 		objectName = improveObjectName(objectName, true);
 		flushExists(bucketName, objectName);
-
-		S3Object object = new S3Object("object");
-		object.addMetadata("Content-Type", "application/x-directory");
-		if (acl != null) object.setAcl(acl);
-
-		objectName = improveObjectName(objectName, true);
-		object.setName(objectName);
-		// Upload the object to our test bucket in S3.
 		try {
-			S3Object so = getS3Service().putObject(bucketName, object);
-			flushExists(bucketName, objectName);
-		}
-		catch (ServiceException se) {
-			if (exists(bucketName, true)) throw toS3Exception(se);
+			// create meta-data for your folder and set content-length to 0
+			ObjectMetadata md = new ObjectMetadata();
+			md.setContentType("application/x-directory");
+			md.setContentLength(0L);
+			md.setLastModified(new Date());
 
-			S3Bucket bucket = createDirectory(bucketName, acl, location);
+			// create a PutObjectRequest passing the folder name suffixed by /
+			PutObjectRequest por = new PutObjectRequest(bucketName, objectName, new ByteArrayInputStream(new byte[0]), md);
+			if (acl != null) setACL(por, acl);
+
+			// send request to S3 to create folder
 			try {
-				S3Object so = getS3Service().putObject(bucket, object);
+				getS3Service(bucketName, region).putObject(por);
 				flushExists(bucketName, objectName);
 			}
-			catch (ServiceException e) {
-				throw toS3Exception(se);
+			catch (AmazonServiceException ase) {
+				if (ase.getErrorCode().equals("NoSuchBucket")) {
+					createDirectory(bucketName, acl, region);
+					getS3Service(bucketName, region).putObject(por);
+					flushExists(bucketName, objectName);
+				}
+				else throw toS3Exception(ase);
 			}
+
 		}
-		catch (FactoryConfigurationError fce) {
-			XMLUtil.validateDocumentBuilderFactory();
-			throw fce;
+		catch (AmazonServiceException ase) {
+			throw toS3Exception(ase);
 		}
 	}
 
-	public void createFile(String bucketName, String objectName, AccessControlList acl, String location) throws S3Exception {
+	/**
+	 * 
+	 * @param bucketName target bucket to create if not already exists
+	 * @param objectName object to create
+	 * @param acl access control list
+	 * @param region if bucket is not already existing, it get created using that region, if it is not
+	 *            defined the default region defined with the constructor is used
+	 * @throws S3Exception
+	 */
+	public void createFile(String bucketName, String objectName, Object acl, String region) throws S3Exception {
 		bucketName = improveBucketName(bucketName);
 		objectName = improveObjectName(objectName, false);
 
 		flushExists(bucketName, objectName);
 
-		S3Object object = new S3Object("object");
-		if (acl != null) object.setAcl(acl);
+		ObjectMetadata md = new ObjectMetadata();
+		// md.setContentType("application/x-directory");
+		// md.setContentLength(0L);
+		md.setLastModified(new Date());
+		md.setContentLength(0L);
 
-		object.setName(objectName);
-		// Upload the object to our test bucket in S3.
+		// create a PutObjectRequest passing the folder name suffixed by /
+		PutObjectRequest por = new PutObjectRequest(bucketName, objectName, new ByteArrayInputStream(new byte[0]), md);
+		if (acl != null) setACL(por, acl);
 		try {
-			getS3Service().putObject(bucketName, object);
-			flushExists(bucketName, objectName);
-		}
-		catch (ServiceException se) {
-			if (exists(bucketName, true)) throw toS3Exception(se);
-
-			S3Bucket bucket = createDirectory(bucketName, acl, location);
+			// send request to S3 to create folder
 			try {
-				getS3Service().putObject(bucket, object);
+				getS3Service(bucketName, region).putObject(por);
 				flushExists(bucketName, objectName);
 			}
-			catch (ServiceException e) {
-				throw toS3Exception(se);
+			catch (AmazonServiceException ase) {
+				if (ase.getErrorCode().equals("NoSuchBucket")) {
+					createDirectory(bucketName, acl, region);
+					getS3Service(bucketName, region).putObject(por);
+					flushExists(bucketName, objectName);
+				}
+				else throw toS3Exception(ase);
 			}
-			catch (FactoryConfigurationError fce) {
-				XMLUtil.validateDocumentBuilderFactory();
-				throw fce;
-			}
+
 		}
-		catch (FactoryConfigurationError fce) {
-			XMLUtil.validateDocumentBuilderFactory();
-			throw fce;
+		catch (AmazonServiceException se) {
+			throw toS3Exception(se);
 		}
 	}
 
@@ -242,14 +307,10 @@ public class S3 {
 		objectName = improveObjectName(objectName);
 
 		try {
-			return getS3Service().getObject(bucketName, objectName);
+			return getS3Service(bucketName, null).getObject(bucketName, objectName);
 		}
-		catch (ServiceException se) {
+		catch (AmazonServiceException se) {
 			throw toS3Exception(se);
-		}
-		catch (FactoryConfigurationError fce) {
-			XMLUtil.validateDocumentBuilderFactory();
-			throw fce;
 		}
 	}
 
@@ -258,18 +319,14 @@ public class S3 {
 		objectName = improveObjectName(objectName, false);
 
 		try {
-			return getData(bucketName, objectName).getDataInputStream();
+			return getData(bucketName, objectName).getObjectContent();
 		}
-		catch (ServiceException se) {
+		catch (AmazonServiceException se) {
 			throw toS3Exception(se);
-		}
-		catch (FactoryConfigurationError fce) {
-			XMLUtil.validateDocumentBuilderFactory();
-			throw fce;
 		}
 	}
 
-	public StorageObject getInfo(String bucketName, String objectName) throws S3Exception {
+	public S3ObjectSummary getInfo(String bucketName, String objectName) throws S3Exception {
 		bucketName = improveBucketName(bucketName);
 		objectName = improveObjectName(objectName);
 
@@ -283,11 +340,11 @@ public class S3 {
 
 			// no cache for buckets
 			if (timeout <= 0 || buckets == null || buckets.validUntil < System.currentTimeMillis()) {
-				List<Bucket> s3buckets = getS3Service().listBuckets();
+				List<Bucket> s3buckets = getS3Service(null, null).listBuckets();
 				long now = System.currentTimeMillis();
 				buckets = new ValidUntilMap<S3BucketWrapper>(now + timeout);
 				for (Bucket s3b: s3buckets) {
-					buckets.put(s3b.getName(), new S3BucketWrapper(s3b, now + timeout));
+					buckets.put(s3b.getName(), new S3BucketWrapper(this, s3b, now + timeout, log));
 				}
 			}
 
@@ -306,12 +363,8 @@ public class S3 {
 			}
 			return list;
 		}
-		catch (ServiceException se) {
+		catch (AmazonServiceException se) {
 			throw toS3Exception(se);
-		}
-		catch (FactoryConfigurationError fce) {
-			XMLUtil.validateDocumentBuilderFactory();
-			throw fce;
 		}
 	}
 
@@ -352,16 +405,100 @@ public class S3 {
 		return list;
 	}
 
-	public S3Object[] listObjects(String bucketName) throws S3Exception {
+	public List<S3ObjectSummary> listObjectSummaries(String bucketName) throws S3Exception {
+		AmazonS3 s = getS3Service(bucketName, null);
 		try {
-			return getS3Service().listObjects(improveBucketName(bucketName));
+			ObjectListing objects = s.listObjects(bucketName);
+			/* Recursively delete all the objects inside given bucket */
+			List<S3ObjectSummary> summeries = new ArrayList<>();
+			if (objects != null && objects.getObjectSummaries() != null) {
+				while (true) {
+					for (S3ObjectSummary summary: objects.getObjectSummaries()) {
+						summeries.add(summary);
+					}
+					if (objects.isTruncated()) {
+						objects = s.listNextBatchOfObjects(objects);
+					}
+					else {
+						break;
+					}
+				}
+			}
+			return summeries;
+
 		}
-		catch (ServiceException se) {
-			throw toS3Exception(se);
+		catch (AmazonServiceException ase) {
+			throw toS3Exception(ase);
 		}
-		catch (FactoryConfigurationError fce) {
-			XMLUtil.validateDocumentBuilderFactory();
-			throw fce;
+	}
+
+	public List<S3Object> listObjects(String bucketName) throws S3Exception {
+		AmazonS3 s = getS3Service(bucketName, null);
+		try {
+			ObjectListing objects = s.listObjects(bucketName);
+			/* Recursively delete all the objects inside given bucket */
+			List<S3Object> list = new ArrayList<>();
+			if (objects != null && objects.getObjectSummaries() != null) {
+				while (true) {
+					for (S3ObjectSummary summary: objects.getObjectSummaries()) {
+						// summary.
+						;
+						list.add(s.getObject(summary.getBucketName(), summary.getKey()));
+					}
+					if (objects.isTruncated()) {
+						objects = s.listNextBatchOfObjects(objects);
+					}
+					else {
+						break;
+					}
+				}
+			}
+			return list;
+		}
+		catch (AmazonServiceException ase) {
+			throw toS3Exception(ase);
+		}
+	}
+
+	public Query listObjectsAsQuery(String bucketName) throws S3Exception, PageException {
+		AmazonS3 s = getS3Service(bucketName, null);
+		try {
+			CFMLEngine eng = CFMLEngineFactory.getInstance();
+			Creation creator = eng.getCreationUtil();
+
+			final Key objectName = creator.createKey("objectName");
+			final Key size = creator.createKey("size");
+			final Key lastModified = creator.createKey("lastModified");
+			final Key owner = creator.createKey("lastModified");
+			Query qry = eng.getCreationUtil().createQuery(new Key[] { objectName, size, lastModified, owner }, 0, "buckets");
+
+			ObjectListing objects = s.listObjects(bucketName);
+			/* Recursively delete all the objects inside given bucket */
+			List<S3Object> list = new ArrayList<>();
+
+			if (objects != null && objects.getObjectSummaries() != null) {
+				int row;
+				while (true) {
+					for (S3ObjectSummary summary: objects.getObjectSummaries()) {
+						row = qry.addRow();
+						qry.setAt(objectName, row, summary.getKey());
+						qry.setAt(lastModified, row, summary.getLastModified());
+						qry.setAt(size, row, summary.getSize());
+						qry.setAt(owner, row, summary.getOwner().getDisplayName());
+					}
+					if (objects.isTruncated()) {
+						objects = s.listNextBatchOfObjects(objects);
+					}
+					else {
+						break;
+					}
+				}
+			}
+
+			return qry;
+		}
+		catch (AmazonServiceException ase) {
+			throw toS3Exception(ase);
 		}
 	}
 
@@ -374,7 +511,7 @@ public class S3 {
 
 		if (addPseudoEntries) {
 			while ((index = nameFile.indexOf('/', last)) != -1) {
-				tmp = new ParentObject(nameFile.substring(0, index + 1), info);
+				tmp = new ParentObject(this, nameFile.substring(0, index + 1), info, log);
 				if (doAdd(tmp, prefix, recursive, onlyChildren)) {
 					objName = improveObjectName(tmp.getObjectName(), false);
 					existing = map.get(objName);
@@ -429,9 +566,6 @@ public class S3 {
 			ValidUntilMap<S3Info> _list = timeout <= 0 || noCache ? null : objects.get(key);
 			if (_list == null || _list.validUntil < System.currentTimeMillis()) {
 
-				ObjectListing list = (hasObjName ? getS3Service().listObjects(bucketName, nameFile) : getS3Service().listObjects(bucketName));
-				List<S3ObjectSummary> kids = list.getObjectSummaries();
-
 				long validUntil = System.currentTimeMillis() + timeout;
 				_list = new ValidUntilMap<S3Info>(validUntil);
 				objects.put(key, _list);
@@ -439,38 +573,50 @@ public class S3 {
 				// add bucket
 				if (!hasObjName && !onlyChildren) {
 					outer: while (true) {
-						for (Bucket b: getS3Service().listBuckets()) {
+						for (Bucket b: getS3Service(null, null).listBuckets()) {
 							// TOD is there a more direct way?
-							if (b.getName().equals(list.getBucketName())) {
-								_list.put("", new S3BucketWrapper(b, validUntil));
+							if (b.getName().equals(bucketName)) {
+								_list.put("", new S3BucketWrapper(this, b, validUntil, log));
 								break outer;
 							}
 						}
 						throw new S3Exception("could not find bucket [" + bucketName + "]");// should never happen!
 					}
 				}
+				AmazonS3 s = getS3Service(bucketName, null);
+				ObjectListing list = (hasObjName ? s.listObjects(bucketName, nameFile) : s.listObjects(bucketName));
+				if (list != null && list.getObjectSummaries() != null) {
+					while (true) {
+						List<S3ObjectSummary> kids = list.getObjectSummaries();
+						StorageObjectWrapper tmp;
+						String name;
+						for (S3ObjectSummary kid: kids) {
+							name = kid.getKey();
+							tmp = new StorageObjectWrapper(this, kid, validUntil, log);
 
-				StorageObjectWrapper tmp;
-				String name;
-				for (S3ObjectSummary kid: kids) {
-					name = kid.getKey();
-					tmp = new StorageObjectWrapper(this, kid, validUntil);
+							if (!hasObjName || name.equals(nameFile) || name.startsWith(nameDir)) _list.put(kid.getKey(), tmp);
+							exists.put(toKey(kid.getBucketName(), name), tmp);
 
-					if (!hasObjName || name.equals(nameFile) || name.startsWith(nameDir)) _list.put(kid.getKey(), tmp);
-					exists.put(toKey(kid.getBucketName(), name), tmp);
+							int index;
+							while ((index = name.lastIndexOf('/')) != -1) {
+								name = name.substring(0, index);
+								exists.put(toKey(bucketName, name), new ParentObject(this, bucketName, name, validUntil, log));
+							}
+						}
 
-					int index;
-					while ((index = name.lastIndexOf('/')) != -1) {
-						name = name.substring(0, index);
-						exists.put(toKey(bucketName, name), new ParentObject(bucketName, name, null, validUntil));
+						if (list.isTruncated()) {
+							list = s.listNextBatchOfObjects(list);
+						}
+						else {
+							break;
+						}
 					}
 				}
-
 			}
 			return _list;
 		}
-		catch (ServiceException se) {
-			throw toS3Exception(se);
+		catch (AmazonServiceException ase) {
+			throw toS3Exception(ase);
 		}
 	}
 
@@ -490,16 +636,66 @@ public class S3 {
 
 	public boolean exists(String bucketName) throws S3Exception {
 		bucketName = improveBucketName(bucketName);
-		// TODO cache the result
-		return getS3Service().doesBucketExistV2(bucketName);
 
+		// this will load it and cache if necessary
+		try {
+			return get(bucketName) != null;
+		}
+		catch (S3Exception s3e) {
+			if (isAccessDenied(s3e)) return existsNotTouchBucketItself(bucketName);
+			throw s3e;
+		}
+		// getS3Service().doesBucketExistV2(bucketName);
+	}
+
+	private boolean isAccessDenied(S3Exception s3e) {
+		String msg = s3e.getMessage();
+		if (msg != null) { // i do not like that a lot, but the class of the exception is generic
+			msg = msg.toLowerCase();
+			if (msg.contains("access") && msg.contains("denied")) { // let's try to get the bucket in a different way
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private boolean existsNotTouchBucketItself(String bucketName) throws S3Exception {
+
+		long now = System.currentTimeMillis();
+		if (existBuckets != null) {
+			S3BucketExists info = existBuckets.get(bucketName);
+			if (info != null) {
+				if (info.validUntil >= now) {
+					return info.exists;
+				}
+				else existBuckets.remove(bucketName);
+			}
+		}
+		else existBuckets = new ConcurrentHashMap<String, S3BucketExists>();
+		AmazonS3 s = getS3Service(bucketName, null);
+		try { // delete the content of the bucket
+				// in case bucket does not exist, it will throw an error
+			s.listObjects(bucketName, "sadasdsadasdasasdasd");
+			existBuckets.put(bucketName, new S3BucketExists(bucketName, now + timeout, true));
+			return true;
+		}
+		catch (AmazonServiceException se) {
+			if (se.getErrorCode().equals("NoSuchBucket")) {
+				existBuckets.put(bucketName, new S3BucketExists(bucketName, now + timeout, false));
+				return false;
+			}
+			throw toS3Exception(se);
+		}
 	}
 
 	public boolean exists(String bucketName, String objectName) throws S3Exception {
 		if (Util.isEmpty(objectName)) return exists(bucketName);
 
-		// TODO cache the result
-		return getS3Service().doesObjectExist(improveBucketName(bucketName), improveObjectName(objectName));
+		S3Info info = get(bucketName, objectName);
+		return info != null && info.exists();
+
+		// return getS3Service().doesObjectExist(improveBucketName(bucketName),
+		// improveObjectName(objectName));
 	}
 
 	public boolean isDirectory(String bucketName, String objectName) throws S3Exception {
@@ -516,10 +712,23 @@ public class S3 {
 		return info.isFile();
 	}
 
+	public String getContentType(String bucketName, String objectName) throws AmazonServiceException, S3Exception {
+		bucketName = improveBucketName(bucketName);
+		objectName = improveObjectName(objectName);
+
+		return getS3Service(bucketName, null).getObjectMetadata(bucketName, objectName).getContentType();
+	}
+
 	public S3Info get(String bucketName, final String objectName) throws S3Exception {
+
+		if (Util.isEmpty(objectName)) {
+			return get(bucketName);
+		}
+
 		bucketName = improveBucketName(bucketName);
 		String nameFile = improveObjectName(objectName, false);
 		String nameDir = improveObjectName(objectName, true);
+
 		// cache
 		S3Info info = timeout <= 0 ? null : exists.get(toKey(bucketName, nameFile));
 		if (info != null && info.validUntil() >= System.currentTimeMillis()) {
@@ -527,71 +736,69 @@ public class S3 {
 			return info;
 		}
 		info = null;
+
+		AmazonS3 s = getS3Service(bucketName, null);
 		try {
-			StorageObjectsChunk chunk = listObjectsChunkedSilent(bucketName, nameFile, 10, null);
 
 			long validUntil = System.currentTimeMillis() + timeout;
-			StorageObject[] objects = chunk == null ? null : chunk.getObjects();
+			ObjectListing objects = null;
+			try {
+				objects = s.listObjects(bucketName, nameFile);
+			}
+			catch (Exception e) {
+			}
 
-			if (objects == null || objects.length == 0) {
-				exists.put(toKey(bucketName, objectName), new NotExisting(bucketName, objectName, null, validUntil)); // we do not return this, we just store it to cache that it
-																														// does
+			/* Recursively delete all the objects inside given bucket */
+
+			if (objects == null || objects.getObjectSummaries() == null || objects.getObjectSummaries().size() == 0) {
+				exists.put(toKey(bucketName, objectName), new NotExisting(bucketName, objectName, validUntil, log)); // we do not return this, we just store it to cache that it
+				// does
 				return null;
 			}
 
 			String targetName;
-			StorageObject stoObj = null;
-			// direct match
-			for (StorageObject so: objects) {
-				targetName = so.getName();
-				if (nameFile.equals(targetName) || nameDir.equals(targetName)) {
-					exists.put(toKey(bucketName, nameFile), info = new StorageObjectWrapper(this, stoObj = so, bucketName, validUntil));
-				}
-			}
+			S3ObjectSummary stoObj = null;
 
-			// pseudo directory?
-			if (info == null) {
-				for (StorageObject so: objects) {
-					targetName = so.getName();
-					if (nameDir.length() < targetName.length() && targetName.startsWith(nameDir)) {
-						exists.put(toKey(bucketName, nameFile), info = new ParentObject(bucketName, nameDir, null, validUntil));
+			while (true) {
+				for (S3ObjectSummary summary: objects.getObjectSummaries()) {
+					// direct match
+					targetName = summary.getKey();
+					if (nameFile.equals(targetName) || nameDir.equals(targetName)) {
+						exists.put(toKey(bucketName, nameFile), info = new StorageObjectWrapper(this, stoObj = summary, validUntil, log));
 					}
+
+					// pseudo directory?
+					if (info == null) {
+						targetName = summary.getKey();
+						if (nameDir.length() < targetName.length() && targetName.startsWith(nameDir)) {
+							exists.put(toKey(bucketName, nameFile), info = new ParentObject(this, bucketName, nameDir, validUntil, log));
+						}
+
+					}
+
+					if (stoObj != null && stoObj.equals(summary)) continue;
+					exists.put(toKey(summary.getBucketName(), summary.getKey()), new StorageObjectWrapper(this, summary, validUntil, log));
+
+				}
+
+				if (objects.isTruncated()) {
+					objects = s.listNextBatchOfObjects(objects);
+				}
+				else {
+					break;
 				}
 			}
 
-			for (StorageObject obj: objects) {
-				if (stoObj != null && stoObj.equals(obj)) continue;
-				exists.put(toKey(obj.getBucketName(), obj.getName()), new StorageObjectWrapper(this, obj, bucketName, validUntil));
-			}
-
 			if (info == null) {
-				exists.put(toKey(bucketName, objectName), new NotExisting(bucketName, objectName, null, validUntil) // we do not return this, we just store it to cache that it does
+				exists.put(toKey(bucketName, objectName), new NotExisting(bucketName, objectName, validUntil, log) // we do not return this, we just store it to cache that it does
 																													// not exis
 				);
 			}
 			return info;
 		}
-		catch (FactoryConfigurationError fce) {
-			XMLUtil.validateDocumentBuilderFactory();
-			throw fce;
+		catch (AmazonServiceException ase) {
+			throw toS3Exception(ase);
 		}
-		catch (Exception e) {
-			e.printStackTrace();
-		}
-		return null;
-	}
-
-	public StorageObjectsChunk listObjectsChunkedSilent(String bucketName, String objectName, int max, String priorLastKey) {
-		try {
-			return getS3Service().listObjectsChunked(bucketName, objectName, ",", max, priorLastKey);
-		}
-		catch (FactoryConfigurationError fce) {
-			XMLUtil.validateDocumentBuilderFactory();
-			throw fce;
-		}
-		catch (Exception e) {
-		}
-		return null;
 	}
 
 	public S3BucketWrapper get(String bucketName) throws S3Exception {
@@ -615,24 +822,56 @@ public class S3 {
 	}
 
 	public void delete(String bucketName, boolean force) throws S3Exception {
+		// com.amazonaws.services.s3.model.AmazonS3Exception: The bucket you tried to delete is not empty
+
 		bucketName = improveBucketName(bucketName);
 
-		S3Service s = getS3Service();
+		AmazonS3 s = getS3Service(bucketName, null);
 		try {
-			// delete the content of the bucket
 			if (force) {
-				S3Object[] children = s.listObjects(bucketName);
-				if (children.length > 0) s.deleteMultipleObjects(bucketName, toObjectKeyAndVersions(children));
+				ObjectListing objects = s.listObjects(bucketName);
+				/* Recursively delete all the objects inside given bucket */
+				if (objects != null && objects.getObjectSummaries() != null) {
+					while (true) {
+						for (S3ObjectSummary summary: objects.getObjectSummaries()) {
+							s.deleteObject(bucketName, summary.getKey());
+						}
+
+						if (objects.isTruncated()) {
+							objects = s.listNextBatchOfObjects(objects);
+						}
+						else {
+							break;
+						}
+					}
+				}
+
+				/* Get list of versions in a given bucket */
+				VersionListing versions = s.listVersions(new ListVersionsRequest().withBucketName(bucketName));
+
+				/* Recursively delete all the versions inside given bucket */
+				if (versions != null && versions.getVersionSummaries() != null) {
+					while (true) {
+						for (S3VersionSummary summary: versions.getVersionSummaries()) {
+							s.deleteObject(bucketName, summary.getKey());
+						}
+
+						if (versions.isTruncated()) {
+							versions = s.listNextBatchOfVersions(versions);
+						}
+						else {
+							break;
+						}
+					}
+				}
+
 			}
+
 			s.deleteBucket(bucketName);
-			flushExists(bucketName);
+			flushExists(bucketName, true);
 		}
-		catch (ServiceException se) {
+		catch (AmazonServiceException se) {
 			throw toS3Exception(se);
-		}
-		catch (FactoryConfigurationError fce) {
-			XMLUtil.validateDocumentBuilderFactory();
-			throw fce;
 		}
 	}
 
@@ -647,38 +886,59 @@ public class S3 {
 		String nameFile = improveObjectName(objectName, false);
 		String nameDir = improveObjectName(objectName, true);
 		try {
-			S3Service s = getS3Service();
-			List<S3Info> list = list(bucketName, nameFile, true, false, false);
-
-			// no file and directory with this name
-			if (list.size() == 0) {
+			AmazonS3 s = getS3Service(bucketName, null);
+			boolean matchFile = false;
+			boolean matchDir = false;
+			boolean matchKids = false;
+			ObjectListing objects = s.listObjects(bucketName, nameFile);
+			List<KeyVersion> matches = new ArrayList<>();
+			if (objects != null && objects.getObjectSummaries() != null) {
+				while (true) {
+					for (S3ObjectSummary summary: objects.getObjectSummaries()) {
+						if (summary.getKey().equals(nameFile)) {
+							matchFile = true;
+							matches.add(new KeyVersion(summary.getKey()));
+						}
+						else if (summary.getKey().startsWith(nameDir)) {
+							if (summary.getKey().length() == nameDir.length()) matchDir = true;
+							else matchKids = true;
+							matches.add(new KeyVersion(summary.getKey()));
+						}
+					}
+					if (objects.isTruncated()) {
+						objects = s.listNextBatchOfObjects(objects);
+					}
+					else {
+						break;
+					}
+				}
+			}
+			else {
 				throw new S3Exception("can't delete file/directory " + bucketName + "/" + objectName + ", file/directory does not exist");
 			}
 
-			ObjectKeyAndVersion[] keys = toObjectKeyAndVersions(list, null);
-			if (!force
-					&& (keys.length > 1 || (keys.length == 1 && keys[0].getKey().length() > nameDir.length() && keys[0].getKey().substring(nameDir.length()).indexOf('/') != -1))) {
+			if (!force && matchKids) {
 				throw new S3Exception("can't delete directory " + bucketName + "/" + objectName + ", directory is not empty");
 			}
 
 			// clear cache
-			Iterator<S3Info> it = list.iterator();
-			S3Info info;
+			Iterator<KeyVersion> it = matches.iterator();
+			KeyVersion kv;
 			while (it.hasNext()) {
-				info = it.next();
-				flushExists(info.getBucketName(), info.getObjectName());
+				kv = it.next();
+				flushExists(bucketName, kv.getKey());
 			}
-			// we create parent because before it maybe was a pseudi dir
-			s.deleteMultipleObjects(bucketName, keys);
-			flushExists(bucketName, objectName);
-			createParentDirectory(bucketName, objectName, true);
+			if (matches.size() > 0) {
+				DeleteObjectsRequest dor = new DeleteObjectsRequest(bucketName).withKeys(matches).withQuiet(false);
+				s.deleteObjects(dor);
+				flushExists(bucketName, objectName);
+				// we create parent because before it maybe was a pseudi dir
+				createParentDirectory(bucketName, objectName, true);
+			}
+			else throw new S3Exception("can't delete file/directory " + bucketName + "/" + objectName + ", file/directory does not exist");
 		}
-		catch (ServiceException se) {
+		catch (AmazonServiceException se) {
 			throw toS3Exception(se);
-		}
-		catch (FactoryConfigurationError fce) {
-			XMLUtil.validateDocumentBuilderFactory();
-			throw fce;
 		}
 		finally {
 			flushExists(bucketName, objectName);
@@ -695,53 +955,31 @@ public class S3 {
 	 */
 	public void clear(String bucketName, long maxAge) throws S3Exception {
 		bucketName = improveBucketName(bucketName);
-		S3Service s = getS3Service();
+		AmazonS3 s = getS3Service(bucketName, null);
 		try {
-			S3Object[] children = s.listObjects(bucketName);
-			if (children != null && children.length > 0) {
-				ObjectKeyAndVersion[] filtered = toObjectKeyAndVersions(children, maxAge);
-				if (filtered != null && filtered.length > 0) {
-					ObjectKeyAndVersion[][] blocks = toBlocks(filtered);
-					for (ObjectKeyAndVersion[] block: blocks) {
-						s.deleteMultipleObjects(bucketName, block);
+
+			ObjectListing objects = s.listObjects(bucketName);
+			if (objects != null && objects.getObjectSummaries() != null) {
+				while (true) {
+					List<KeyVersion> filtered = toObjectKeyAndVersions(objects.getObjectSummaries(), maxAge);
+					if (filtered != null && filtered.size() > 0) {
+						DeleteObjectsRequest dor = new DeleteObjectsRequest(bucketName).withKeys(filtered).withQuiet(false);
+						s.deleteObjects(dor);
 					}
 
-					flushExists(bucketName);
+					if (objects.isTruncated()) {
+						objects = s.listNextBatchOfObjects(objects);
+					}
+					else {
+						break;
+					}
 				}
 			}
+			flushExists(bucketName, false);
 		}
-		catch (ServiceException se) {
+		catch (AmazonServiceException se) {
 			throw toS3Exception(se);
 		}
-		catch (FactoryConfigurationError fce) {
-			XMLUtil.validateDocumentBuilderFactory();
-			throw fce;
-		}
-	}
-
-	private static ObjectKeyAndVersion[][] toBlocks(ObjectKeyAndVersion[] filtered) {
-		List<ObjectKeyAndVersion[]> list = new ArrayList<>();
-		int blockSize = 1000;
-		if (filtered.length <= blockSize) {
-			return new ObjectKeyAndVersion[][] { filtered };
-		}
-		boolean doBreak = false;
-		int count = 0;
-		int from = 0, to = 0;
-		while (true) {
-			if (count++ > 5) break;
-			if (from + blockSize < filtered.length) {
-				to = from + blockSize - 1;
-			}
-			else {
-				to = filtered.length - 1;
-				doBreak = true;
-			}
-			list.add(Arrays.copyOfRange(filtered, from, to + 1));
-			if (doBreak) break;
-			from = to + 1;
-		}
-		return list.toArray(new ObjectKeyAndVersion[list.size()][blockSize]);
 	}
 
 	private void createParentDirectory(String bucketName, String objectName, boolean noCache) throws S3Exception {
@@ -758,52 +996,80 @@ public class S3 {
 		return objectName.substring(0, index + 1);
 	}
 
-	public void copy(String srcBucketName, String srcObjectName, String trgBucketName, String trgObjectName) throws S3Exception {
+	/**
+	 * 
+	 * @param srcBucketName source bucket name to copy
+	 * @param srcObjectName source object name to copy
+	 * @param trgBucketName target bucket name to copy
+	 * @param trgObjectName target object name to copy
+	 * @param acl Access Control list (can be null)
+	 * @param targetRegion region of the target bucket (only necessary if it differs from source and
+	 *            does not exist yet)
+	 * @throws S3Exception
+	 */
+	public void copy(String srcBucketName, String srcObjectName, String trgBucketName, String trgObjectName, Object acl, String targetRegion) throws S3Exception {
 		srcBucketName = improveBucketName(srcBucketName);
 		srcObjectName = improveObjectName(srcObjectName, false);
 		trgBucketName = improveBucketName(trgBucketName);
 		trgObjectName = improveObjectName(trgObjectName, false);
 		flushExists(srcBucketName, srcObjectName);
 		flushExists(trgBucketName, trgObjectName);
+		AmazonS3 s = getS3Service(srcBucketName, null);
 		try {
-			S3Object trg = new S3Object(trgObjectName);
-			getS3Service().copyObject(srcBucketName, srcObjectName, trgBucketName, trg, false);
-			flushExists(trgBucketName, trgObjectName);
-
-		}
-		catch (ServiceException se) {
-			if (get(trgBucketName) != null) throw toS3Exception(se);
-
-			S3BucketWrapper so = get(srcBucketName);
-			String loc = so.getLocation();
-
-			createDirectory(trgBucketName, null, loc);
+			CopyObjectRequest cor = new CopyObjectRequest(srcBucketName, srcObjectName, trgBucketName, trgObjectName);
+			if (acl != null) setACL(cor, acl);
 			try {
-				S3Object trg = new S3Object(trgObjectName);
-				getS3Service().copyObject(srcBucketName, srcObjectName, trgBucketName, trg, false);
-				flushExists(trgBucketName, trgObjectName);
+				s.copyObject(cor);
 			}
-			catch (ServiceException e) {
-				throw toS3Exception(se);
-			}
-			catch (FactoryConfigurationError fce) {
-				XMLUtil.validateDocumentBuilderFactory();
-				throw fce;
+			catch (AmazonServiceException se) {
+				if (se.getErrorCode().equals("NoSuchBucket") && !s.doesBucketExistV2(trgBucketName)) {
+					if (acl == null) acl = s.getBucketAcl(srcBucketName);
+
+					CreateBucketRequest cbr = new CreateBucketRequest(trgBucketName);
+					if (acl != null) setACL(cbr, acl);
+
+					// if no target region is defined, we create the bucket with the same region as the source
+					if (Util.isEmpty(targetRegion)) {
+						targetRegion = getBucketRegion(srcBucketName, true).toString();
+					}
+
+					getS3Service(trgBucketName, targetRegion).createBucket(cbr);
+					getS3Service(srcBucketName, null).copyObject(cor);
+				}
+				else throw toS3Exception(se);
 			}
 		}
-		catch (FactoryConfigurationError fce) {
-			XMLUtil.validateDocumentBuilderFactory();
-			throw fce;
+		catch (AmazonServiceException se) {
+			throw toS3Exception(se);
 		}
 	}
 
-	private void flushExists(String bucketName) throws S3Exception {
+	/**
+	 * 
+	 * @param srcBucketName source bucket name to copy
+	 * @param srcObjectName source object name to copy
+	 * @param trgBucketName target bucket name to copy
+	 * @param trgObjectName target object name to copy
+	 * @param acl Access Control list (can be null)
+	 * @param targetRegion region of the target bucket (only necessary if it differs from source and
+	 *            does not exist yet)
+	 * @throws S3Exception
+	 */
+	public void move(String srcBucketName, String srcObjectName, String trgBucketName, String trgObjectName, CannedAccessControlList cacl, String targetRegion) throws S3Exception {
+		copy(srcBucketName, srcObjectName, trgBucketName, trgObjectName, cacl, targetRegion);
+		delete(srcBucketName, srcObjectName, true);
+	}
+
+	private void flushExists(String bucketName, boolean flushRegionCache) throws S3Exception {
 		bucketName = improveBucketName(bucketName);
 		String prefix = bucketName + ":";
 		buckets = null;
 		_flush(exists, prefix, null);
 		_flush(objects, prefix, null);
 		if (existBuckets != null) existBuckets.remove(bucketName);
+		if (flushRegionCache) {
+			bucketRegions.remove(bucketName);
+		}
 	}
 
 	private void flushExists(String bucketName, String objectName) throws S3Exception {
@@ -832,213 +1098,226 @@ public class S3 {
 		}
 	}
 
-	public void move(String srcBucketName, String srcObjectName, String trgBucketName, String trgObjectName) throws S3Exception {
-		srcBucketName = improveBucketName(srcBucketName);
-		srcObjectName = improveObjectName(srcObjectName, false);
-		trgBucketName = improveBucketName(trgBucketName);
-		trgObjectName = improveObjectName(trgObjectName, false);
-		flushExists(srcBucketName, srcObjectName);
-		flushExists(trgBucketName, trgObjectName);
+	/**
+	 * 
+	 * @param bucketName target bucket to create if not already exists
+	 * @param objectName object to create
+	 * @param data object content
+	 * @param acl access control list
+	 * @param region if bucket is not already existing, it get created using that region, if it is not
+	 *            defined the default region defined with the constructor is used
+	 * @throws S3Exception
+	 */
 
+	public void write(String bucketName, String objectName, String data, String mimeType, Charset charset, Object acl, String region) throws IOException {
+		bucketName = improveBucketName(bucketName);
+		objectName = improveObjectName(objectName, false);
+
+		flushExists(bucketName, objectName);
+		String ct = toContentType(mimeType, charset, null);
+		ObjectMetadata md = new ObjectMetadata();
+		if (ct != null) md.setContentType(ct);
+		md.setLastModified(new Date());
+		// create a PutObjectRequest passing the folder name suffixed by /
+		byte[] bytes = charset == null ? data.getBytes() : data.getBytes(charset);
+		md.setContentLength(bytes.length);
+		PutObjectRequest por = new PutObjectRequest(bucketName, objectName, new ByteArrayInputStream(bytes), md);
+
+		if (acl != null) setACL(por, acl);
 		try {
-			S3Object trg = new S3Object(trgObjectName);
-			getS3Service().moveObject(srcBucketName, srcObjectName, trgBucketName, trg, false);
-
-			flushExists(srcBucketName, srcObjectName);
-			flushExists(trgBucketName, trgObjectName);
-		}
-		catch (ServiceException se) {
-			if (get(trgBucketName) != null) throw toS3Exception(se);
-
-			S3BucketWrapper so = get(srcBucketName);
-			String loc = so.getLocation();
-
-			createDirectory(trgBucketName, null, loc);
+			// send request to S3 to create folder
 			try {
-				S3Object trg = new S3Object(trgObjectName);
-				getS3Service().moveObject(srcBucketName, srcObjectName, trgBucketName, trg, false);
-				flushExists(srcBucketName, srcObjectName);
-				flushExists(trgBucketName, trgObjectName);
+				getS3Service(bucketName, region).putObject(por);
+				flushExists(bucketName, objectName);
 			}
-			catch (ServiceException e) {
-				throw toS3Exception(se);
-			}
-		}
-		catch (FactoryConfigurationError fce) {
-			XMLUtil.validateDocumentBuilderFactory();
-			throw fce;
-		}
-		createParentDirectory(srcBucketName, srcObjectName, true);
-	}
-
-	public void write(String bucketName, String objectName, String data, String mimeType, String charset, AccessControlList acl, String location) throws IOException {
-		bucketName = improveBucketName(bucketName);
-		objectName = improveObjectName(objectName, false);
-		flushExists(bucketName, objectName);
-
-		try {
-			S3Object so = new S3Object(objectName, data);
-			String ct = toContentType(mimeType, charset, null);
-			if (ct != null) so.setContentType(ct);
-
-			// if we reach that threshold we need to get more percise
-			boolean split = false;
-			if (data.length() >= MAX_SINGLE_SIZE_FOR_CHARACTERS) {
-				if (Util.isEmpty(charset)) {
-					if (data.getBytes().length >= MAX_SINGLE_SIZE) split = true;
+			catch (AmazonServiceException ase) {
+				if (ase.getErrorCode().equals("NoSuchBucket")) {
+					createDirectory(bucketName, acl, region);
+					getS3Service(bucketName, region).putObject(por);
+					flushExists(bucketName, objectName);
 				}
-				else {
-					if (data.getBytes(charset).length >= MAX_SINGLE_SIZE) split = true;
-				}
+				else throw toS3Exception(ase);
 			}
 
-			_write(so, bucketName, objectName, acl, location, split);
-			flushExists(bucketName, objectName);
 		}
-		catch (NoSuchAlgorithmException e) {
-			CFMLEngineFactory.getInstance().getExceptionUtil().toIOException(e);
+		catch (AmazonServiceException se) {
+			throw toS3Exception(se);
 		}
 	}
 
-	public void write(String bucketName, String objectName, byte[] data, String mimeType, AccessControlList acl, String location) throws IOException {
+	/**
+	 * 
+	 * @param bucketName target bucket to create if not already exists
+	 * @param objectName object to create
+	 * @param data object content
+	 * @param acl access control list
+	 * @param region if bucket is not already existing, it get created using that region, if it is not
+	 *            defined the default region defined with the constructor is used
+	 * @throws S3Exception
+	 */
+
+	public void write(String bucketName, String objectName, byte[] data, String mimeType, Object acl, String region) throws IOException {
 		bucketName = improveBucketName(bucketName);
 		objectName = improveObjectName(objectName, false);
+
 		flushExists(bucketName, objectName);
+		ObjectMetadata md = new ObjectMetadata();
 
+		String ct = CFMLEngineFactory.getInstance().getResourceUtil().getMimeType(data, null);
+
+		if (ct != null) md.setContentType(ct);
+		md.setLastModified(new Date());
+
+		// create a PutObjectRequest passing the folder name suffixed by /
+		PutObjectRequest por = new PutObjectRequest(bucketName, objectName, new ByteArrayInputStream(data), md);
+
+		if (acl != null) setACL(por, acl);
 		try {
-			S3Object so = new S3Object(objectName, data);
-			if (!Util.isEmpty(mimeType)) so.setContentType(mimeType);
+			// send request to S3 to create folder
+			try {
+				getS3Service(bucketName, region).putObject(por);
+				flushExists(bucketName, objectName);
+			}
+			catch (AmazonServiceException ase) {
+				if (ase.getErrorCode().equals("NoSuchBucket")) {
+					createDirectory(bucketName, acl, region);
+					getS3Service(bucketName, region).putObject(por);
+					flushExists(bucketName, objectName);
+				}
+				else throw toS3Exception(ase);
+			}
 
-			_write(so, bucketName, objectName, acl, location, data.length >= MAX_SINGLE_SIZE);
-			flushExists(bucketName, objectName);
 		}
-		catch (NoSuchAlgorithmException e) {
-			CFMLEngineFactory.getInstance().getExceptionUtil().toIOException(e);
+		catch (AmazonServiceException se) {
+			throw toS3Exception(se);
 		}
 	}
 
-	public void write(String bucketName, String objectName, File file, AccessControlList acl, String location) throws IOException {
-		bucketName = improveBucketName(bucketName);
-		objectName = improveObjectName(objectName, false);
-		flushExists(bucketName, objectName);
-
+	public void write(String bucketName, String objectName, InputStream is, long contentLength, boolean closeIS, String mimeType, Object acl, String region) throws IOException {
 		try {
-			S3Object so = new S3Object(file);
-			String mt = CFMLEngineFactory.getInstance().getResourceUtil().getMimeType(max1000(file), null);
-			if (mt != null) so.setContentType(mt);
-
-			_write(so, bucketName, objectName, acl, location, file.length() >= MAX_SINGLE_SIZE);
+			bucketName = improveBucketName(bucketName);
+			objectName = improveObjectName(objectName, false);
 			flushExists(bucketName, objectName);
-		}
-		catch (NoSuchAlgorithmException e) {
-			CFMLEngineFactory.getInstance().getExceptionUtil().toIOException(e);
-		}
-	}
 
-	public void write(String bucketName, String objectName, Resource res, AccessControlList acl, String location) throws IOException, NoSuchAlgorithmException {
-		if (res instanceof File) {
-			write(bucketName, objectName, (File) res, acl, location);
-			return;
-		}
-		if (!res.exists()) {
-			throw new FileNotFoundException("Cannot read from file: " + res.getAbsolutePath());
-		}
-		bucketName = improveBucketName(bucketName);
-		objectName = improveObjectName(objectName, false);
-		flushExists(bucketName, objectName);
+			ObjectMetadata md = new ObjectMetadata();
 
-		InputStream is = null;
-		try {
-			S3Object so = S3ObjectFactory.getInstance(res);
+			md.setLastModified(new Date());
+			if (contentLength > -1) md.setContentLength(contentLength);
 
-			_write(so, bucketName, objectName, acl, location, res.length() >= MAX_SINGLE_SIZE);
-			flushExists(bucketName, objectName);
+			// create a PutObjectRequest passing the folder name suffixed by /
+			PutObjectRequest por = new PutObjectRequest(bucketName, objectName, is, md);
+			if (acl != null) setACL(por, acl);
+
+			// send request to S3 to create folder
+			try {
+				getS3Service(bucketName, region).putObject(por);
+				flushExists(bucketName, objectName);
+			}
+			catch (AmazonServiceException ase) {
+				if (ase.getErrorCode().equals("NoSuchBucket")) {
+					createDirectory(bucketName, acl, region);
+					getS3Service(bucketName, region).putObject(por);
+					flushExists(bucketName, objectName);
+				}
+				else throw toS3Exception(ase);
+			}
+
+		}
+		catch (AmazonServiceException se) {
+			throw toS3Exception(se);
 		}
 		finally {
-			Util.closeEL(is);
+			if (closeIS) Util.closeEL(is);
 		}
 	}
 
-	private void _write(S3Object so, String bucketName, String objectName, AccessControlList acl, String location, boolean split) throws IOException {
+	public void write(String bucketName, String objectName, File file, Object acl, String region) throws IOException {
+		bucketName = improveBucketName(bucketName);
+		objectName = improveObjectName(objectName, false);
+
+		flushExists(bucketName, objectName);
+
+		// create a PutObjectRequest passing the folder name suffixed by /
+		PutObjectRequest por = new PutObjectRequest(bucketName, objectName, file);
+		if (acl != null) setACL(por, acl);
 		try {
-
-			so.setName(objectName);
-
-			if (acl != null) so.setAcl(acl);
-			if (split) multiPut(bucketName, so, acl, location);
-			else getS3Service().putObject(bucketName, so);
-		}
-		catch (ServiceException se) {
-			// does the bucket exist? if so we throw the exception
-			if (get(bucketName) != null) throw toS3Exception(se);
-			// if the bucket does not exist, we do create it
-			createDirectory(bucketName, acl, location);
-			// now we try again
+			// send request to S3 to create folder
 			try {
-				if (split) multiPut(bucketName, so, acl, location);
-				else getS3Service().putObject(bucketName, so);
+				getS3Service(bucketName, region).putObject(por);
+				flushExists(bucketName, objectName);
 			}
-			catch (ServiceException e) {
-				throw toS3Exception(se);
+			catch (AmazonServiceException ase) {
+				if (ase.getErrorCode().equals("NoSuchBucket")) {
+					createDirectory(bucketName, acl, region);
+					getS3Service(bucketName, region).putObject(por);
+					flushExists(bucketName, objectName);
+				}
+				else throw toS3Exception(ase);
 			}
+
+		}
+		catch (AmazonServiceException se) {
+			throw toS3Exception(se);
 		}
 	}
 
-	private void multiPut(String bucketName, S3Object so, AccessControlList acl, String location) throws IOException, ServiceException {
-		List<StorageObject> objectsToUploadAsMultipart = new ArrayList<>();
-		objectsToUploadAsMultipart.add(so);
-
-		// the following method will not create the bucket
-		if (!exists(bucketName)) createDirectory(bucketName, acl, location);
-
-		try {
-			new MultipartUtil(MAX_PART_SIZE).uploadObjects(bucketName, getS3Service(), objectsToUploadAsMultipart, null // eventListener : Provide
-			// one to monitor the upload
-			// progress
-			);
+	public void write(String bucketName, String objectName, Resource res, Object acl, String region) throws IOException, NoSuchAlgorithmException {
+		if (res instanceof File) {
+			write(bucketName, objectName, (File) res, acl, region);
+			return;
 		}
-		catch (FactoryConfigurationError fce) {
-			XMLUtil.validateDocumentBuilderFactory();
-			throw fce;
-		}
-		catch (ServiceException e) {
-			throw e;
-		}
-		catch (Exception e) {
-			throw CFMLEngineFactory.getInstance().getExceptionUtil().toIOException(e);
-		}
-
+		String ct = CFMLEngineFactory.getInstance().getResourceUtil().getMimeType(res, null);
+		write(bucketName, objectName, res.getInputStream(), res.length(), true, ct, acl, region);
 	}
 
-	public Struct getMetaData(String bucketName, String objectName) throws S3Exception {
+	public Struct getMetaDataStruct(String bucketName, String objectName) throws S3Exception {
 		Struct sct = CFMLEngineFactory.getInstance().getCreationUtil().createStruct();
 		bucketName = improveBucketName(bucketName);
 		objectName = improveObjectName(objectName);
 
-		;
+		sct.setEL("bucketName", bucketName);
+		AmazonS3 s = getS3Service(bucketName, null);
 
-		S3Info info;
-		if (Util.isEmpty(objectName)) info = get(bucketName);
-		else info = get(bucketName, objectName);
+		if (Util.isEmpty(objectName)) {
+			// TODO
+		}
+		if (objectName != null) {
+			sct.setEL("objectName", objectName);
 
-		if (info == null || info.isVirtual()) throw new S3Exception("there is no object [" + objectName + "] in bucket [" + bucketName + "]");
+			S3Object o = s.getObject(bucketName, objectName);
+			ObjectMetadata md = o.getObjectMetadata();
 
-		StorageOwner owner = info.getOwner();
-		String location = info.getLocation();
-		Map<String, Object> md = info.getMetaData();
+			Map<String, Object> rmd = md.getRawMetadata();
+			Iterator<Entry<String, Object>> it = rmd.entrySet().iterator();
+			Entry<String, Object> e;
+			while (it.hasNext()) {
+				e = it.next();
+				sct.setEL(e.getKey().replace('-', '_'), e.getValue());
+			}
+			sct.setEL("lastModified", md.getLastModified());
 
-		Iterator<Entry<String, Object>> it = md.entrySet().iterator();
-		Entry<String, Object> e;
-		while (it.hasNext()) {
-			e = it.next();
-			sct.setEL(e.getKey().replace('-', '_'), e.getValue());
 		}
 
-		// owner
-		if (owner != null) sct.put("owner", owner.getDisplayName());
-		if (location != null) sct.put("location", location);
+		// TODO better
 
+		/*
+		 * if (owner != null) { sct.put("owner", owner.getDisplayName()); sct.put("owner_id",
+		 * owner.getId()); }
+		 */
 		return sct;
+	}
+
+	public Struct getMetaData(String bucketName, String objectName) throws S3Exception {
+		bucketName = improveBucketName(bucketName);
+		objectName = improveObjectName(objectName);
+
+		return get(bucketName, objectName).getMetaData();
+	}
+
+	public ObjectMetadata getObjectMetadata(String bucketName, String objectName) throws S3Exception {
+		bucketName = improveBucketName(bucketName);
+		objectName = improveObjectName(objectName);
+		return getS3Service(bucketName, null).getObject(bucketName, objectName).getObjectMetadata();
 	}
 
 	public void setLastModified(String bucketName, String objectName, long time) throws S3Exception {
@@ -1046,52 +1325,54 @@ public class S3 {
 		objectName = improveObjectName(objectName);
 
 		if (!Util.isEmpty(objectName)) {
-			S3Info info = get(bucketName, objectName);
-			if (info == null || info.isVirtual()) throw new S3Exception("there is no object [" + objectName + "] in bucket [" + bucketName + "]");
+			if (Util.isEmpty(objectName)) {
+				S3BucketWrapper bw = get(bucketName);
+				if (bw == null) throw new S3Exception("there is no bucket [" + bucketName + "]");
+				Bucket b = bw.getBucket();
+				b.setCreationDate(new Date(time)); // not sure if that is ok that way
+			}
+			else {
 
-			StorageObject so = ((StorageObjectWrapper) info).getStorageObject();
-			so.setLastModifiedDate(new Date(time));
+				S3Info info = get(bucketName, objectName);
+				if (info == null || info.isVirtual()) throw new S3Exception("there is no object [" + objectName + "] in bucket [" + bucketName + "]");
+				S3ObjectSummary so = ((StorageObjectWrapper) info).getStorageObject();
+				so.setLastModified(new Date(time));
+			}
 		}
+		// TDOD add for bucket?
 	}
 
 	public void setMetaData(String bucketName, String objectName, Struct metadata) throws PageException, S3Exception {
-		Iterator<Entry<Key, Object>> it = metadata.entryIterator();
-		Entry<Key, Object> e;
-		Map<String, Object> data = new ConcurrentHashMap<String, Object>();
 		Decision dec = CFMLEngineFactory.getInstance().getDecisionUtil();
 		Cast cas = CFMLEngineFactory.getInstance().getCastUtil();
-		Object value;
+
+		Iterator<Entry<Key, Object>> it = metadata.entryIterator();
+		Entry<Key, Object> e;
+		ObjectMetadata metadataCopy = new ObjectMetadata();
+		Map<String, String> data = new ConcurrentHashMap<String, String>();
 		while (it.hasNext()) {
 			e = it.next();
-			value = e.getValue();
-			if (dec.isDate(value, false)) value = cas.toDate(value, null);
-			else value = cas.toString(value);
-			data.put(toMetaDataKey(e.getKey()), value);
+			metadataCopy.addUserMetadata(toMetaDataKey(e.getKey()), cas.toString(e.getValue()));
 		}
 
 		bucketName = improveBucketName(bucketName);
 		objectName = improveObjectName(objectName);
 
-		if (Util.isEmpty(objectName)) {
+		AmazonS3 s = getS3Service(bucketName, null);
+
+		if (!Util.isEmpty(objectName)) {
 			S3BucketWrapper bw = get(bucketName);
 			if (bw == null) throw new S3Exception("there is no bucket [" + bucketName + "]");
-			S3Bucket b = bw.getBucket();
-			b.addAllMetadata(data); // INFO seems not to be possible at all
-		}
-		else {
-			S3Info info = get(bucketName, objectName);
+			Bucket b = bw.getBucket();
 
-			if (info == null || info.isVirtual()) throw new S3Exception("there is no object [" + objectName + "] in bucket [" + bucketName + "]");
+			CopyObjectRequest request = new CopyObjectRequest(bucketName, objectName, bucketName, objectName).withNewObjectMetadata(metadataCopy);
 
-			StorageObject so = ((StorageObjectWrapper) info).getStorageObject();
-			so.addAllMetadata(data);
-			try {
-				getS3Service().updateObjectMetadata(bucketName, so);
-			}
-			catch (ServiceException se) {
-				throw CFMLEngineFactory.getInstance().getCastUtil().toPageException(se);
-			}
+			s.copyObject(request);
+
+			flushExists(bucketName, objectName);
 		}
+		else throw new S3Exception("cannot set metadata for a bucket"); // TOOD possible?
+
 	}
 
 	private String toMetaDataKey(Key key) {
@@ -1142,26 +1423,21 @@ public class S3 {
 	}
 
 	public void addAccessControlList(String bucketName, String objectName, Object objACL) throws S3Exception, PageException {
+
 		try {
 			bucketName = improveBucketName(bucketName);
 			objectName = improveObjectName(objectName);
 
-			S3Service s = getS3Service();
-			S3Bucket b = service.getBucket(bucketName);
-			if (b == null) throw new S3Exception("there is no bucket with name [" + bucketName + "]");
-
-			AccessControlList acl = getACL(s, b, objectName);
+			AmazonS3 s = getS3Service(bucketName, null);
+			AccessControlList acl = getACL(s, bucketName, objectName);
 			acl.grantAllPermissions(AccessControlListUtil.toGrantAndPermissions(objACL));
-			b.setAcl(acl);
-			setACL(s, bucketName, objectName, acl);
+			s.setObjectAcl(bucketName, objectName, acl);
+			// is it necessary to set it for bucket as well?
 		}
-		catch (ServiceException se) {
+		catch (AmazonServiceException se) {
 			throw toS3Exception(se);
 		}
-		catch (FactoryConfigurationError fce) {
-			XMLUtil.validateDocumentBuilderFactory();
-			throw fce;
-		}
+
 	}
 
 	public void setAccessControlList(String bucketName, String objectName, Object objACL) throws S3Exception {
@@ -1169,30 +1445,32 @@ public class S3 {
 		objectName = improveObjectName(objectName);
 
 		try {
-			S3Service s = getS3Service();
-			bucketName = improveBucketName(bucketName);
-			S3Bucket b = service.getBucket(bucketName);
-			if (b == null) throw new S3Exception("there is no bucket with name [" + bucketName + "]");
+			AmazonS3 s = getS3Service(bucketName, null);
 
-			AccessControlList oldACL = getACL(s, b, objectName);
-			AccessControlList newACL = AccessControlListUtil.toAccessControlList(objACL);
+			Object newACL = AccessControlListUtil.toAccessControlList(objACL);
+			AccessControlList oldACL = getACL(s, bucketName, objectName);
+			Owner aclOwner = oldACL != null ? oldACL.getOwner() : s.getS3AccountOwner();
+			if (newACL instanceof AccessControlList) ((AccessControlList) newACL).setOwner(aclOwner);
 
-			StorageOwner aclOwner = oldACL != null ? oldACL.getOwner() : s.getAccountOwner();
-			newACL.setOwner(aclOwner);
-			setACL(s, b.getName(), objectName, newACL);
+			if (!Util.isEmpty(objectName)) {
+				if (newACL instanceof AccessControlList) s.setObjectAcl(bucketName, objectName, (AccessControlList) newACL);
+				else s.setObjectAcl(bucketName, objectName, (CannedAccessControlList) newACL);
+			}
+			else {
+				if (newACL instanceof AccessControlList) s.setBucketAcl(bucketName, (AccessControlList) newACL);
+				else s.setBucketAcl(bucketName, (CannedAccessControlList) newACL);
+			}
+
 		}
-		catch (ServiceException se) {
+		catch (AmazonServiceException se) {
 			throw toS3Exception(se);
 		}
-		catch (FactoryConfigurationError fce) {
-			XMLUtil.validateDocumentBuilderFactory();
-			throw fce;
-		}
+
 	}
 
 	public Array getAccessControlList(String bucketName, String objectName) throws S3Exception {
 		AccessControlList acl = getACL(bucketName, objectName);
-		return AccessControlListUtil.toArray(acl.getGrantAndPermissions());
+		return AccessControlListUtil.toArray(acl.getGrantsAsList());
 	}
 
 	private AccessControlList getACL(String bucketName, String objectName) throws S3Exception {
@@ -1205,141 +1483,211 @@ public class S3 {
 		if (vuacl != null && vuacl.validUntil > System.currentTimeMillis()) return vuacl.element;
 
 		try {
-			if (Util.isEmpty(objectName)) return getS3Service().getBucketAcl(bucketName);
-			return getS3Service().getObjectAcl(bucketName, objectName);
+			if (Util.isEmpty(objectName)) return getS3Service(bucketName, null).getBucketAcl(bucketName);
+			return getS3Service(bucketName, null).getObjectAcl(bucketName, objectName);
 		}
-		catch (ServiceException se) {
+		catch (AmazonServiceException se) {
 			throw toS3Exception(se);
-		}
-		catch (FactoryConfigurationError fce) {
-			XMLUtil.validateDocumentBuilderFactory();
-			throw fce;
 		}
 	}
 
-	private AccessControlList getACL(S3Service s, S3Bucket bucket, String objectName) throws S3Exception {
+	private AccessControlList getACL(AmazonS3 s, String bucketName, String objectName) throws S3Exception {
+		bucketName = improveBucketName(bucketName);
 		objectName = improveObjectName(objectName);
 
-		String key = toKey(bucket.getName(), objectName);
+		String key = toKey(bucketName, objectName);
 		ValidUntilElement<AccessControlList> vuacl = accessControlLists.get(key);
 		if (vuacl != null && vuacl.validUntil > System.currentTimeMillis()) return vuacl.element;
 
 		try {
-			if (Util.isEmpty(objectName)) return s.getBucketAcl(bucket);
-			return s.getObjectAcl(bucket, objectName);
+			if (Util.isEmpty(objectName)) return s.getBucketAcl(bucketName);
+			return s.getObjectAcl(bucketName, objectName);
 		}
-		catch (ServiceException se) {
+		catch (AmazonServiceException se) {
 			throw toS3Exception(se);
-		}
-		catch (FactoryConfigurationError fce) {
-			XMLUtil.validateDocumentBuilderFactory();
-			throw fce;
 		}
 	}
 
-	public void setACL(S3Service s, String bucketName, String objectName, AccessControlList acl) throws S3Exception {
+	public void setACL(AmazonS3 s, String bucketName, String objectName, Object acl) throws S3Exception {
+
 		bucketName = improveBucketName(bucketName);
 		objectName = improveObjectName(objectName);
 		String key = toKey(bucketName, objectName);
 
 		try {
-			if (Util.isEmpty(objectName)) s.putBucketAcl(bucketName, acl);
-			else s.putObjectAcl(bucketName, objectName, acl);
+			if (Util.isEmpty(objectName)) {
+				if (acl instanceof AccessControlList) s.setBucketAcl(bucketName, (AccessControlList) acl);
+				else s.setBucketAcl(bucketName, (CannedAccessControlList) acl);
+			}
+			else {
+				if (acl instanceof AccessControlList) s.setObjectAcl(bucketName, objectName, (AccessControlList) acl);
+				else s.setObjectAcl(bucketName, objectName, (CannedAccessControlList) acl);
+			}
 
 			accessControlLists.remove(key);
 		}
-		catch (ServiceException se) {
+		catch (AmazonServiceException se) {
 			throw toS3Exception(se);
 		}
-		catch (FactoryConfigurationError fce) {
-			XMLUtil.validateDocumentBuilderFactory();
-			throw fce;
-		}
+
 	}
 
-	private String toContentType(String mimeType, String charset, String defaultValue) {
+	private String toContentType(String mimeType, Charset charset, String defaultValue) {
 		if (!Util.isEmpty(mimeType)) {
-			return !Util.isEmpty(charset) ? mimeType + "; charset=" + charset : mimeType;
+			return charset != null ? mimeType + "; charset=" + charset.toString() : mimeType;
 		}
 		return defaultValue;
 	}
 
-	public String url(String bucketName, String objectName, long time) throws S3Exception {
-		return getS3Service().createSignedGetUrl(bucketName, objectName, new Date(System.currentTimeMillis() + time), false);
+	public URL url(String bucketName, String objectName, long time) throws S3Exception {
+		return getS3Service(bucketName, null).generatePresignedUrl(bucketName, objectName, new Date(System.currentTimeMillis() + time));
 	}
 
-	private AmazonS3 getS3Service() {
+	private AmazonS3 getS3Service(String bucketName, String strRegion) throws S3Exception {
+		Regions region = null;
+		if (!Util.isEmpty(strRegion, true)) {
+			region = toRegions(strRegion);
+		}
+		else if (!Util.isEmpty(bucketName)) {
+			region = getBucketRegion(bucketName, true);
+		}
+		String key = region == null ? "default-region" : region.toString();
 
+		AmazonS3 service = services.get(key);
 		if (service == null) {
-			synchronized (getToken(accessKeyId + ":" + secretAccessKey)) {
+			synchronized (getToken(accessKeyId + ":" + secretAccessKey + ":" + key)) {
+				service = services.get(key);
 				if (service == null) {
-
 					AmazonS3ClientBuilder builder = AmazonS3ClientBuilder.standard();
+					// TODO builder.withClientConfiguration(new ClientConfiguration().withSocketTimeout(0));
 					// credentials
 					builder.withCredentials(new AWSStaticCredentialsProvider(new BasicAWSCredentials(accessKeyId, secretAccessKey)));
-
 					// region or endpoint and region
 					if (host != null && !host.isEmpty() && !host.equalsIgnoreCase(DEFAULT_HOST)) {
-						builder.withEndpointConfiguration(new EndpointConfiguration(host, region));
+						// TODO serviceEndpoint - the service endpoint either with or without the protocol (e.g.
+						// https://sns.us-west-1.amazonaws.com or sns.us-west-1.amazonaws.com)
+						builder = builder.withEndpointConfiguration(new EndpointConfiguration(host, region == null ? "us-east-1" : region.toString()));
 					}
-					else if (region != null) {
-						builder.withRegion(region);
-					}
-					service = builder.build();
+					else {
+						if (region != null) {
+							builder = builder.withRegion(region);
+						}
+						else {
+							builder = builder.withRegion(Regions.US_EAST_1).withForceGlobalBucketAccessEnabled(true); // The first region to try your request against
+							// If a bucket is in a different region, try again in the correct region
 
+						}
+					}
+
+					// config: withForceGlobalBucketAccessEnabled
+					service = builder.build();
+					services.put(key, service);
 				}
 			}
 		}
 		return service;
 	}
 
-	private void reset() {
-		synchronized (getToken(accessKeyId + ":" + secretAccessKey)) {
-			// we set srvice to null, so getS3Service has to wait
-			RestS3Service tmp = service;
-			service = null;
+	public Regions getBucketRegion(String bucketName, boolean loadIfNecessary) throws S3Exception {
+		bucketName = improveBucketName(bucketName);
 
-			try {
-				tmp.shutdown();
+		Regions r = bucketRegions.get(bucketName);
+		if (r != null) return r;
+
+		try {
+			flushExists(bucketName, false);
+			if (loadIfNecessary) {
+				r = toRegions(getS3Service(null, null).getBucketLocation(bucketName));
+				bucketRegions.put(bucketName, r);
 			}
-			catch (ServiceException e) {
-				e.printStackTrace();
+		}
+		catch (AmazonServiceException ase) {
+			if (ase.getErrorCode().equals("NoSuchBucket")) return null;
+		}
+		return r;
+	}
+
+	private Regions toRegions(String region) throws S3Exception {
+		if (Util.isEmpty(region)) throw new S3Exception("no region defined");
+
+		// cached?
+		{
+			Regions r = regions.get(region);
+			if (r != null) return r;
+		}
+
+		// direct match
+		try {
+			Regions r = Regions.valueOf(region);
+			regions.put(region, r);
+			return r;
+		}
+		catch (Exception e) {
+		}
+		// compare match
+		for (Regions r: Regions.values()) {
+			if (region.equalsIgnoreCase(r.getName()) || region.equalsIgnoreCase(r.toString()) || region.equalsIgnoreCase(r.getDescription()) || region.equalsIgnoreCase(r.name())) {
+				regions.put(region, r);
+				return r;
 			}
 		}
 
+		// failed
+		StringBuilder sb = new StringBuilder();
+		for (Regions r: Regions.values()) {
+			if (sb.length() != 0) sb.append(",");
+			sb.append(r.toString());
+		}
+		throw new S3Exception("could not find a matching region for [" + region + "], valid region names are [" + sb + "]");
+
 	}
 
-	public static AccessControlList toACL(String acl, AccessControlList defaultValue) {
+	private void reset() {
+		synchronized (getToken(accessKeyId + ":" + secretAccessKey)) {
+			for (AmazonS3 s: services.values()) {
+				try {
+					s.shutdown();
+				}
+				catch (Exception e) {
+					if (log != null) log.error("s3", e);
+					else e.printStackTrace();
+				}
+			}
+			services.clear();
+		} // TODO this is not very good yet
+	}
+
+	public static CannedAccessControlList toACL(String acl, CannedAccessControlList defaultValue) {
 		if (acl == null) return defaultValue;
 
 		acl = acl.trim().toLowerCase();
 
-		if ("public-read".equals(acl)) return AccessControlList.REST_CANNED_PUBLIC_READ;
-		if ("public read".equals(acl)) return AccessControlList.REST_CANNED_PUBLIC_READ;
-		if ("public_read".equals(acl)) return AccessControlList.REST_CANNED_PUBLIC_READ;
-		if ("publicread".equals(acl)) return AccessControlList.REST_CANNED_PUBLIC_READ;
+		if ("public-read".equals(acl)) return CannedAccessControlList.PublicRead;
+		if ("public read".equals(acl)) return CannedAccessControlList.PublicRead;
+		if ("public_read".equals(acl)) return CannedAccessControlList.PublicRead;
+		if ("publicread".equals(acl)) return CannedAccessControlList.PublicRead;
 
-		if ("private".equals(acl)) return AccessControlList.REST_CANNED_PRIVATE;
+		if ("private".equals(acl)) return CannedAccessControlList.Private;
 
-		if ("public-read-write".equals(acl)) return AccessControlList.REST_CANNED_PUBLIC_READ_WRITE;
-		if ("public read write".equals(acl)) return AccessControlList.REST_CANNED_PUBLIC_READ_WRITE;
-		if ("public_read_write".equals(acl)) return AccessControlList.REST_CANNED_PUBLIC_READ_WRITE;
-		if ("publicreadwrite".equals(acl)) return AccessControlList.REST_CANNED_PUBLIC_READ_WRITE;
+		if ("public-read-write".equals(acl)) return CannedAccessControlList.PublicReadWrite;
+		if ("public read write".equals(acl)) return CannedAccessControlList.PublicReadWrite;
+		if ("public_read_write".equals(acl)) return CannedAccessControlList.PublicReadWrite;
+		if ("publicreadwrite".equals(acl)) return CannedAccessControlList.PublicReadWrite;
 
-		if ("authenticated-read".equals(acl)) return AccessControlList.REST_CANNED_AUTHENTICATED_READ;
-		if ("authenticated read".equals(acl)) return AccessControlList.REST_CANNED_AUTHENTICATED_READ;
-		if ("authenticated_read".equals(acl)) return AccessControlList.REST_CANNED_AUTHENTICATED_READ;
-		if ("authenticatedread".equals(acl)) return AccessControlList.REST_CANNED_AUTHENTICATED_READ;
+		if ("authenticated-read".equals(acl)) return CannedAccessControlList.AuthenticatedRead;
+		if ("authenticated read".equals(acl)) return CannedAccessControlList.AuthenticatedRead;
+		if ("authenticated_read".equals(acl)) return CannedAccessControlList.AuthenticatedRead;
+		if ("authenticatedread".equals(acl)) return CannedAccessControlList.AuthenticatedRead;
 
-		if ("authenticate-read".equals(acl)) return AccessControlList.REST_CANNED_AUTHENTICATED_READ;
-		if ("authenticate read".equals(acl)) return AccessControlList.REST_CANNED_AUTHENTICATED_READ;
-		if ("authenticate_read".equals(acl)) return AccessControlList.REST_CANNED_AUTHENTICATED_READ;
-		if ("authenticateread".equals(acl)) return AccessControlList.REST_CANNED_AUTHENTICATED_READ;
+		if ("authenticate-read".equals(acl)) return CannedAccessControlList.AuthenticatedRead;
+		if ("authenticate read".equals(acl)) return CannedAccessControlList.AuthenticatedRead;
+		if ("authenticate_read".equals(acl)) return CannedAccessControlList.AuthenticatedRead;
+		if ("authenticateread".equals(acl)) return CannedAccessControlList.AuthenticatedRead;
 
 		return defaultValue;
 	}
 
-	public static AccessControlList toACL(Properties prop, AccessControlList defaultValue) {
+	public static CannedAccessControlList toACL(Properties prop, CannedAccessControlList defaultValue) {
 		try {
 			Method m = prop.getClass().getMethod("getACL", new Class[0]);
 			String str = CFMLEngineFactory.getInstance().getCastUtil().toString(m.invoke(prop, new Object[0]), null);
@@ -1351,41 +1699,42 @@ public class S3 {
 		return defaultValue;
 	}
 
-	private ObjectKeyAndVersion[] toObjectKeyAndVersions(S3Object[] src) {
-		ObjectKeyAndVersion[] trg = new ObjectKeyAndVersion[src.length];
-		for (int i = 0; i < src.length; i++) {
-			trg[i] = new ObjectKeyAndVersion(src[i].getKey(), src[i].getVersionId());
+	private List<KeyVersion> toObjectKeyAndVersions(List<S3ObjectSummary> summeries) {
+		List<KeyVersion> trg = new ArrayList<>();
+		for (S3ObjectSummary s: summeries) {
+			trg.add(new KeyVersion(s.getKey()));
 		}
 		return trg;
 	}
 
-	private ObjectKeyAndVersion[] toObjectKeyAndVersions(S3Object[] src, long maxAge) {
-		if (maxAge <= 0) return toObjectKeyAndVersions(src);
-		List<ObjectKeyAndVersion> trg = new ArrayList<>();
+	private List<KeyVersion> toObjectKeyAndVersions(List<S3ObjectSummary> summeries, long maxAge) {
+
+		if (maxAge <= 0) return toObjectKeyAndVersions(summeries);
+		List<KeyVersion> trg = new ArrayList<>();
 		long now = System.currentTimeMillis();
-		for (int i = 0; i < src.length; i++) {
-			if (now > (src[i].getLastModifiedDate().getTime() + maxAge)) trg.add(new ObjectKeyAndVersion(src[i].getKey(), src[i].getVersionId()));
+		for (S3ObjectSummary s: summeries) {
+			if (now > (s.getLastModified().getTime() + maxAge)) trg.add(new KeyVersion(s.getKey()));
 		}
-		return trg.toArray(new ObjectKeyAndVersion[trg.size()]);
+		return trg;
 	}
 
-	private ObjectKeyAndVersion[] toObjectKeyAndVersions(List<S3Info> src, String ignoreKey) {
-		List<ObjectKeyAndVersion> trg = new ArrayList<ObjectKeyAndVersion>();
+	private KeyVersion[] toObjectKeyAndVersions(List<S3Info> src, String ignoreKey) {
+		List<KeyVersion> trg = new ArrayList<KeyVersion>();
 		Iterator<S3Info> it = src.iterator();
 		S3Info info;
 		while (it.hasNext()) {
 			info = it.next();
 			if (ignoreKey != null && info.getName().equals(ignoreKey)) continue;
-			trg.add(new ObjectKeyAndVersion(info.getName()));
+			trg.add(new KeyVersion(info.getName()));
 		}
-		return trg.toArray(new ObjectKeyAndVersion[trg.size()]);
+		return trg.toArray(new KeyVersion[trg.size()]);
 	}
 
-	private S3Exception toS3Exception(ServiceException se) {
+	private S3Exception toS3Exception(AmazonServiceException se) {
 		return toS3Exception(se, null);
 	}
 
-	public static S3Exception toS3Exception(ServiceException se, String detail) {
+	public static S3Exception toS3Exception(AmazonServiceException se, String detail) {
 		String msg = se.getErrorMessage();
 		if (Util.isEmpty(msg, true)) msg = se.getMessage();
 
@@ -1487,6 +1836,21 @@ public class S3 {
 		return lock;
 	}
 
+	private static void setACL(PutObjectRequest por, Object acl) {
+		if (acl instanceof CannedAccessControlList) por.setCannedAcl((CannedAccessControlList) acl);
+		else por.setAccessControlList((AccessControlList) acl);
+	}
+
+	private static void setACL(CreateBucketRequest por, Object acl) {
+		if (acl instanceof CannedAccessControlList) por.setCannedAcl((CannedAccessControlList) acl);
+		else por.setAccessControlList((AccessControlList) acl);
+	}
+
+	private static void setACL(CopyObjectRequest por, Object acl) {
+		if (acl instanceof CannedAccessControlList) por.setCannedAccessControlList((CannedAccessControlList) acl);
+		else por.setAccessControlList((AccessControlList) acl);
+	}
+
 	class ValidUntilMap<I> extends ConcurrentHashMap<String, I> {
 		private static final long serialVersionUID = 238079099294942075L;
 		private final long validUntil;
@@ -1567,4 +1931,36 @@ public class S3 {
 			this.exists = exists;
 		}
 	}
+
+	private class CacheRegions extends Thread {
+
+		@Override
+		public void run() {
+			AmazonS3 s;
+			try {
+				s = getS3Service(null, null);
+				Regions r;
+				for (Bucket b: s.listBuckets()) {
+					try {
+						r = toRegions(s.getBucketLocation(b.getName()));
+						if (log != null) log.info("s3", "cache region [" + r.toString() + "] for bucket [" + b.getName() + "]");
+						bucketRegions.put(b.getName(), r);
+						// we don't want this to make to much load
+						sleep(100);
+					}
+					catch (Exception e) {
+						// in case the bucket is gone in meantime, we don't care and don't log
+						if (!(e instanceof AmazonServiceException && ((AmazonServiceException) e).getErrorCode().equals("NoSuchBucket"))) {
+							if (log != null) log.error("s3", e);
+						}
+					}
+				}
+			}
+			catch (S3Exception e1) {
+				if (log != null) log.error("s3", e1);
+				else e1.printStackTrace();
+			}
+		}
+	}
+
 }

@@ -2,8 +2,8 @@ package org.lucee.extension.resource.s3.function;
 
 import java.io.File;
 import java.lang.reflect.Method;
+import java.nio.charset.Charset;
 
-import org.jets3t.service.acl.AccessControlList;
 import org.lucee.extension.resource.s3.AccessControlListUtil;
 import org.lucee.extension.resource.s3.S3;
 import org.lucee.extension.resource.s3.S3Exception;
@@ -24,7 +24,7 @@ public class S3Write extends S3Function {
 			String accessKeyId, String secretAccessKey, double timeout) throws PageException {
 		CFMLEngine eng = CFMLEngineFactory.getInstance();
 
-		AccessControlList acl = null;
+		Object acl = null;
 		try {
 			acl = objACL != null ? AccessControlListUtil.toAccessControlList(objACL) : null;
 		}
@@ -52,7 +52,8 @@ public class S3Write extends S3Function {
 			}
 			else {
 				if (eng.getStringUtil().isEmpty(charset, true)) charset = null;
-				s3.write(bucketName, objectName, eng.getCastUtil().toString(value), mimeType, charset, acl, location);
+				Charset cs = eng.getCastUtil().toCharset(charset, null);
+				s3.write(bucketName, objectName, eng.getCastUtil().toString(value), mimeType, cs, acl, location);
 			}
 		}
 		catch (Exception e) {
