@@ -140,15 +140,6 @@ public final class StorageObjectWrapper extends S3InfoSupport {
 	}
 
 	@Override
-	/*
-	 * public boolean isDirectory() { String ct =
-	 * CFMLEngineFactory.getInstance().getCastUtil().toString(so.getMetadata("Content-Type"),null); //
-	 * sadly a directory not necessary has set "application/x-directory" so not existing does not mean
-	 * it is not a directory if(!Util.isEmpty(ct) && "application/x-directory".equalsIgnoreCase(ct))
-	 * return true; return getSize()==0 && getKey().endsWith("/");
-	 * 
-	 * }
-	 */
 	public boolean isFile() {
 		return !isDirectory();
 	}

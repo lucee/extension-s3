@@ -549,8 +549,8 @@ public class S3 {
 	private static boolean isDirectKid(String name, String prefix) throws S3Exception {
 		if (prefix == null) prefix = "";
 		if (name == null) name = "";
-
 		prefix = prefix.length() == 0 ? "" : improveObjectName(prefix, true);
+		if (prefix.equals(improveObjectName(name, true))) return true;
 		String sub = improveObjectName(name.substring(prefix.length()), false);
 		return sub.indexOf('/') == -1;
 	}
@@ -565,7 +565,6 @@ public class S3 {
 			// not cached
 			ValidUntilMap<S3Info> _list = timeout <= 0 || noCache ? null : objects.get(key);
 			if (_list == null || _list.validUntil < System.currentTimeMillis()) {
-
 				long validUntil = System.currentTimeMillis() + timeout;
 				_list = new ValidUntilMap<S3Info>(validUntil);
 				objects.put(key, _list);
@@ -689,27 +688,35 @@ public class S3 {
 	}
 
 	public boolean exists(String bucketName, String objectName) throws S3Exception {
-		if (Util.isEmpty(objectName)) return exists(bucketName);
+		if (Util.isEmpty(objectName)) return exists(bucketName); // bucket is always adirectory
 
-		S3Info info = get(bucketName, objectName);
+		String key = improveBucketName(bucketName) + ":" + improveObjectName(objectName, false);
+		S3Info info = exists.get(key);
+		if (info != null) return info.exists();
+		list(bucketName, objectName, false, true, false, false);
+		info = exists.get(key);
 		return info != null && info.exists();
 
-		// return getS3Service().doesObjectExist(improveBucketName(bucketName),
-		// improveObjectName(objectName));
 	}
 
 	public boolean isDirectory(String bucketName, String objectName) throws S3Exception {
-		if (Util.isEmpty(objectName)) return exists(bucketName); // bucket is always adirectory
-		S3Info info = get(bucketName, objectName);
-		if (info == null || !info.exists()) return false;
-		return info.isDirectory();
+		return isFileOrDir(bucketName, objectName, true);
 	}
 
 	public boolean isFile(String bucketName, String objectName) throws S3Exception {
-		if (Util.isEmpty(objectName)) return false; // bucket is newer a file
-		S3Info info = get(bucketName, objectName);
+		return isFileOrDir(bucketName, objectName, false);
+	}
+
+	private boolean isFileOrDir(String bucketName, String objectName, boolean dir) throws S3Exception {
+		if (Util.isEmpty(objectName)) return dir ? exists(bucketName) : false; // bucket is always adirectory
+
+		String key = improveBucketName(bucketName) + ":" + improveObjectName(objectName, false);
+		S3Info info = exists.get(key);
+		if (info != null) return dir ? info.isDirectory() : info.isFile();
+		list(bucketName, objectName, false, true, false, false);
+		info = exists.get(key);
 		if (info == null || !info.exists()) return false;
-		return info.isFile();
+		return dir ? info.isDirectory() : info.isFile();
 	}
 
 	public String getContentType(String bucketName, String objectName) throws AmazonServiceException, S3Exception {
