@@ -703,23 +703,9 @@ public class S3 {
 	}
 
 	private boolean is(String bucketName, String objectName, short type) throws S3Exception {
-		if (Util.isEmpty(objectName)) return type != CHECK_IS_FILE ? exists(bucketName) : false; // bucket is always adirectory
+		if (Util.isEmpty(objectName)) return type != CHECK_IS_FILE ? exists(bucketName) : false; // bucket is always a directory
 
-		String key = improveBucketName(bucketName) + ":" + improveObjectName(objectName, false);
-		S3Info info = exists.get(key);
-		if (info != null) {
-			if (CHECK_IS_DIR == type) return info.isDirectory();
-			if (CHECK_IS_FILE == type) return info.isFile();
-			return info.exists();
-		}
-		try {
-			list(bucketName, objectName, false, true, false, false);
-		}
-		catch (S3Exception s3e) {
-			if ("NoSuchBucket".equals(s3e.getErrorCode())) return false;
-			throw s3e;
-		}
-		info = exists.get(key);
+		S3Info info = get(bucketName, objectName);
 		if (info == null || !info.exists()) return false;
 
 		if (CHECK_IS_DIR == type) return info.isDirectory();
@@ -770,10 +756,8 @@ public class S3 {
 				// does
 				return null;
 			}
-
 			String targetName;
 			S3ObjectSummary stoObj = null;
-
 			while (true) {
 				for (S3ObjectSummary summary: objects.getObjectSummaries()) {
 					// direct match
@@ -783,13 +767,13 @@ public class S3 {
 					}
 
 					// pseudo directory?
-					if (info == null) {
-						targetName = summary.getKey();
-						if (nameDir.length() < targetName.length() && targetName.startsWith(nameDir)) {
-							exists.put(toKey(bucketName, nameFile), info = new ParentObject(this, bucketName, nameDir, validUntil, log));
-						}
-
+					// if (info == null) {
+					targetName = summary.getKey();
+					if (nameDir.length() < targetName.length() && targetName.startsWith(nameDir)) {
+						exists.put(toKey(bucketName, nameFile), new ParentObject(this, bucketName, nameDir, validUntil, log));
 					}
+
+					// }
 
 					if (stoObj != null && stoObj.equals(summary)) continue;
 					exists.put(toKey(summary.getBucketName(), summary.getKey()), new StorageObjectWrapper(this, summary, validUntil, log));
