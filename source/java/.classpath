@@ -9,22 +9,19 @@
 	<classpathentry kind="lib" path="libs/javax.servlet-api-3.1.0.jar"/>
 	<classpathentry kind="lib" path="libs/jsp-api-2.2.jar"/>
 	<classpathentry kind="lib" path="libs/lucee.jar"/>
+	<classpathentry kind="lib" path="libs/bcprov-1.70.jar"/>
+	<classpathentry kind="lib" path="libs/joda-convert-1.2.jar"/>
 	<classpathentry kind="lib" path="libs/com.fasterxml.jackson.core.jackson-annotations-2.13.1.jar"/>
 	<classpathentry kind="lib" path="libs/com.fasterxml.jackson.core.jackson-core-2.13.1.jar"/>
 	<classpathentry kind="lib" path="libs/com.fasterxml.jackson.core.jackson-databind-2.12.6.jar"/>
 	<classpathentry kind="lib" path="libs/com.fasterxml.jackson.dataformat.jackson-dataformat-cbor-2.12.6.jar"/>
-	<classpathentry kind="lib" path="libs/joda-convert-1.2.jar"/>
 	<classpathentry kind="lib" path="libs/joda-time-2.8.1.jar"/>
 	<classpathentry kind="lib" path="libs/org.apache.commons.commons-codec-1.15.0.jar"/>
-	<classpathentry kind="lib" path="libs/org.lucee.aws-jmespath-java-1.12.153.jar"/>
-	<classpathentry kind="lib" path="libs/software.amazon.ion.java-1.0.2.jar"/>
 	<classpathentry kind="lib" path="libs/org.lucee.commons.logging-1.2.0.jar"/>
 	<classpathentry kind="lib" path="libs/org.lucee.httpcomponents.httpclient-4.5.10.jar"/>
 	<classpathentry kind="lib" path="libs/org.lucee.httpcomponents.httpcore-4.4.12.jar"/>
 	<classpathentry kind="lib" path="libs/org.lucee.httpcomponents.httpmime-4.5.10.jar"/>
-	<classpathentry kind="lib" path="libs/bcprov-1.70.jar"/>
-	<classpathentry kind="lib" path="libs/org.lucee.aws-java-sdk-core-1.12.153.0003L.jar"/>
-	<classpathentry kind="lib" path="libs/org.lucee.aws-java-sdk-kms-1.12.153.0003L.jar"/>
-	<classpathentry kind="lib" path="libs/org.lucee.aws-java-sdk-s3-1.12.153.0003L.jar"/>
+	<classpathentry kind="lib" path="libs/software.amazon.ion.java-1.0.2.jar"/>
+	<classpathentry kind="lib" path="libs/org.lucee.aws-java-sdk-s3-all-1.12.190.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
