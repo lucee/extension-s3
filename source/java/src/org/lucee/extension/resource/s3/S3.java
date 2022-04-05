@@ -770,7 +770,7 @@ public class S3 {
 					// if (info == null) {
 					targetName = summary.getKey();
 					if (nameDir.length() < targetName.length() && targetName.startsWith(nameDir)) {
-						exists.put(toKey(bucketName, nameFile), new ParentObject(this, bucketName, nameDir, validUntil, log));
+						exists.put(toKey(bucketName, nameFile), info = new ParentObject(this, bucketName, nameDir, validUntil, log));
 					}
 
 					// }
