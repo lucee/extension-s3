@@ -66,6 +66,9 @@ import lucee.runtime.util.Creation;
 import lucee.runtime.util.Decision;
 
 public class S3 {
+	private static final short CHECK_EXISTS = 1;
+	private static final short CHECK_IS_DIR = 2;
+	private static final short CHECK_IS_FILE = 4;
 
 	static {
 		XMLUtil.validateDocumentBuilderFactory();
@@ -687,36 +690,41 @@ public class S3 {
 		}
 	}
 
-	public boolean exists(String bucketName, String objectName) throws S3Exception {
-		if (Util.isEmpty(objectName)) return exists(bucketName); // bucket is always adirectory
-
-		String key = improveBucketName(bucketName) + ":" + improveObjectName(objectName, false);
-		S3Info info = exists.get(key);
-		if (info != null) return info.exists();
-		list(bucketName, objectName, false, true, false, false);
-		info = exists.get(key);
-		return info != null && info.exists();
-
-	}
-
 	public boolean isDirectory(String bucketName, String objectName) throws S3Exception {
-		return isFileOrDir(bucketName, objectName, true);
+		return is(bucketName, objectName, CHECK_IS_DIR);
 	}
 
 	public boolean isFile(String bucketName, String objectName) throws S3Exception {
-		return isFileOrDir(bucketName, objectName, false);
+		return is(bucketName, objectName, CHECK_IS_FILE);
 	}
 
-	private boolean isFileOrDir(String bucketName, String objectName, boolean dir) throws S3Exception {
-		if (Util.isEmpty(objectName)) return dir ? exists(bucketName) : false; // bucket is always adirectory
+	public boolean exists(String bucketName, String objectName) throws S3Exception {
+		return is(bucketName, objectName, CHECK_EXISTS);
+	}
+
+	private boolean is(String bucketName, String objectName, short type) throws S3Exception {
+		if (Util.isEmpty(objectName)) return type != CHECK_IS_FILE ? exists(bucketName) : false; // bucket is always adirectory
 
 		String key = improveBucketName(bucketName) + ":" + improveObjectName(objectName, false);
 		S3Info info = exists.get(key);
-		if (info != null) return dir ? info.isDirectory() : info.isFile();
-		list(bucketName, objectName, false, true, false, false);
+		if (info != null) {
+			if (CHECK_IS_DIR == type) return info.isDirectory();
+			if (CHECK_IS_FILE == type) return info.isFile();
+			return info.exists();
+		}
+		try {
+			list(bucketName, objectName, false, true, false, false);
+		}
+		catch (S3Exception s3e) {
+			if ("NoSuchBucket".equals(s3e.getErrorCode())) return false;
+			throw s3e;
+		}
 		info = exists.get(key);
 		if (info == null || !info.exists()) return false;
-		return dir ? info.isDirectory() : info.isFile();
+
+		if (CHECK_IS_DIR == type) return info.isDirectory();
+		if (CHECK_IS_FILE == type) return info.isFile();
+		return info.exists();
 	}
 
 	public String getContentType(String bucketName, String objectName) throws AmazonServiceException, S3Exception {
@@ -1751,15 +1759,16 @@ public class S3 {
 
 		// error code
 		String ec = se.getErrorCode();
-		if (!Util.isEmpty(ec, true)) msg += ";error-code" + ec;
+		if (!Util.isEmpty(ec, true)) msg += ";error-code:" + ec;
 
 		// detail
 		if (!Util.isEmpty(detail, true)) msg += ";" + detail;
 
-		S3Exception ioe = new S3Exception(msg);
-		ioe.initCause(se);
-		ioe.setStackTrace(se.getStackTrace());
-		return ioe;
+		S3Exception s3e = new S3Exception(msg);
+		s3e.initCause(se);
+		s3e.setStackTrace(se.getStackTrace());
+		s3e.setErrorCode(ec);
+		return s3e;
 	}
 
 	public static String improveBucketName(String bucketName) {
