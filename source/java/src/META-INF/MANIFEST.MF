@@ -2,21 +2,14 @@ Manifest-Version: 1.0
 Export-Package: org.lucee.extension.resource.s3,
  org.lucee.extension.resource.s3.function
 Bundle-ManifestVersion: 2
-Require-Bundle: com.fasterxml.jackson.core.jackson-annotations;bundle-version=2.13.1,
- com.fasterxml.jackson.core.jackson-core;bundle-version=2.13.1,
- com.fasterxml.jackson.core.jackson-databind;bundle-version=2.12.6,
- com.fasterxml.jackson.dataformat.jackson-dataformat-cbor;bundle-version=2.12.6,
- joda-convert;bundle-version=1.2,
+Require-Bundle: joda-convert;bundle-version=1.2,
  joda-time;bundle-version=2.8.1,
  org.apache.commons.commons-codec;bundle-version=1.15.0,
- org.lucee.aws-java-sdk-kms;bundle-version=1.12.153.0003L,
- org.lucee.aws-java-sdk-s3;bundle-version=1.12.153.0003L,
- org.lucee.aws-java-sdk-core;bundle-version=1.12.153.0003L,
- org.lucee.aws-jmespath-java;bundle-version=1.12.153,
+ org.lucee.aws-java-sdk-s3-all;bundle-version=1.12.190,
  org.lucee.commons.logging;bundle-version=1.2.0,
  org.lucee.httpcomponents.httpclient;bundle-version=4.5.10,
  org.lucee.httpcomponents.httpcore;bundle-version=4.4.12,
- org.lucee.httpcomponents.httpclient;bundle-version=4.5.10,
+ org.lucee.httpcomponents.httpmime;bundle-version=4.5.10,
  software.amazon.ion.java;bundle-version=1.0.2,
  bcprov;bundle-version=1.70
  
