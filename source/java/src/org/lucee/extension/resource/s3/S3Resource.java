@@ -158,7 +158,9 @@ public final class S3Resource extends ResourceSupport {
 
 	@Override
 	public String getPath() {
-		return getPrefix().concat(getInnerPath());
+		String ip = getInnerPath();
+		if (ip.length() == 1 && ip.charAt(0) == '/') return getPrefix();
+		return getPrefix().concat(ip);
 	}
 
 	private String getPrefix() {
