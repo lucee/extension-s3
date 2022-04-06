@@ -34,6 +34,7 @@ import com.amazonaws.regions.Regions;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.model.AccessControlList;
+import com.amazonaws.services.s3.model.AmazonS3Exception;
 import com.amazonaws.services.s3.model.Bucket;
 import com.amazonaws.services.s3.model.CannedAccessControlList;
 import com.amazonaws.services.s3.model.CopyObjectRequest;
@@ -113,13 +114,13 @@ public class S3 {
 		this.accessKeyId = props.getAccessKeyId();
 		this.timeout = timeout;
 		this.customCredentials = props.getCustomCredentials();
-		if (Util.isEmpty(defaultRegion, true)) defaultRegion = Regions.US_EAST_2.toString();
+		if (Util.isEmpty(defaultRegion, true)) defaultRegion = toString(Regions.US_EAST_2);
 		else {
 			try {
-				defaultRegion = toRegions(defaultRegion).toString();
+				defaultRegion = toString(toRegions(defaultRegion));
 			}
 			catch (S3Exception e) {
-				defaultRegion = Regions.US_EAST_2.toString();
+				defaultRegion = toString(Regions.US_EAST_2);
 			}
 		}
 		if (cacheRegions) {
@@ -197,7 +198,7 @@ public class S3 {
 			int endIndex = msg.indexOf("'", startIndex + 11);
 			if (endIndex > startIndex) {
 				try {
-					return toRegions(msg.substring(startIndex + 11, endIndex)).toString();
+					return toString(toRegions(msg.substring(startIndex + 11, endIndex)));
 				}
 				catch (S3Exception e) {
 					if (log != null) log.error("s3", e);
@@ -617,7 +618,7 @@ public class S3 {
 			}
 			return _list;
 		}
-		catch (AmazonServiceException ase) {
+		catch (AmazonS3Exception ase) {
 			throw toS3Exception(ase);
 		}
 	}
@@ -750,7 +751,6 @@ public class S3 {
 			}
 
 			/* Recursively delete all the objects inside given bucket */
-
 			if (objects == null || objects.getObjectSummaries() == null || objects.getObjectSummaries().size() == 0) {
 				exists.put(toKey(bucketName, objectName), new NotExisting(bucketName, objectName, validUntil, log)); // we do not return this, we just store it to cache that it
 				// does
@@ -773,10 +773,18 @@ public class S3 {
 						exists.put(toKey(bucketName, nameFile), info = new ParentObject(this, bucketName, nameDir, validUntil, log));
 					}
 
-					// }
-
-					if (stoObj != null && stoObj.equals(summary)) continue;
-					exists.put(toKey(summary.getBucketName(), summary.getKey()), new StorageObjectWrapper(this, summary, validUntil, log));
+					// set the value to exist when not a match
+					if (!(stoObj != null && stoObj.equals(summary))) {
+						exists.put(toKey(summary.getBucketName(), summary.getKey()), new StorageObjectWrapper(this, summary, validUntil, log));
+					}
+					// set all the parents when not exist
+					// TODO handle that also a file with that name can exist at the same time
+					String parent = nameFile;
+					int index;
+					while ((index = parent.lastIndexOf('/')) != -1) {
+						parent = parent.substring(0, index);
+						exists.put(toKey(bucketName, parent), new ParentObject(this, bucketName, parent, validUntil, log));
+					}
 
 				}
 
@@ -1029,7 +1037,7 @@ public class S3 {
 
 					// if no target region is defined, we create the bucket with the same region as the source
 					if (Util.isEmpty(targetRegion)) {
-						targetRegion = getBucketRegion(srcBucketName, true).toString();
+						targetRegion = toString(getBucketRegion(srcBucketName, true));
 					}
 
 					getS3Service(trgBucketName, targetRegion).createBucket(cbr);
@@ -1078,7 +1086,6 @@ public class S3 {
 		String exact = bucketName + ":" + nameFile;
 		String prefix = bucketName + ":" + nameDir;
 		String prefix2 = bucketName + ":";
-
 		_flush(exists, prefix, exact);
 		_flush(objects, prefix2, exact);
 	}
@@ -1086,12 +1093,17 @@ public class S3 {
 	private static void _flush(Map<String, ?> map, String prefix, String exact) {
 		if (map == null) return;
 
-		Iterator<String> it = map.keySet().iterator();
+		Iterator<?> it = map.entrySet().iterator();
+		Entry<String, ?> e;
 		String key;
 		while (it.hasNext()) {
-			key = it.next();
+			e = (Entry<String, ?>) it.next();
+			key = e.getKey();
 			if (key == null) continue;
 			if ((exact != null && key.equals(exact)) || (prefix != null && key.startsWith(prefix))) {
+				map.remove(key);
+			}
+			else if (prefix.startsWith(key + "/") && e.getValue() instanceof NotExisting) {
 				map.remove(key);
 			}
 		}
@@ -1550,7 +1562,7 @@ public class S3 {
 		else if (!Util.isEmpty(bucketName)) {
 			region = getBucketRegion(bucketName, true);
 		}
-		String key = region == null ? "default-region" : region.toString();
+		String key = region == null ? "default-region" : toString(region);
 
 		AmazonS3 service = services.get(key);
 		if (service == null) {
@@ -1565,7 +1577,8 @@ public class S3 {
 					if (host != null && !host.isEmpty() && !host.equalsIgnoreCase(DEFAULT_HOST)) {
 						// TODO serviceEndpoint - the service endpoint either with or without the protocol (e.g.
 						// https://sns.us-west-1.amazonaws.com or sns.us-west-1.amazonaws.com)
-						builder = builder.withEndpointConfiguration(new EndpointConfiguration(host, region == null ? "us-east-1" : region.toString()));
+
+						builder = builder.withEndpointConfiguration(new EndpointConfiguration(host, region == null ? "us-east-1" : toString(region)));
 					}
 					else {
 						if (region != null) {
@@ -1635,10 +1648,14 @@ public class S3 {
 		StringBuilder sb = new StringBuilder();
 		for (Regions r: Regions.values()) {
 			if (sb.length() != 0) sb.append(",");
-			sb.append(r.toString());
+			sb.append(toString(r));
 		}
 		throw new S3Exception("could not find a matching region for [" + region + "], valid region names are [" + sb + "]");
 
+	}
+
+	private String toString(Regions region) {
+		return region.getName(); // WASABi does not work with toString()
 	}
 
 	private void reset() {
@@ -1736,6 +1753,32 @@ public class S3 {
 	public static S3Exception toS3Exception(AmazonServiceException se, String detail) {
 		String msg = se.getErrorMessage();
 		if (Util.isEmpty(msg, true)) msg = se.getMessage();
+		if (msg.equals("'")) msg = "";
+
+		if (se instanceof AmazonS3Exception) {
+			AmazonS3Exception ase = (AmazonS3Exception) se;
+
+			String raw = ase.getErrorResponseXml();
+			int startIndex = raw.indexOf("<Message>");
+			if (startIndex != -1) {
+				startIndex += 9;
+				int endIndex = raw.indexOf("</Message>");
+				if (endIndex > startIndex) {
+					String xmlMsg = raw.substring(startIndex, endIndex);
+					try {
+						xmlMsg = CFMLEngineFactory.getInstance().getXMLUtil().unescapeXMLString(xmlMsg);
+					}
+					catch (Exception e) {
+					}
+
+					if (!Util.isEmpty(xmlMsg, true) && !xmlMsg.equals(msg)) {
+						if (!Util.isEmpty(msg, true)) msg += ";" + xmlMsg;
+						else msg = xmlMsg;
+						;
+					}
+				}
+			}
+		}
 
 		// local message
 		String lm = se.getLocalizedMessage();
@@ -1748,10 +1791,23 @@ public class S3 {
 		// detail
 		if (!Util.isEmpty(detail, true)) msg += ";" + detail;
 
+		// addional details
+		if (se instanceof AmazonS3Exception) {
+			AmazonS3Exception ase = (AmazonS3Exception) se;
+
+			Map<String, String> map = ase.getAdditionalDetails();
+			if (map != null) {
+				for (Entry<String, String> e: map.entrySet()) {
+					msg += ";" + e.getKey() + ":" + e.getValue();
+				}
+			}
+		}
+
 		S3Exception s3e = new S3Exception(msg);
 		s3e.initCause(se);
 		s3e.setStackTrace(se.getStackTrace());
 		s3e.setErrorCode(ec);
+
 		return s3e;
 	}
 
