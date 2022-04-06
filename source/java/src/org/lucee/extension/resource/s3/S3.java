@@ -1765,11 +1765,10 @@ public class S3 {
 				int endIndex = raw.indexOf("</Message>");
 				if (endIndex > startIndex) {
 					String xmlMsg = raw.substring(startIndex, endIndex);
-					try {
-						xmlMsg = CFMLEngineFactory.getInstance().getXMLUtil().unescapeXMLString(xmlMsg);
-					}
-					catch (Exception e) {
-					}
+					/*
+					 * TODO try { xmlMsg = CFMLEngineFactory.getInstance().getXMLUtil().unescapeXMLString(xmlMsg); }
+					 * catch (Exception e) { }
+					 */
 
 					if (!Util.isEmpty(xmlMsg, true) && !xmlMsg.equals(msg)) {
 						if (!Util.isEmpty(msg, true)) msg += ";" + xmlMsg;
