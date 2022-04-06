@@ -176,19 +176,18 @@ public final class S3ResourceProvider implements ResourceProvider {
 		index = path.indexOf('/');
 		properties.setHost(host);
 		if (index == -1) {
-			if (path.equalsIgnoreCase(S3.DEFAULT_HOST) || path.equalsIgnoreCase(host)) {
+			if (!path.equalsIgnoreCase(S3.DEFAULT_HOST) || !path.equalsIgnoreCase(host)) {
 				properties.setHost(path);
 				path = "/";
 			}
 		}
 		else {
 			String _host = path.substring(0, index);
-			if (_host.equalsIgnoreCase(S3.DEFAULT_HOST) || _host.equalsIgnoreCase(host)) {
+			if (!_host.equalsIgnoreCase(S3.DEFAULT_HOST) || !_host.equalsIgnoreCase(host)) {
 				properties.setHost(_host);
 				path = path.substring(index);
 			}
 		}
-
 		// env var
 		if (Util.isEmpty(secretAccessKey, true)) secretAccessKey = S3Util.getSystemPropOrEnvVar("lucee.s3.secretaccesskey", null);
 		if (Util.isEmpty(secretAccessKey, true)) secretAccessKey = S3Util.getSystemPropOrEnvVar("lucee.s3.secretkey", null);
