@@ -476,7 +476,11 @@ public final class S3Resource extends ResourceSupport {
 		}
 	}
 
-	private String getObjectName() {
+	public String getBucketName() {
+		return bucketName;
+	}
+
+	public String getObjectName() {
 		if (!engine.getStringUtil().isEmpty(objectName) && isDirectory()) {
 			return objectName + "/";
 		}

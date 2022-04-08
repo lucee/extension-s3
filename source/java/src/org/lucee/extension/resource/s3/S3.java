@@ -27,6 +27,7 @@ import org.lucee.extension.resource.s3.info.StorageObjectWrapper;
 import org.lucee.extension.resource.s3.util.XMLUtil;
 
 import com.amazonaws.AmazonServiceException;
+import com.amazonaws.HttpMethod;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration;
@@ -41,6 +42,7 @@ import com.amazonaws.services.s3.model.CopyObjectRequest;
 import com.amazonaws.services.s3.model.CreateBucketRequest;
 import com.amazonaws.services.s3.model.DeleteObjectsRequest;
 import com.amazonaws.services.s3.model.DeleteObjectsRequest.KeyVersion;
+import com.amazonaws.services.s3.model.GeneratePresignedUrlRequest;
 import com.amazonaws.services.s3.model.ListVersionsRequest;
 import com.amazonaws.services.s3.model.ObjectListing;
 import com.amazonaws.services.s3.model.ObjectMetadata;
@@ -70,6 +72,11 @@ public class S3 {
 	private static final short CHECK_EXISTS = 1;
 	private static final short CHECK_IS_DIR = 2;
 	private static final short CHECK_IS_FILE = 4;
+
+	public static final short URI_STYLE_VIRTUAL_HOST = 1;
+	public static final short URI_STYLE_PATH = 2;
+	public static final short URI_STYLE_S3 = 4;
+	public static final short URI_STYLE_ARN = 8;
 
 	static {
 		XMLUtil.validateDocumentBuilderFactory();
@@ -339,6 +346,61 @@ public class S3 {
 		return null;
 	}
 
+	public URL generatePresignedURL(String bucketName, String objectName, Date expireDate) throws S3Exception {
+		bucketName = improveBucketName(bucketName);
+		objectName = improveObjectName(objectName);
+
+		try {
+
+			AmazonS3 s3Client = getS3Service(bucketName, null);
+			GeneratePresignedUrlRequest generatePresignedUrlRequest = new GeneratePresignedUrlRequest(bucketName, objectName).withMethod(HttpMethod.GET);
+
+			if (expireDate != null) {
+				if (expireDate.getTime() < System.currentTimeMillis()) throw new S3Exception("the optional expire date must be un the future");
+				generatePresignedUrlRequest.withExpiration(expireDate);
+			}
+			return s3Client.generatePresignedUrl(generatePresignedUrlRequest);
+		}
+		catch (AmazonServiceException ase) {
+			throw toS3Exception(ase);
+		}
+
+	}
+
+	public String generateURI(String bucketName, String objectName, short uriStyle, boolean secure) throws S3Exception {
+		bucketName = improveBucketName(bucketName);
+		objectName = improveObjectName(objectName, false);
+		HostData hd = toHostData(getHost());
+
+		if (URI_STYLE_VIRTUAL_HOST == uriStyle) {
+			// pattern https://bucket-name.s3.Region.amazonaws.com/key-name
+			// example https://my-bucket.s3.us-west-2.amazonaws.com/puppy.png
+			String region = toString(get(bucketName, objectName).getRegion());
+			return new StringBuilder().append(secure ? "https://" : "http://").append(bucketName).append(".s3.").append(region).append('.').append(hd.domain).append('/')
+					.append(objectName).toString();
+		}
+		else if (URI_STYLE_PATH == uriStyle) {
+			// pattern https://s3.Region.amazonaws.com/bucket-name/key-name
+			// example https://s3.us-west-2.amazonaws.com/mybucket/puppy.jpg
+			String region = toString(get(bucketName, objectName).getRegion());
+			return new StringBuilder().append(secure ? "https://" : "http://").append("s3.").append(region).append('.').append(hd.domain).append('/').append(bucketName).append('/')
+					.append(objectName).toString();
+		}
+		else if (URI_STYLE_S3 == uriStyle) {
+			// pattern S3://bucket-name/key-name
+			return new StringBuilder().append("s3://").append(bucketName).append('/').append(objectName).toString();
+		}
+		else if (URI_STYLE_ARN == uriStyle) {
+
+			// pattern arn:aws:s3:::bucket_name/key_name
+			return new StringBuilder().append("arn:aws:s3:::").append(bucketName).append('/').append(objectName).toString();
+		}
+		else {
+			throw new S3Exception("invalid URI Style definition.");
+		}
+	}
+
+	// https://s3.eu-central-1.wasabisys.com/lucee-ldev0359-43d24e88acb9b5048097f8961fc5b23c/a
 	public List<S3Info> list(boolean recursive, boolean listPseudoFolder) throws S3Exception {
 		try {
 
@@ -1906,6 +1968,26 @@ public class S3 {
 		else por.setAccessControlList((AccessControlList) acl);
 	}
 
+	private static HostData toHostData(String host) throws S3Exception {
+		int index = host.indexOf('.');
+		String prefix;
+		if (index != 2 || !host.substring(0, 2).equalsIgnoreCase("s3")) {
+			throw new S3Exception("host name [" + host + "] is invalid, must start with [s3.]");
+		}
+
+		index = host.indexOf('.', 3);
+		if (index == -1) {
+			throw new S3Exception("host name [" + host + "] is invalid");
+		}
+		int index2 = host.indexOf('.', index + 1);
+
+		// no region
+		if (index2 == -1) {
+			return new HostData(null, host.substring(3));
+		}
+		return new HostData(host.substring(3, index), host.substring(index + 1));
+	}
+
 	class ValidUntilMap<I> extends ConcurrentHashMap<String, I> {
 		private static final long serialVersionUID = 238079099294942075L;
 		private final long validUntil;
@@ -1984,6 +2066,22 @@ public class S3 {
 			this.name = name;
 			this.validUntil = validUntil;
 			this.exists = exists;
+		}
+	}
+
+	private static class HostData {
+		private String region;
+		private String domain;
+
+		private HostData(String region, String domain) {
+			this.region = region;
+			this.domain = domain;
+
+		}
+
+		@Override
+		public String toString() {
+			return "region:" + region + ";domain:" + domain + ";";
 		}
 	}
 
