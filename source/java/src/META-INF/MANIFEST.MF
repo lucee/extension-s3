@@ -5,11 +5,11 @@ Bundle-ManifestVersion: 2
 Require-Bundle: joda-convert;bundle-version=1.2,
  joda-time;bundle-version=2.8.1,
  org.apache.commons.commons-codec;bundle-version=1.15.0,
- org.lucee.aws-java-sdk-s3-all;bundle-version=1.12.190,
+ org.lucee.aws-java-sdk-s3-all;bundle-version=1.12.192,
  org.lucee.commons.logging;bundle-version=1.2.0,
- org.lucee.httpcomponents.httpclient;bundle-version=4.5.10,
+ org.lucee.httpcomponents.httpclient;bundle-version=4.5.10.0001L,
  org.lucee.httpcomponents.httpcore;bundle-version=4.4.12,
- org.lucee.httpcomponents.httpmime;bundle-version=4.5.10,
+ org.lucee.httpcomponents.httpmime;bundle-version=4.5.10.0001L,
  software.amazon.ion.java;bundle-version=1.0.2,
  bcprov;bundle-version=1.70
  
