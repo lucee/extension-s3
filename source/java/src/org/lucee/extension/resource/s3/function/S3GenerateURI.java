@@ -2,9 +2,11 @@ package org.lucee.extension.resource.s3.function;
 
 import org.lucee.extension.resource.s3.S3;
 import org.lucee.extension.resource.s3.S3Exception;
+import org.lucee.extension.resource.s3.S3Properties;
 import org.lucee.extension.resource.s3.S3Resource;
 import org.lucee.extension.resource.s3.S3ResourceProvider;
 
+import lucee.commons.lang.types.RefString;
 import lucee.loader.engine.CFMLEngine;
 import lucee.loader.engine.CFMLEngineFactory;
 import lucee.loader.util.Util;
@@ -28,10 +30,11 @@ public class S3GenerateURI extends S3Function {
 			S3 s3 = S3ResourceProvider.getS3(toS3Properties(pc, accessKeyId, secretAccessKey), toTimeout(timeout));
 
 			if (Util.isEmpty(objectName)) {
-				S3Resource res = toS3Resource(pc, bucketNameOrPath, "S3GenerateURL");
-
-				bucketNameOrPath = res.getBucketName();
-				objectName = res.getObjectName();
+				S3Properties props = new S3Properties();
+				RefString location = eng.getCreationUtil().createRefString(null);
+				String[] bo = S3Resource.toBO(S3ResourceProvider.loadWithNewPattern(props, location, bucketNameOrPath));
+				bucketNameOrPath = bo[0];
+				objectName = bo[1];
 				if (objectName != null && objectName.endsWith("/")) objectName = objectName.substring(0, objectName.length() - 1);
 			}
 

@@ -375,14 +375,18 @@ public class S3 {
 		if (URI_STYLE_VIRTUAL_HOST == uriStyle) {
 			// pattern https://bucket-name.s3.Region.amazonaws.com/key-name
 			// example https://my-bucket.s3.us-west-2.amazonaws.com/puppy.png
-			String region = toString(get(bucketName, objectName).getRegion());
+			S3Info info = get(bucketName);
+			if (info == null) throw new S3Exception("no accesible bucket with name [" + bucketName + "] ");
+			String region = toString(info.getRegion());
 			return new StringBuilder().append(secure ? "https://" : "http://").append(bucketName).append(".s3.").append(region).append('.').append(hd.domain).append('/')
 					.append(objectName).toString();
 		}
 		else if (URI_STYLE_PATH == uriStyle) {
 			// pattern https://s3.Region.amazonaws.com/bucket-name/key-name
 			// example https://s3.us-west-2.amazonaws.com/mybucket/puppy.jpg
-			String region = toString(get(bucketName, objectName).getRegion());
+			S3Info info = get(bucketName);
+			if (info == null) throw new S3Exception("no accesible bucket with name [" + bucketName + "] ");
+			String region = toString(info.getRegion());
 			return new StringBuilder().append(secure ? "https://" : "http://").append("s3.").append(region).append('.').append(hd.domain).append('/').append(bucketName).append('/')
 					.append(objectName).toString();
 		}

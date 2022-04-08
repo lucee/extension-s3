@@ -71,29 +71,35 @@ public final class S3Resource extends ResourceSupport {
 		this.props = props;
 		this.provider = provider;
 		this.acl = props.getACL();
-
-		if (path.equals("/") || engine.getStringUtil().isEmpty(path, true)) {
-			this.bucketName = null;
-			this.objectName = "";
-		}
-		else {
-			path = engine.getResourceUtil().translatePath(path, true, false);
-			String[] arr = null;
-			try {
-				arr = engine.getListUtil().toStringArray(engine.getListUtil().toArrayRemoveEmpty(path, "/"));
-			}
-			catch (PageException e) {
-				// that should never happen, because we have string as base!!!
-			}
-			bucketName = arr[0];
-			for (int i = 1; i < arr.length; i++) {
-				if (Util.isEmpty(objectName)) objectName = arr[i];
-				else objectName += "/" + arr[i];
-			}
-			if (objectName == null) objectName = "";
-		}
 		this.location = location;
+		String[] bo = toBO(path);
+		this.bucketName = bo[0];
+		this.objectName = bo[1];
 
+	}
+
+	public static String[] toBO(String path) {
+		CFMLEngine engine = CFMLEngineFactory.getInstance();
+		if (path.equals("/") || engine.getStringUtil().isEmpty(path, true)) {
+			return new String[] { null, "" };
+		}
+
+		path = engine.getResourceUtil().translatePath(path, true, false);
+		String[] arr = null;
+		try {
+			arr = engine.getListUtil().toStringArray(engine.getListUtil().toArrayRemoveEmpty(path, "/"));
+		}
+		catch (PageException e) {
+			// that should never happen, because we have string as base!!!
+		}
+		String bucketName = arr[0];
+		String objectName = null;
+		for (int i = 1; i < arr.length; i++) {
+			if (Util.isEmpty(objectName)) objectName = arr[i];
+			else objectName += "/" + arr[i];
+		}
+		if (objectName == null) objectName = "";
+		return new String[] { bucketName, objectName };
 	}
 
 	@Override
