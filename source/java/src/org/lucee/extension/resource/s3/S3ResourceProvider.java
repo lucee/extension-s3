@@ -118,6 +118,9 @@ public final class S3ResourceProvider implements ResourceProvider {
 	}
 
 	public static String loadWithNewPattern(S3Properties properties, RefString storage, String path) {
+		// print.e("----------------------------------");
+		// print.e("path:" + path);
+
 		PageContext pc = CFMLEngineFactory.getInstance().getThreadPageContext();
 
 		boolean hasCustomCredentials = false;
@@ -176,18 +179,24 @@ public final class S3ResourceProvider implements ResourceProvider {
 		index = path.indexOf('/');
 		properties.setHost(host);
 		if (index == -1) {
-			if (!Util.isEmpty(path, true) && (!path.equalsIgnoreCase(S3.DEFAULT_HOST) || !path.equalsIgnoreCase(host))) {
+			if (!Util.isEmpty(path, true)) {
 				properties.setHost(path);
 				path = "/";
 			}
 		}
 		else {
 			String _host = path.substring(0, index);
-			if (!Util.isEmpty(_host, true) && (!_host.equalsIgnoreCase(S3.DEFAULT_HOST) || !_host.equalsIgnoreCase(host))) {
+			if (!Util.isEmpty(_host, true)) {
 				properties.setHost(_host);
 				path = path.substring(index);
 			}
 		}
+
+		// print.e("path-mod:" + path);
+		// print.e("AccessKeyId:" + properties.getAccessKeyId());
+		// print.e("SecretAccessKey:" + properties.getSecretAccessKey());
+		// print.e("host:" + properties.getHost());
+
 		// env var
 		if (Util.isEmpty(secretAccessKey, true)) secretAccessKey = S3Util.getSystemPropOrEnvVar("lucee.s3.secretaccesskey", null);
 		if (Util.isEmpty(secretAccessKey, true)) secretAccessKey = S3Util.getSystemPropOrEnvVar("lucee.s3.secretkey", null);
