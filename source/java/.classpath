@@ -14,13 +14,14 @@
 	<classpathentry kind="lib" path="libs/jackson-mapper-asl-1.9.13.jar"/>
 	<classpathentry kind="lib" path="libs/commons-codec-1.9.jar"/>
 	<classpathentry kind="lib" path="libs/org.lucee.bouncycastle.bcprov-1.52.0.jar"/>
-	<classpathentry kind="lib" path="libs/commons-logging-1.2.0.jar"/>
 	<classpathentry kind="lib" path="libs/javax.mail.activation-1.6.2.0000L.jar"/>
-	<classpathentry kind="lib" path="libs/org.lucee.httpcomponents.httpclient-4.5.10.jar"/>
 	<classpathentry kind="lib" path="libs/org.lucee.httpcomponents.httpcore-4.4.12.jar"/>
 	<classpathentry kind="lib" path="libs/lucee.jar"/>
 	<classpathentry kind="lib" path="libs/java.xmlbuilder-1.1.0.0002L.jar"/>
 	<classpathentry kind="lib" path="libs/org.apache.commons.codec-1.9.0.jar"/>
-	<classpathentry kind="lib" path="libs/org.lucee.jets3t-0.9.4.0015L.jar"/>
+	<classpathentry kind="lib" path="libs/org.lucee.commons.logging-1.2.0.0000L.jar"/>
+	<classpathentry kind="lib" path="libs/org.lucee.httpcomponents.httpclient-4.5.10.0002L.jar"/>
+	<classpathentry kind="lib" path="libs/org.lucee.httpcomponents.httpmime-4.5.10.0002L.jar"/>
+	<classpathentry kind="lib" path="libs/org.lucee.jets3t-0.9.4.0016L.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
