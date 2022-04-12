@@ -1630,6 +1630,8 @@ public class S3 {
 		}
 		String key = region == null ? "default-region" : toString(region);
 
+		if (Util.isEmpty(accessKeyId) || Util.isEmpty(secretAccessKey)) throw new S3Exception("Could not found an accessKeyId/secretAccessKey");
+
 		AmazonS3 service = services.get(key);
 		if (service == null) {
 			synchronized (getToken(accessKeyId + ":" + secretAccessKey + ":" + key)) {

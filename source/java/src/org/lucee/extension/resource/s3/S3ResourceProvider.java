@@ -112,12 +112,12 @@ public final class S3ResourceProvider implements ResourceProvider {
 		// S3 s3 = new S3(cache);
 		RefString location = engine.getCreationUtil().createRefString(null);
 
-		path = loadWithNewPattern(props, location, path);
+		path = loadWithNewPattern(props, location, path, true);
 
 		return new S3Resource(engine, getS3(props, cache), props, location.getValue(), this, path);
 	}
 
-	public static String loadWithNewPattern(S3Properties properties, RefString storage, String path) {
+	public static String loadWithNewPattern(S3Properties properties, RefString storage, String path, boolean errorWhenNoCred) {
 		// print.e("----------------------------------");
 		// print.e("path:" + path);
 
@@ -151,15 +151,18 @@ public final class S3ResourceProvider implements ResourceProvider {
 		storage.setValue(defaultLocation);
 
 		int atIndex = path.indexOf('@');
-		int slashIndex = path.indexOf('/');
-		if (slashIndex == -1) {
-			slashIndex = path.length();
-			path += "/";
-		}
+
 		int index;
 
 		// key/id
 		if (atIndex != -1) {
+
+			int slashIndex = path.indexOf('/', atIndex + 1);
+			if (slashIndex == -1) {
+				slashIndex = path.length();
+				path += "/";
+			}
+
 			index = path.indexOf(':');
 			if (index != -1 && index < atIndex) {
 				hasCustomCredentials = true;
@@ -203,6 +206,17 @@ public final class S3ResourceProvider implements ResourceProvider {
 
 		if (Util.isEmpty(accessKeyId, true)) accessKeyId = S3Util.getSystemPropOrEnvVar("lucee.s3.accesskeyid", null);
 		if (Util.isEmpty(accessKeyId, true)) accessKeyId = S3Util.getSystemPropOrEnvVar("lucee.s3.accesskey", null);
+
+		if (errorWhenNoCred && (Util.isEmpty(accessKeyId, true) || Util.isEmpty(secretAccessKey, true)))
+			throw new RuntimeException(new S3Exception("Could not found accessKeyId / secretAccessKey."
+
+					+ " You can define the credentials as part of the path itself (s3://{accessKeyId}:{secretAccessKey}/)."
+
+					+ " In the Application.cfc as follows (this.s3.accessKeyId={accessKeyId};this.s3.awsSecretKey={secretAccessKey};)."
+
+					+ " As enviroment variable (LUCEE_S3_ACCESSKEYID={accessKeyId}; LUCEE_S3_SECRETACCESSKEY={secretAccessKey})."
+
+					+ " As system properties (lucee.s3.accesskeyid={accessKeyId}; lucee.s3.secretaccesskey={secretAccessKey})."));
 
 		properties.setSecretAccessKey(secretAccessKey);
 		properties.setAccessKeyId(accessKeyId);

@@ -29,7 +29,7 @@ public class S3GeneratePresignedURL extends S3Function {
 			if (Util.isEmpty(objectName)) {
 				S3Properties props = new S3Properties();
 				RefString location = eng.getCreationUtil().createRefString(null);
-				String[] bo = S3Resource.toBO(S3ResourceProvider.loadWithNewPattern(props, location, bucketNameOrPath));
+				String[] bo = S3Resource.toBO(S3ResourceProvider.loadWithNewPattern(props, location, bucketNameOrPath, Util.isEmpty(accessKeyId)));
 				bucketNameOrPath = bo[0];
 				objectName = bo[1];
 				if (objectName != null && objectName.endsWith("/")) objectName = objectName.substring(0, objectName.length() - 1);
