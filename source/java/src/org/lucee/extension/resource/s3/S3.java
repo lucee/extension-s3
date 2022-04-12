@@ -2110,7 +2110,8 @@ public class S3 {
 					}
 					catch (Exception e) {
 						// in case the bucket is gone in meantime, we don't care and don't log
-						if (!(e instanceof AmazonServiceException && ((AmazonServiceException) e).getErrorCode().equals("NoSuchBucket"))) {
+						if (!(e instanceof AmazonServiceException
+								&& (((AmazonServiceException) e).getErrorCode().equals("NoSuchBucket") || ((AmazonServiceException) e).getErrorCode().equals("AccessDenied")))) {
 							if (log != null) log.error("s3", e);
 						}
 					}
