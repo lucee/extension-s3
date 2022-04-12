@@ -17,11 +17,11 @@
 	<classpathentry kind="lib" path="libs/com.fasterxml.jackson.dataformat.jackson-dataformat-cbor-2.12.6.jar"/>
 	<classpathentry kind="lib" path="libs/joda-time-2.8.1.jar"/>
 	<classpathentry kind="lib" path="libs/org.apache.commons.commons-codec-1.15.0.jar"/>
-	<classpathentry kind="lib" path="libs/org.lucee.commons.logging-1.2.0.jar"/>
 	<classpathentry kind="lib" path="libs/org.lucee.httpcomponents.httpcore-4.4.12.jar"/>
 	<classpathentry kind="lib" path="libs/software.amazon.ion.java-1.0.2.jar"/>
-	<classpathentry kind="lib" path="libs/org.lucee.aws-java-sdk-s3-all-1.12.192.jar"/>
-	<classpathentry kind="lib" path="libs/org.lucee.httpcomponents-httpclient-4.5.10.0001L.jar"/>
-	<classpathentry kind="lib" path="libs/org.lucee.httpcomponents-httpmime-4.5.10.0001L.jar"/>
+	<classpathentry kind="lib" path="libs/org.lucee.aws-java-sdk-s3-all-1.12.196.jar"/>
+	<classpathentry kind="lib" path="libs/org.lucee.commons.logging-1.2.0.0000L.jar"/>
+	<classpathentry kind="lib" path="libs/org.lucee.httpcomponents.httpclient-4.5.10.0002L.jar"/>
+	<classpathentry kind="lib" path="libs/org.lucee.httpcomponents.httpmime-4.5.10.0002L.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
