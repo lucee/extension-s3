@@ -83,6 +83,7 @@ public class S3 {
 	}
 
 	public static final String DEFAULT_HOST = "s3.amazonaws.com";
+	public static final String[] PROVIDERS = new String[] { ".amazonaws.com", ".wasabisys.com", ".backblaze.com", ".digitaloceanspaces.com", ".dream.io" };
 
 	private static final ConcurrentHashMap<String, Object> tokens = new ConcurrentHashMap<String, Object>();
 	private final String host;

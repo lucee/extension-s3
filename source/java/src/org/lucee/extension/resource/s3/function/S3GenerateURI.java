@@ -29,10 +29,10 @@ public class S3GenerateURI extends S3Function {
 			// create S3 Instance
 			S3 s3 = S3ResourceProvider.getS3(toS3Properties(pc, accessKeyId, secretAccessKey), toTimeout(timeout));
 
-			if (Util.isEmpty(objectName)) {
+			if (Util.isEmpty(objectName) && ("" + bucketNameOrPath).toLowerCase().startsWith("s3://")) {
 				S3Properties props = new S3Properties();
 				RefString location = eng.getCreationUtil().createRefString(null);
-				String[] bo = S3Resource.toBO(S3ResourceProvider.loadWithNewPattern(props, location, bucketNameOrPath, Util.isEmpty(accessKeyId)));
+				String[] bo = S3Resource.toBO(S3ResourceProvider.loadWithNewPattern(props, location, bucketNameOrPath.substring(5), Util.isEmpty(accessKeyId)));
 				bucketNameOrPath = bo[0];
 				objectName = bo[1];
 				if (objectName != null && objectName.endsWith("/")) objectName = objectName.substring(0, objectName.length() - 1);

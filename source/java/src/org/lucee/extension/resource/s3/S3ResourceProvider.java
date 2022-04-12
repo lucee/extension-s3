@@ -118,9 +118,6 @@ public final class S3ResourceProvider implements ResourceProvider {
 	}
 
 	public static String loadWithNewPattern(S3Properties properties, RefString storage, String path, boolean errorWhenNoCred) {
-		// print.e("----------------------------------");
-		// print.e("path:" + path);
-
 		PageContext pc = CFMLEngineFactory.getInstance().getThreadPageContext();
 
 		boolean hasCustomCredentials = false;
@@ -151,18 +148,15 @@ public final class S3ResourceProvider implements ResourceProvider {
 		storage.setValue(defaultLocation);
 
 		int atIndex = path.indexOf('@');
-
+		int slashIndex = path.indexOf('/');
+		if (slashIndex == -1) {
+			slashIndex = path.length();
+			path += "/";
+		}
 		int index;
 
 		// key/id
 		if (atIndex != -1) {
-
-			int slashIndex = path.indexOf('/', atIndex + 1);
-			if (slashIndex == -1) {
-				slashIndex = path.length();
-				path += "/";
-			}
-
 			index = path.indexOf(':');
 			if (index != -1 && index < atIndex) {
 				hasCustomCredentials = true;
@@ -182,23 +176,18 @@ public final class S3ResourceProvider implements ResourceProvider {
 		index = path.indexOf('/');
 		properties.setHost(host);
 		if (index == -1) {
-			if (!Util.isEmpty(path, true)) {
+			if (isS3Host(path, host)) {
 				properties.setHost(path);
 				path = "/";
 			}
 		}
 		else {
 			String _host = path.substring(0, index);
-			if (!Util.isEmpty(_host, true)) {
+			if (isS3Host(_host, host)) {
 				properties.setHost(_host);
 				path = path.substring(index);
 			}
 		}
-
-		// print.e("path-mod:" + path);
-		// print.e("AccessKeyId:" + properties.getAccessKeyId());
-		// print.e("SecretAccessKey:" + properties.getSecretAccessKey());
-		// print.e("host:" + properties.getHost());
 
 		// env var
 		if (Util.isEmpty(secretAccessKey, true)) secretAccessKey = S3Util.getSystemPropOrEnvVar("lucee.s3.secretaccesskey", null);
@@ -222,6 +211,19 @@ public final class S3ResourceProvider implements ResourceProvider {
 		properties.setAccessKeyId(accessKeyId);
 		properties.setCustomCredentials(hasCustomCredentials);
 		return path;
+	}
+
+	private static boolean isS3Host(String path, String host) {
+		if (path.equalsIgnoreCase(host)) return true;
+
+		String pathLC = path.toLowerCase();
+
+		if (!pathLC.startsWith("s3.")) return false;
+
+		for (String provider: S3.PROVIDERS) {
+			if (pathLC.endsWith(provider)) return true;
+		}
+		return false;
 	}
 
 	private static String prettifyPath(String path) {
