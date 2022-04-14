@@ -40,10 +40,13 @@ import org.lucee.extension.resource.s3.info.S3Info;
 import org.lucee.extension.resource.s3.info.StorageObjectWrapper;
 import org.lucee.extension.resource.s3.util.MultipartUtil;
 import org.lucee.extension.resource.s3.util.XMLUtil;
+import org.lucee.extension.resource.s3.util.print;
 
+import lucee.commons.io.log.Log;
 import lucee.commons.io.res.Resource;
 import lucee.loader.engine.CFMLEngineFactory;
 import lucee.loader.util.Util;
+import lucee.runtime.config.Config;
 import lucee.runtime.exp.PageException;
 import lucee.runtime.net.s3.Properties;
 import lucee.runtime.type.Array;
@@ -1282,6 +1285,10 @@ public class S3 {
 		return getS3Service().createSignedGetUrl(bucketName, objectName, new Date(System.currentTimeMillis() + time), false);
 	}
 
+	public static void main(String[] args) {
+		print.e(Constants.JETS3T_PROPERTIES_FILENAME);
+	}
+
 	private S3Service getS3Service() {
 
 		if (service == null) {
@@ -1298,6 +1305,31 @@ public class S3 {
 		return service;
 	}
 
+	public static Jets3tProperties getInstance(String propertiesFileName) {
+		Jets3tProperties jets3tProperties = new Jets3tProperties();
+
+		// Load properties from classpath.
+		InputStream cpIS = jets3tProperties.getClass().getResourceAsStream("/" + propertiesFileName);
+		if (cpIS != null) {
+			try {
+				jets3tProperties.loadAndReplaceProperties(cpIS, "Resource '" + propertiesFileName + "' in classpath");
+			}
+			catch (IOException e) {
+				boolean printOut = true;
+				Config c = CFMLEngineFactory.getInstance().getThreadConfig();
+				if (c != null) {
+					Log log = c.getLog("application");
+					if (log != null) {
+						log.error("S3", e);
+						printOut = false;
+					}
+				}
+				if (printOut) e.printStackTrace();
+			}
+		}
+		return jets3tProperties;
+	}
+
 	private void reset() {
 		synchronized (getToken(accessKeyId + ":" + secretAccessKey)) {
 			// we set srvice to null, so getS3Service has to wait
@@ -1308,10 +1340,17 @@ public class S3 {
 				tmp.shutdown();
 			}
 			catch (ServiceException e) {
+				Config c = CFMLEngineFactory.getInstance().getThreadConfig();
+				if (c != null) {
+					Log log = c.getLog("application");
+					if (log != null) {
+						log.error("S3", e);
+						return;
+					}
+				}
 				e.printStackTrace();
 			}
 		}
-
 	}
 
 	public static AccessControlList toACL(String acl, AccessControlList defaultValue) {
