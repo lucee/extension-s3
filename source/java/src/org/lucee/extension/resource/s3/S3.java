@@ -40,7 +40,6 @@ import org.lucee.extension.resource.s3.info.S3Info;
 import org.lucee.extension.resource.s3.info.StorageObjectWrapper;
 import org.lucee.extension.resource.s3.util.MultipartUtil;
 import org.lucee.extension.resource.s3.util.XMLUtil;
-import org.lucee.extension.resource.s3.util.print;
 
 import lucee.commons.io.log.Log;
 import lucee.commons.io.res.Resource;
@@ -1283,10 +1282,6 @@ public class S3 {
 
 	public String url(String bucketName, String objectName, long time) throws S3Exception {
 		return getS3Service().createSignedGetUrl(bucketName, objectName, new Date(System.currentTimeMillis() + time), false);
-	}
-
-	public static void main(String[] args) {
-		print.e(Constants.JETS3T_PROPERTIES_FILENAME);
 	}
 
 	private S3Service getS3Service() {
