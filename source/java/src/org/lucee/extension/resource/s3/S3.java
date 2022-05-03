@@ -99,9 +99,9 @@ public class S3 {
 	private ValidUntilMap<S3BucketWrapper> buckets;
 	private Map<String, S3BucketExists> existBuckets;
 	private final Map<String, ValidUntilMap<S3Info>> objects = new ConcurrentHashMap<String, ValidUntilMap<S3Info>>();
-	Map<String, ValidUntilElement<AccessControlList>> accessControlLists = new ConcurrentHashMap<String, ValidUntilElement<AccessControlList>>();
-	Map<String, Regions> regions = new ConcurrentHashMap<String, Regions>();
-	Map<String, Regions> bucketRegions = new ConcurrentHashMap<String, Regions>();
+	private Map<String, ValidUntilElement<AccessControlList>> accessControlLists = new ConcurrentHashMap<String, ValidUntilElement<AccessControlList>>();
+	private Map<String, Regions> regions = new ConcurrentHashMap<String, Regions>();
+	private Map<String, Regions> bucketRegions = new ConcurrentHashMap<String, Regions>();
 	private Map<String, S3Info> exists = new ConcurrentHashMap<String, S3Info>();
 	private Log log;
 
@@ -1170,7 +1170,7 @@ public class S3 {
 			if ((exact != null && key.equals(exact)) || (prefix != null && key.startsWith(prefix))) {
 				map.remove(key);
 			}
-			else if (prefix.startsWith(key + "/") && e.getValue() instanceof NotExisting) {
+			else if (prefix != null && prefix.startsWith(key + "/") && e.getValue() instanceof NotExisting) {
 				map.remove(key);
 			}
 		}
@@ -1675,16 +1675,16 @@ public class S3 {
 		Regions r = bucketRegions.get(bucketName);
 		if (r != null) return r;
 
-		try {
-			flushExists(bucketName, false);
-			if (loadIfNecessary) {
+		if (loadIfNecessary) {
+			try {
 				r = toRegions(getS3Service(null, null).getBucketLocation(bucketName));
 				bucketRegions.put(bucketName, r);
 			}
+			catch (AmazonServiceException ase) {
+				if (ase.getErrorCode().equals("NoSuchBucket")) return null;
+			}
 		}
-		catch (AmazonServiceException ase) {
-			if (ase.getErrorCode().equals("NoSuchBucket")) return null;
-		}
+
 		return r;
 	}
 
