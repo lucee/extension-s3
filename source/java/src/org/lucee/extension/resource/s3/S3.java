@@ -43,6 +43,7 @@ import com.amazonaws.services.s3.model.CreateBucketRequest;
 import com.amazonaws.services.s3.model.DeleteObjectsRequest;
 import com.amazonaws.services.s3.model.DeleteObjectsRequest.KeyVersion;
 import com.amazonaws.services.s3.model.GeneratePresignedUrlRequest;
+import com.amazonaws.services.s3.model.ListObjectsRequest;
 import com.amazonaws.services.s3.model.ListVersionsRequest;
 import com.amazonaws.services.s3.model.ObjectListing;
 import com.amazonaws.services.s3.model.ObjectMetadata;
@@ -772,10 +773,8 @@ public class S3 {
 
 	private boolean is(String bucketName, String objectName, short type) throws S3Exception {
 		if (Util.isEmpty(objectName)) return type != CHECK_IS_FILE ? exists(bucketName) : false; // bucket is always a directory
-
 		S3Info info = get(bucketName, objectName);
 		if (info == null || !info.exists()) return false;
-
 		if (CHECK_IS_DIR == type) return info.isDirectory();
 		if (CHECK_IS_FILE == type) return info.isFile();
 		return info.exists();
@@ -789,11 +788,9 @@ public class S3 {
 	}
 
 	public S3Info get(String bucketName, final String objectName) throws S3Exception {
-
 		if (Util.isEmpty(objectName)) {
 			return get(bucketName);
 		}
-
 		bucketName = improveBucketName(bucketName);
 		String nameFile = improveObjectName(objectName, false);
 		String nameDir = improveObjectName(objectName, true);
@@ -808,13 +805,20 @@ public class S3 {
 
 		AmazonS3 s = getS3Service(bucketName, null);
 		try {
-
 			long validUntil = System.currentTimeMillis() + timeout;
+
 			ObjectListing objects = null;
+
 			try {
-				objects = s.listObjects(bucketName, nameFile);
+				ListObjectsRequest lor = new ListObjectsRequest();
+				lor.setBucketName(bucketName);
+				lor.setPrefix(nameFile);
+				lor.setMaxKeys(100);
+
+				objects = s.listObjects(lor);
 			}
 			catch (Exception e) {
+				if (log != null) log.error("s3", e);
 			}
 
 			/* Recursively delete all the objects inside given bucket */
@@ -823,46 +827,45 @@ public class S3 {
 				// does
 				return null;
 			}
+
 			String targetName;
 			S3ObjectSummary stoObj = null;
-			while (true) {
-				for (S3ObjectSummary summary: objects.getObjectSummaries()) {
-					// direct match
-					targetName = summary.getKey();
-					if (nameFile.equals(targetName) || nameDir.equals(targetName)) {
-						exists.put(toKey(bucketName, nameFile), info = new StorageObjectWrapper(this, stoObj = summary, validUntil, log));
-					}
-
-					// pseudo directory?
-					// if (info == null) {
-					targetName = summary.getKey();
-					if (nameDir.length() < targetName.length() && targetName.startsWith(nameDir)) {
-						exists.put(toKey(bucketName, nameFile), info = new ParentObject(this, bucketName, nameDir, validUntil, log));
-					}
-
-					// set the value to exist when not a match
-					if (!(stoObj != null && stoObj.equals(summary))) {
-						exists.put(toKey(summary.getBucketName(), summary.getKey()), new StorageObjectWrapper(this, summary, validUntil, log));
-					}
-					// set all the parents when not exist
-					// TODO handle that also a file with that name can exist at the same time
-					String parent = nameFile;
-					int index;
-					while ((index = parent.lastIndexOf('/')) != -1) {
-						parent = parent.substring(0, index);
-						exists.put(toKey(bucketName, parent), new ParentObject(this, bucketName, parent, validUntil, log));
-					}
-
+			int count = 0;
+			// while (true) {
+			for (S3ObjectSummary summary: objects.getObjectSummaries()) {
+				count++;
+				// direct match
+				targetName = summary.getKey();
+				if (nameFile.equals(targetName) || nameDir.equals(targetName)) {
+					exists.put(toKey(bucketName, nameFile), info = new StorageObjectWrapper(this, stoObj = summary, validUntil, log));
 				}
 
-				if (objects.isTruncated()) {
-					objects = s.listNextBatchOfObjects(objects);
+				// pseudo directory?
+				// if (info == null) {
+				targetName = summary.getKey();
+				if (nameDir.length() < targetName.length() && targetName.startsWith(nameDir)) {
+					exists.put(toKey(bucketName, nameFile), info = new ParentObject(this, bucketName, nameDir, validUntil, log));
 				}
-				else {
-					break;
+
+				// set the value to exist when not a match
+				if (!(stoObj != null && stoObj.equals(summary))) {
+					exists.put(toKey(summary.getBucketName(), summary.getKey()), new StorageObjectWrapper(this, summary, validUntil, log));
 				}
+				// set all the parents when not exist
+				// TODO handle that also a file with that name can exist at the same time
+				String parent = nameFile;
+				int index;
+				while ((index = parent.lastIndexOf('/')) != -1) {
+					parent = parent.substring(0, index);
+					exists.put(toKey(bucketName, parent), new ParentObject(this, bucketName, parent, validUntil, log));
+				}
+
 			}
 
+			/*
+			 * if ( objects.isTruncated()) { objects = s.listNextBatchOfObjects(objects); } else { break; }
+			 */
+			// }
 			if (info == null) {
 				exists.put(toKey(bucketName, objectName), new NotExisting(bucketName, objectName, validUntil, log) // we do not return this, we just store it to cache that it does
 																													// not exis
@@ -1828,7 +1831,7 @@ public class S3 {
 			AmazonS3Exception ase = (AmazonS3Exception) se;
 
 			String raw = ase.getErrorResponseXml();
-			int startIndex = raw.indexOf("<Message>");
+			int startIndex = raw == null ? -1 : raw.indexOf("<Message>");
 			if (startIndex != -1) {
 				startIndex += 9;
 				int endIndex = raw.indexOf("</Message>");
