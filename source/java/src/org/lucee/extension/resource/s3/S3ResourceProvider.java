@@ -83,7 +83,8 @@ public final class S3ResourceProvider implements ResourceProvider {
 		String key = props.toString() + ":" + cache;
 		S3 s3 = s3s.get(key);
 		if (s3 == null) {
-			s3s.put(key, s3 = new S3(props, cache, null, true, CFMLEngineFactory.getInstance().getThreadConfig().getLog("application")));
+			s3s.put(key, s3 = new S3(props, cache, S3.DEFAULT_IDLE_TIMEOUT, S3.DEFAULT_LIVE_TIMEOUT, null, true,
+					CFMLEngineFactory.getInstance().getThreadConfig().getLog("application")));
 		}
 		return s3;
 	}
