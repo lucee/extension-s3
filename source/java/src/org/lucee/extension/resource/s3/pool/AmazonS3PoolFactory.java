@@ -105,7 +105,7 @@ public class AmazonS3PoolFactory extends BasePooledObjectFactory<AmazonS3> {
 	public void destroyObject(PooledObject<AmazonS3> po) throws Exception {
 		AmazonS3 as3 = po.getObject();
 		if (as3 != null) {
-			if (log != null) log.debug("redis-cache", "destroyObject() " + host + ":" + region);
+			if (log != null) log.debug("s3", "destroyObject() " + host + ":" + region);
 			as3.shutdown();
 		}
 	}
