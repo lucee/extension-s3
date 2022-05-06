@@ -148,7 +148,7 @@ resource: "[{'class':'${class}','bundleName':'${bundlename}','bundleVersion':'${
         <!-- we exclude this because this is part of the Lucee core and in worst case it is loaded on the fly -->
         <exclude name="**/httpcomponents-*"/>
         <exclude name="**/org.lucee.httpcomponents.*"/>
-        <exclude name="**/org.apache.commons.codec-*"/>
+        <!-- <exclude name="**/org.apache.commons.codec-*"/> -->
         <exclude name="**/commons-codec-*"/>
         <exclude name="**/log4j-*"/>
         <exclude name="**/javax-mail-activation-*"/>

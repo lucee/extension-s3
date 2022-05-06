@@ -1,29 +1,32 @@
 package org.lucee.extension.resource.s3.info;
 
-import java.util.HashMap;
-import java.util.Map;
+import org.lucee.extension.resource.s3.S3;
+import org.lucee.extension.resource.s3.S3Exception;
 
-import org.jets3t.service.model.StorageOwner;
+import com.amazonaws.services.s3.model.Owner;
+
+import lucee.commons.io.log.Log;
+import lucee.runtime.type.Array;
+import lucee.runtime.type.Struct;
 
 public class ParentObject extends S3InfoSupport {
 
 	// private S3Info kid;
 	private String bucketName;
 	private String objectName;
-	private String location;
 	private long validUntil;
 
-	public ParentObject(String objectName, S3Info info) {
+	public ParentObject(S3 s3, String objectName, S3Info info, Log log) {
+		super(s3, log);
 		this.bucketName = info.getBucketName();
 		this.objectName = objectName;
-		this.location = info.getLocation();
 		this.validUntil = info.validUntil();
 	}
 
-	public ParentObject(String bucketName, String objectName, String location, long validUntil) {
+	public ParentObject(S3 s3, String bucketName, String objectName, long validUntil, Log log) {
+		super(s3, log);
 		this.bucketName = bucketName;
 		this.objectName = objectName;
-		this.location = location;
 		this.validUntil = validUntil;
 	}
 
@@ -78,23 +81,26 @@ public class ParentObject extends S3InfoSupport {
 	}
 
 	@Override
-	public StorageOwner getOwner() {
+	public Owner getOwner() {
 		return null;
-	}
-
-	@Override
-	public String getLocation() {
-		return location;
-	}
-
-	@Override
-	public Map<String, Object> getMetaData() {
-		return new HashMap<String, Object>();
 	}
 
 	@Override
 	public boolean isVirtual() {
 		return true;
+	}
+
+	@Override
+	public Struct getMetaData() throws S3Exception {
+		Struct data = super.getMetaData();
+		Array acl = s3.getAccessControlList(getBucketName(), null);
+		if (acl != null) data.put("acl", acl);
+		return data;
+	}
+
+	@Override
+	public String toString() {
+		return "bucket:" + getBucketName() + ";key:" + getObjectName() + ";";
 	}
 
 }

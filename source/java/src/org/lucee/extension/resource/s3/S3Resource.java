@@ -25,9 +25,10 @@ import java.io.OutputStream;
 import java.util.Iterator;
 import java.util.List;
 
-import org.jets3t.service.acl.AccessControlList;
 import org.lucee.extension.resource.ResourceSupport;
 import org.lucee.extension.resource.s3.info.S3Info;
+
+import com.amazonaws.services.s3.model.CannedAccessControlList;
 
 import lucee.commons.io.res.Resource;
 import lucee.commons.io.res.ResourceProvider;
@@ -51,7 +52,7 @@ public final class S3Resource extends ResourceSupport {
 	private final S3Properties props;
 	long infoLastAccessw = 0;
 	private String location = null;
-	private AccessControlList acl;// ="public-read";
+	private CannedAccessControlList acl;// ="public-read";
 
 	private S3Resource(CFMLEngine engine, S3 s3, S3Properties props, String location, S3ResourceProvider provider, String buckedName, String objectName) {
 		super(engine);
@@ -70,29 +71,35 @@ public final class S3Resource extends ResourceSupport {
 		this.props = props;
 		this.provider = provider;
 		this.acl = props.getACL();
-
-		if (path.equals("/") || engine.getStringUtil().isEmpty(path, true)) {
-			this.bucketName = null;
-			this.objectName = "";
-		}
-		else {
-			path = engine.getResourceUtil().translatePath(path, true, false);
-			String[] arr = null;
-			try {
-				arr = engine.getListUtil().toStringArray(engine.getListUtil().toArrayRemoveEmpty(path, "/"));
-			}
-			catch (PageException e) {
-				// that should never happen, because we have string as base!!!
-			}
-			bucketName = arr[0];
-			for (int i = 1; i < arr.length; i++) {
-				if (Util.isEmpty(objectName)) objectName = arr[i];
-				else objectName += "/" + arr[i];
-			}
-			if (objectName == null) objectName = "";
-		}
 		this.location = location;
+		String[] bo = toBO(path);
+		this.bucketName = bo[0];
+		this.objectName = bo[1];
 
+	}
+
+	public static String[] toBO(String path) {
+		CFMLEngine engine = CFMLEngineFactory.getInstance();
+		if (path.equals("/") || engine.getStringUtil().isEmpty(path, true)) {
+			return new String[] { null, "" };
+		}
+
+		path = engine.getResourceUtil().translatePath(path, true, false);
+		String[] arr = null;
+		try {
+			arr = engine.getListUtil().toStringArray(engine.getListUtil().toArrayRemoveEmpty(path, "/"));
+		}
+		catch (PageException e) {
+			// that should never happen, because we have string as base!!!
+		}
+		String bucketName = arr[0];
+		String objectName = null;
+		for (int i = 1; i < arr.length; i++) {
+			if (Util.isEmpty(objectName)) objectName = arr[i];
+			else objectName += "/" + arr[i];
+		}
+		if (objectName == null) objectName = "";
+		return new String[] { bucketName, objectName };
 	}
 
 	@Override
@@ -157,7 +164,9 @@ public final class S3Resource extends ResourceSupport {
 
 	@Override
 	public String getPath() {
-		return getPrefix().concat(getInnerPath());
+		String ip = getInnerPath();
+		if (ip.length() == 1 && ip.charAt(0) == '/') return getPrefix();
+		return getPrefix().concat(ip);
 	}
 
 	private String getPrefix() {
@@ -177,9 +186,6 @@ public final class S3Resource extends ResourceSupport {
 				}
 			}
 			sb.append("@");
-		}
-		else if (!Util.isEmpty(s3.getMappingName(), true)) {
-			sb.append(s3.getMappingName()).append("@");
 		}
 
 		if (doHost) sb.append(s3.getHost());
@@ -476,7 +482,11 @@ public final class S3Resource extends ResourceSupport {
 		}
 	}
 
-	private String getObjectName() {
+	public String getBucketName() {
+		return bucketName;
+	}
+
+	public String getObjectName() {
 		if (!engine.getStringUtil().isEmpty(objectName) && isDirectory()) {
 			return objectName + "/";
 		}
@@ -511,7 +521,7 @@ public final class S3Resource extends ResourceSupport {
 			S3Resource t = (S3Resource) to;
 			// whe have the same container
 			if (f.s3.getAccessKeyId().equals(t.s3.getAccessKeyId()) && f.s3.getSecretAccessKey().equals(t.s3.getSecretAccessKey())) {
-				s3.copy(f.bucketName, f.objectName, t.bucketName, t.objectName);
+				s3.copy(f.bucketName, f.objectName, t.bucketName, t.objectName, null, null);
 				return;
 			}
 
@@ -527,7 +537,7 @@ public final class S3Resource extends ResourceSupport {
 			S3Resource s3Trg = (S3Resource) trg;
 			// we have the same container
 			if (s3Trg.s3.getAccessKeyId().equals(s3Src.s3.getAccessKeyId()) && s3Trg.s3.getSecretAccessKey().equals(s3Src.s3.getSecretAccessKey())) {
-				s3.move(s3Src.bucketName, s3Src.objectName, s3Trg.bucketName, s3Trg.objectName);
+				s3.move(s3Src.bucketName, s3Src.objectName, s3Trg.bucketName, s3Trg.objectName, null, null);
 				return;
 			}
 		}

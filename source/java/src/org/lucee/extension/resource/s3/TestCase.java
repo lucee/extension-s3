@@ -2,23 +2,26 @@ package org.lucee.extension.resource.s3;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.Charset;
 import java.util.Iterator;
 import java.util.List;
 
-import org.jets3t.service.ServiceException;
-import org.jets3t.service.model.S3Object;
 import org.lucee.extension.resource.s3.info.S3Info;
+
+import com.amazonaws.regions.Regions;
+import com.amazonaws.services.s3.model.S3Object;
 
 import lucee.loader.util.Util;
 
 public class TestCase {
 
-	public static void main(String[] args) throws IOException, ServiceException {
+	public static void main(String[] args) throws IOException {
 		S3Properties prop = new S3Properties();
 		prop.setAccessKeyId("...");
 		prop.setSecretAccessKey("...");
 
-		String bucketName = "testInJava";
+		final Charset UTF8 = Charset.forName("UTF-8");
+		String bucketName = "testinjavax";
 		String dir1 = "test/";
 		String dir2 = "test/sub1/";
 		String dir3 = "test/sub1/sub2/";
@@ -27,11 +30,16 @@ public class TestCase {
 		// 52568
 		long start = System.currentTimeMillis();
 
-		S3 s3 = new S3(prop, 100000);
+		S3 s3 = new S3(prop, 100000, Regions.US_EAST_2.toString(), true, null);
+
 		try {
-			if (s3.exists(bucketName)) s3.delete(bucketName, true);
+
+			if (s3.exists(bucketName)) {
+				s3.delete(bucketName, true);
+			}
 
 			List<S3Info> buckets = s3.list(false, false);
+
 			// dump("Buckets",buckets);
 			int initalBucketCount = buckets.size();
 
@@ -40,9 +48,6 @@ public class TestCase {
 			s3.createDirectory(bucketName, null, null);
 			assertTrue(s3.exists(bucketName));
 			s3.delete(bucketName, true);
-			assertFalse(s3.exists(bucketName));
-
-			// create/delete folder
 			assertFalse(s3.exists(bucketName));
 
 			assertFalse(s3.exists(bucketName, dir1));
@@ -61,13 +66,13 @@ public class TestCase {
 
 			assertTrue(s3.exists(bucketName));
 
-			assertTrue(s3.exists(bucketName, dir1));
 			assertTrue(s3.isDirectory(bucketName, dir1));
 			assertFalse(s3.isFile(bucketName, dir1));
+			assertTrue(s3.exists(bucketName, dir1));
 
-			assertTrue(s3.exists(bucketName, dir2));
 			assertTrue(s3.isDirectory(bucketName, dir2));
 			assertFalse(s3.isFile(bucketName, dir2));
+			assertTrue(s3.exists(bucketName, dir2));
 
 			assertTrue(s3.exists(bucketName, dir3));
 			assertTrue(s3.isDirectory(bucketName, dir3));
@@ -160,6 +165,7 @@ public class TestCase {
 
 			// create File
 			s3.createFile(bucketName, file1, null, null);
+
 			assertTrue(s3.exists(bucketName, dir1));
 			assertTrue(s3.exists(bucketName, dir2));
 			assertTrue(s3.exists(bucketName, dir3));
@@ -175,9 +181,9 @@ public class TestCase {
 			assertFalse(s3.isDirectory(bucketName, file1));
 			assertFalse(s3.isFile(bucketName, file1));
 
-			s3.write(bucketName, file1, "Susi", "test/plain", "UTF-8", null, null);
+			s3.write(bucketName, file1, "Susi", "test/plain", UTF8, null, null);
 			S3Object obj = s3.getData(bucketName, file1);
-			InputStream is = obj.getDataInputStream();
+			InputStream is = obj.getObjectContent();
 			try {
 				assertEquals("Susi", Util.toString(is));
 			}
@@ -187,8 +193,8 @@ public class TestCase {
 			s3.delete(bucketName, true);
 
 			// Copy
-			s3.write(bucketName, file1, "Susi", "test/plain", "UTF-8", null, null);
-			s3.copy(bucketName, file1, bucketName, file2);
+			s3.write(bucketName, file1, "Susi", "test/plain", UTF8, null, null);
+			s3.copy(bucketName, file1, bucketName, file2, null, null);
 			List<S3Info> list = s3.list(bucketName, dir1, true, true, true);
 			assertEquals(4, list.size());
 			contains(list, bucketName, dir2);
@@ -198,8 +204,8 @@ public class TestCase {
 			s3.delete(bucketName, true);
 
 			// Move
-			s3.write(bucketName, file1, "Susi", "test/plain", "UTF-8", null, null);
-			s3.move(bucketName, file1, bucketName, file2);
+			s3.write(bucketName, file1, "Susi", "test/plain", UTF8, null, null);
+			s3.move(bucketName, file1, bucketName, file2, null, null);
 			list = s3.list(bucketName, dir1, true, true, true);
 
 			assertEquals(3, list.size());
@@ -208,8 +214,7 @@ public class TestCase {
 			contains(list, bucketName, file2);
 
 			// S3
-			bucketName = "testcaseS3";
-
+			bucketName = "testcases3567";
 			if (s3.isDirectory(bucketName, null)) s3.delete(bucketName, true);
 
 			assertFalse(s3.exists(bucketName));
@@ -221,27 +226,34 @@ public class TestCase {
 			assertTrue(s3.exists(bucketName, null));
 			assertFalse(s3.isFile(bucketName, null));
 			assertTrue(s3.isDirectory(bucketName, null));
-
-			// we accept this because S3 accept this, so if ACF does not, that is a bug/limitation in ACF.
 			String sub = "a";
-			if (!s3.isFile(bucketName, sub)) ;
+
+			if (!s3.isFile(bucketName, sub));
 			s3.write(bucketName, sub, "", null, null, null, null);
 			assertTrue(s3.exists(bucketName, sub));
-			assertTrue(s3.isDirectory(bucketName, sub));
-			assertFalse(s3.isFile(bucketName, sub));
 
-			// because previous file is empty it is accepted as directory
-			String subsub = sub + "/foo.txt";
-			if (!s3.isFile(bucketName, subsub)) s3.write(bucketName, subsub, "hello text", null, null, null, null);
+			assertTrue(s3.isFile(bucketName, sub));
+			assertFalse(s3.isDirectory(bucketName, sub));
 
-			assertFalse(s3.isDirectory(bucketName, subsub));
-			assertTrue(s3.isFile(bucketName, subsub));
-			assertTrue(s3.exists(bucketName, sub));
-			assertTrue(s3.isDirectory(bucketName, sub));
-			assertFalse(s3.isFile(bucketName, sub));
+			String path = "aa/b/c.txt";
+			String parent = "aa/b";
+			String gparent = "aa/";
+			s3.write(bucketName, path, "Susi Sorglos", null, null, null, null);
+			assertTrue(s3.isFile(bucketName, path));
+			assertTrue(s3.isDirectory(bucketName, parent));
+			assertTrue(s3.isDirectory(bucketName, gparent));
 
-			list = s3.list(bucketName, sub, true, true, true);
+			list = s3.list(bucketName, parent, true, true, true);
 			assertEquals(1, list.size());
+			assertEquals("aa/b/c.txt", list.get(0).getName());
+			assertEquals(bucketName, list.get(0).getBucketName());
+
+			list = s3.list(bucketName, gparent, true, true, true);
+			assertEquals(2, list.size());
+			assertEquals("aa/b/", list.get(0).getName());
+			assertEquals("aa/b/c.txt", list.get(1).getName());
+
+			// assertEquals(1, list.size());
 
 			s3.delete(bucketName, true);
 		}

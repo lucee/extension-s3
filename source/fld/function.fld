@@ -110,6 +110,51 @@
 			<type>void</type>
 		</return>
 	</function>
+
+	<!-- S3Exists -->
+	<function>
+		<name>S3Exists</name>
+		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.S3Exists</class>
+		<description>Checks if given object exists in </description>
+		<argument>
+			<name>bucketName</name>
+			<alias>bucket</alias>
+			<type>string</type>
+			<required>Yes</required>
+			<description>Name of the bucket of your object to check</description>
+	    </argument>
+		<argument>
+			<name>objectName</name>
+			<alias>object,path</alias>
+			<type>string</type>
+			<required>no</required>
+			<description>Name of the object (path) within the bucket of your object to ckeck</description>
+	    </argument>
+		<argument>
+			<name>accessKeyId</name>
+			<alias>accessKey</alias>
+			<type>string</type>
+			<required>No</required>
+			<description>S3 accessKeyId, if not defined it checks the system property/environment variable for [lucee.s3.accesskeyid].</description>
+	    </argument>
+		<argument>
+			<name>secretAccessKey</name>
+			<alias>secretkey</alias>
+			<type>string</type>
+			<required>No</required>
+			<description>S3 secretAccessKey, if not defined it checks the system property/environment variable for [lucee.s3.secretaccesskey].</description>
+	    </argument>
+		<argument>
+			<name>timeout</name>
+			<type>number</type>
+			<required>No</required>
+			<default>10000</default>
+			<description>timeout for this execution</description>
+	    </argument>
+		<return>
+			<type>boolean</type>
+		</return>
+	</function>
 	<!-- S3Read -->
 	<function>
 		<name>S3Read</name>
@@ -490,5 +535,127 @@
 			<type>void</type>
 		</return>
 	</function>
-	
+
+	<!-- S3GeneratePresignedURL -->
+	<function>
+		<name>S3GeneratePresignedURL</name>
+		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.S3GeneratePresignedURL</class>
+		<description>Generates a presigned URL pointing to the object given</description>
+		<argument>
+			<name>bucketNameOrPath</name>
+			<alias>bucket,bucketName,path</alias>
+			<type>string</type>
+			<required>Yes</required>
+			<description>This can be the bucketname or simple the virtual filesystem point for the file (if object name is no defined)</description>
+	    </argument>
+		<argument>
+			<name>objectName</name>
+			<alias>object,path</alias>
+			<type>string</type>
+			<required>No</required>
+			<description>Name of the object (path) within the bucket of your object to read</description>
+	    </argument>
+		<argument>
+			<name>expireDate</name>
+			<alias>expire</alias>
+			<type>datetime</type>
+			<required>No</required>
+			<description>Date time when the URL should expire.</description>
+	    </argument>
+		<argument>
+			<name>accessKeyId</name>
+			<alias>accessKey</alias>
+			<type>string</type>
+			<required>No</required>
+			<description>S3 accessKeyId, if not defined it checks the system property/environment variable for [lucee.s3.accesskeyid].</description>
+	    </argument>
+		<argument>
+			<name>secretAccessKey</name>
+			<alias>secretkey</alias>
+			<type>string</type>
+			<required>No</required>
+			<description>S3 secretAccessKey, if not defined it checks the system property/environment variable for [lucee.s3.secretaccesskey].</description>
+	    </argument>
+		<argument>
+			<name>timeout</name>
+			<type>number</type>
+			<required>No</required>
+			<default>10000</default>
+			<description>timeout for this execution</description>
+	    </argument>
+		<return>
+			<type>string</type>
+		</return>
+	</function>
+		<!-- S3GenerateURI -->
+	<function>
+		<name>S3GenerateURI</name>
+		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.S3GenerateURI</class>
+		<description>Generates a URI endpoint pointing to the object given</description>
+		<argument>
+			<name>bucketNameOrPath</name>
+			<alias>bucket,bucketName,path</alias>
+			<type>string</type>
+			<required>Yes</required>
+			<description>This can be the bucketname or simple the virtual filesystem point for the file (if object name is no defined)</description>
+	    </argument>
+		<argument>
+			<name>objectName</name>
+			<alias>object,path</alias>
+			<type>string</type>
+			<required>No</required>
+			<description>Name of the object (path) within the bucket of your object to read</description>
+	    </argument>
+		<argument>
+			<name>type</name>
+			<alias>style</alias>
+			<type>string</type>
+			<required>No</required>
+			<default>virtualhost</default>
+			<values>virtualhost,path,arn,s3</values>
+			<description>Defines the style/type created, possible values are:
+				- virtualhost
+				- path
+				- arn
+				- s3
+				for more details, please see:
+				https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-bucket-intro.html
+				https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html
+			</description>
+	    </argument>
+		<argument>
+			<name>secure</name>
+			<alias>secured</alias>
+			<type>boolean</type>
+			<required>No</required>
+			<default>true</default>
+			<description>Should a secure URL (https) be created or not. Only applies to type virtualhost and path.</description>
+	    </argument>
+
+
+		<argument>
+			<name>accessKeyId</name>
+			<alias>accessKey</alias>
+			<type>string</type>
+			<required>No</required>
+			<description>S3 accessKeyId, if not defined it checks the system property/environment variable for [lucee.s3.accesskeyid].</description>
+	    </argument>
+		<argument>
+			<name>secretAccessKey</name>
+			<alias>secretkey</alias>
+			<type>string</type>
+			<required>No</required>
+			<description>S3 secretAccessKey, if not defined it checks the system property/environment variable for [lucee.s3.secretaccesskey].</description>
+	    </argument>
+		<argument>
+			<name>timeout</name>
+			<type>number</type>
+			<required>No</required>
+			<default>10000</default>
+			<description>timeout for this execution</description>
+	    </argument>
+		<return>
+			<type>string</type>
+		</return>
+	</function>
 </func-lib>

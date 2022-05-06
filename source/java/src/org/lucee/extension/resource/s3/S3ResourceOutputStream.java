@@ -22,14 +22,14 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 
-import org.jets3t.service.acl.AccessControlList;
+import com.amazonaws.services.s3.model.CannedAccessControlList;
 
 public final class S3ResourceOutputStream extends OutputStream {
 
 	private final S3 s3;
 	private final String bucketName;
 	private final String objectName;
-	private final AccessControlList acl;
+	private final CannedAccessControlList acl;
 
 	private String location;
 
@@ -37,7 +37,7 @@ public final class S3ResourceOutputStream extends OutputStream {
 	private FileOutputStream os;
 	private String path;
 
-	public S3ResourceOutputStream(S3 s3, String bucketName, String objectName, String path, AccessControlList acl, String location) throws IOException {
+	public S3ResourceOutputStream(S3 s3, String bucketName, String objectName, String path, CannedAccessControlList acl, String location) throws IOException {
 		this.s3 = s3;
 		this.bucketName = bucketName;
 		this.objectName = objectName;

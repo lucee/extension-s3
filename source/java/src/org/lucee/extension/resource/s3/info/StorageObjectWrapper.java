@@ -20,43 +20,43 @@ package org.lucee.extension.resource.s3.info;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URL;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 
-import lucee.loader.engine.CFMLEngineFactory;
-import lucee.loader.util.Util;
-
-import org.jets3t.service.model.S3Object;
-import org.jets3t.service.model.StorageObject;
-import org.jets3t.service.model.StorageOwner;
 import org.lucee.extension.resource.s3.S3;
 import org.lucee.extension.resource.s3.S3Exception;
-import org.lucee.extension.resource.s3.util.print;
-import org.xml.sax.SAXException;
+
+import com.amazonaws.services.s3.model.Owner;
+import com.amazonaws.services.s3.model.S3ObjectSummary;
+
+import lucee.commons.io.log.Log;
+import lucee.loader.util.Util;
+import lucee.runtime.type.Array;
+import lucee.runtime.type.Struct;
 
 public final class StorageObjectWrapper extends S3InfoSupport {
 
-	private final S3 s3;
-	private final StorageObject so;
+	private final S3ObjectSummary so;
 	private long validUntil;
-	private String bucketName;
 	private Boolean isDirectory;
+	private String contentType;
 
-	public StorageObjectWrapper(S3 s3, StorageObject so, String bucketName, long validUntil) {
-		this.s3 = s3;
+	public StorageObjectWrapper(S3 s3, S3ObjectSummary so, long validUntil, Log log) {
+		super(s3, log);
 		this.so = so;
-		this.bucketName = bucketName;
 		this.validUntil = validUntil;
 	}
 
 	/**
 	 * @return the bucketName
 	 */
+	@Override
 	public String getBucketName() {
-		return bucketName;
+		return so.getBucketName();
 	}
 
 	/**
@@ -69,6 +69,7 @@ public final class StorageObjectWrapper extends S3InfoSupport {
 	/**
 	 * @return the key
 	 */
+	@Override
 	public String getName() {
 		return getObjectName();
 	}
@@ -78,7 +79,7 @@ public final class StorageObjectWrapper extends S3InfoSupport {
 	 */
 	@Override
 	public long getLastModified() {
-		return so.getLastModifiedDate() == null ? 0 : so.getLastModifiedDate().getTime();
+		return so.getLastModified() == null ? 0 : so.getLastModified().getTime();
 	}
 
 	/**
@@ -93,7 +94,7 @@ public final class StorageObjectWrapper extends S3InfoSupport {
 	 */
 	@Override
 	public long getSize() {
-		return so.getContentLength();
+		return so.getSize();
 	}
 
 	/**
@@ -107,7 +108,7 @@ public final class StorageObjectWrapper extends S3InfoSupport {
 	 * @return the ownerIdKey
 	 */
 	public String getOwnerId() {
-		StorageOwner owner = so.getOwner();
+		Owner owner = so.getOwner();
 		return owner == null ? null : owner.getId();
 	}
 
@@ -115,12 +116,11 @@ public final class StorageObjectWrapper extends S3InfoSupport {
 	 * @return the ownerDisplayName
 	 */
 	public String getOwnerDisplayName() {
-		StorageOwner owner = so.getOwner();
+		Owner owner = so.getOwner();
 		return owner == null ? null : owner.getDisplayName();
 	}
 
-	public String getLink(int secondsValid) throws InvalidKeyException, NoSuchAlgorithmException, IOException {
-
+	public URL getLink(int secondsValid) throws InvalidKeyException, NoSuchAlgorithmException, IOException {
 		return s3.url(so.getBucketName(), so.getKey(), secondsValid * 1000);
 	}
 
@@ -140,15 +140,6 @@ public final class StorageObjectWrapper extends S3InfoSupport {
 	}
 
 	@Override
-	/*
-	 * public boolean isDirectory() { String ct =
-	 * CFMLEngineFactory.getInstance().getCastUtil().toString(so.getMetadata("Content-Type"),null); //
-	 * sadly a directory not necessary has set "application/x-directory" so not existing does not mean
-	 * it is not a directory if(!Util.isEmpty(ct) && "application/x-directory".equalsIgnoreCase(ct))
-	 * return true; return getSize()==0 && getKey().endsWith("/");
-	 * 
-	 * }
-	 */
 	public boolean isFile() {
 		return !isDirectory();
 	}
@@ -156,36 +147,14 @@ public final class StorageObjectWrapper extends S3InfoSupport {
 	@Override
 	public boolean isDirectory() {
 		if (isDirectory != null) return isDirectory.booleanValue();
-
-		if (so.isDirectoryPlaceholder()) return isDirectory = true;
-		if (so.getContentLength() > 0) return isDirectory = false;
-		Object o = so.getMetadata("Content-Type");
-		// System.out.println("- Content-Type:"+o);
-		if (o instanceof String) {
-			String ct = (String) o;
-			if ("application/x-directory".equalsIgnoreCase(ct)) return isDirectory = true;
-			if (ct.startsWith("audio/")) return isDirectory = false;
-			if (ct.startsWith("image/")) return isDirectory = false;
-			if (ct.startsWith("text/")) return isDirectory = false;
-			if (ct.startsWith("video/")) return isDirectory = false;
-		}
-
-		// when a file has "children" it is a directory
-		/*
-		 * if(sisters!=null) { String name=S3.improveObjectName(so.getName(), true); for(StorageObject
-		 * sis:sisters) { if(sis.getName().startsWith(name) && sis.getName().length()>name.length()) return
-		 * isDirectory=true; } }
-		 */
-
-		if (getKey().endsWith("/")) return isDirectory = true;
-		if (getKey().contains(".")) return isDirectory = false;
-
-		return isDirectory = true; // i don't like this, but this is a pattern used with S3
+		if (so.getSize() > 0) return isDirectory = false;
+		if (so.getKey().endsWith("/")) return isDirectory = true;
+		return isDirectory = "application/x-directory".equalsIgnoreCase(getContentType());
 	}
 
 	@Override
 	public String getObjectName() {
-		return so.getName();
+		return so.getKey();
 	}
 
 	@Override
@@ -198,27 +167,57 @@ public final class StorageObjectWrapper extends S3InfoSupport {
 		return validUntil;
 	}
 
-	public StorageObject getStorageObject() {
+	public S3ObjectSummary getStorageObject() {
 		return so;
 	}
 
 	@Override
-	public StorageOwner getOwner() {
+	public Owner getOwner() {
 		return so.getOwner();
-	}
-
-	@Override
-	public String getLocation() {
-		return null;
-	}
-
-	@Override
-	public Map<String, Object> getMetaData() {
-		return so.getMetadataMap();
 	}
 
 	@Override
 	public boolean isVirtual() {
 		return false;
 	}
+
+	public final String getContentType() {
+		if (s3 == null) return null;
+		if (contentType == null) {
+			synchronized (S3.getToken("contentType:" + getBucketName() + ":" + getObjectName())) {
+				if (contentType == null) {
+					try {
+						contentType = s3.getContentType(getBucketName(), getObjectName());
+					}
+					catch (Exception e) {
+						if (log != null) log.error("s3", e);
+						else e.printStackTrace();
+					}
+				}
+			}
+		}
+		return contentType;
+	}
+
+	@Override
+	public Struct getMetaData() throws S3Exception {
+		Struct data = super.getMetaData();
+
+		Map<String, Object> rmd = s3.getObjectMetadata(getBucketName(), getObjectName()).getRawMetadata();
+
+		Iterator<Entry<String, Object>> it = rmd.entrySet().iterator();
+		Entry<String, Object> e;
+		String name;
+		while (it.hasNext()) {
+			e = it.next();
+			name = Util.replace(e.getKey(), "-", "", true);
+			name = Character.toLowerCase(name.charAt(0)) + (name.length() > 1 ? name.substring(1) : "");
+			data.setEL(name, e.getValue());
+		}
+
+		Array acl = s3.getAccessControlList(getBucketName(), getObjectName());
+		if (acl != null) data.setEL("acl", acl);
+		return data;
+	}
+
 }

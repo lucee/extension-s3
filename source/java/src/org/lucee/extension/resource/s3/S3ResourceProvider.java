@@ -21,9 +21,7 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-import org.jets3t.service.acl.AccessControlList;
-import org.lucee.extension.resource.s3.util.ApplicationSettings;
-import org.lucee.extension.resource.s3.util.ApplicationSettings.S3PropertiesCollection;
+import com.amazonaws.services.s3.model.CannedAccessControlList;
 
 import lucee.commons.io.res.Resource;
 import lucee.commons.io.res.ResourceLock;
@@ -34,8 +32,7 @@ import lucee.loader.engine.CFMLEngine;
 import lucee.loader.engine.CFMLEngineFactory;
 import lucee.loader.util.Util;
 import lucee.runtime.PageContext;
-import lucee.runtime.exp.PageException;
-import lucee.runtime.util.Excepton;
+import lucee.runtime.net.s3.Properties;
 
 public final class S3ResourceProvider implements ResourceProvider {
 
@@ -83,15 +80,11 @@ public final class S3ResourceProvider implements ResourceProvider {
 	}
 
 	public static S3 getS3(S3Properties props, long cache) {
-		if (Util.isEmpty(props.getAccessKeyId())) {
-			CFMLEngine eng = CFMLEngineFactory.getInstance();
-			Excepton util = eng.getExceptionUtil();
-			throw util.createPageRuntimeException(eng.getCastUtil().toPageException(new S3Exception("there are no credentials available for this this S3 path. ")));
-		}
 		String key = props.toString() + ":" + cache;
 		S3 s3 = s3s.get(key);
 		if (s3 == null) {
-			s3s.put(key, s3 = new S3(props, cache));
+			s3s.put(key, s3 = new S3(props, cache, S3.DEFAULT_IDLE_TIMEOUT, S3.DEFAULT_LIVE_TIMEOUT, null, true,
+					CFMLEngineFactory.getInstance().getThreadConfig().getLog("application")));
 		}
 		return s3;
 	}
@@ -119,51 +112,40 @@ public final class S3ResourceProvider implements ResourceProvider {
 		S3Properties props = new S3Properties();
 		// S3 s3 = new S3(cache);
 		RefString location = engine.getCreationUtil().createRefString(null);
-		PageContext pc = CFMLEngineFactory.getInstance().getThreadPageContext();
 
-		path = loadWithNewPattern(pc, props, location, path);
+		path = loadWithNewPattern(props, location, path, true);
 
-		return new S3Resource(engine, getS3(props, props.getCache() == null ? cache : props.getCache().getMillis()), props, location.getValue(), this, path);
+		return new S3Resource(engine, getS3(props, cache), props, location.getValue(), this, path);
 	}
 
-	public static String loadWithNewPattern(PageContext pc, S3Properties properties, RefString storage, final String rawPath) throws RuntimeException {
-		String path = rawPath;
+	public static String loadWithNewPattern(S3Properties properties, RefString storage, String path, boolean errorWhenNoCred) {
+		PageContext pc = CFMLEngineFactory.getInstance().getThreadPageContext();
+
 		boolean hasCustomCredentials = false;
 		String accessKeyId, host, secretAccessKey;
 		String defaultLocation;
-		AccessControlList defaultACL;
-		S3PropertiesCollection propColl = null;
-
+		CannedAccessControlList defaultACL;
 		{
+			Properties prop = null;
+			if (pc != null) prop = pc.getApplicationContext().getS3();
 
-			if (pc != null) {
-				try {
-					propColl = ApplicationSettings.readS3PropertiesCollection(pc);
-				}
-				catch (PageException e) {
-					throw CFMLEngineFactory.getInstance().getExceptionUtil().createPageRuntimeException(e);
-				}
-			}
-
-			if (propColl != null && propColl.getDefault() != null) {
-				S3Properties s3prop = propColl.getDefault();
-				accessKeyId = s3prop.getAccessKeyId();
-				secretAccessKey = s3prop.getSecretAccessKey();
-				host = s3prop.getHost();
-				defaultLocation = s3prop.getLocation();
-				defaultACL = s3prop.getACL();
-				if (defaultACL == null) defaultACL = AccessControlList.REST_CANNED_PUBLIC_READ;
-				properties.setCache(s3prop.getCache());
+			if (prop != null) {
+				accessKeyId = prop.getAccessKeyId();
+				host = prop.getHost();
+				secretAccessKey = prop.getSecretAccessKey();
+				defaultLocation = prop.getDefaultLocation();
+				defaultACL = S3.toACL(prop, CannedAccessControlList.PublicRead);
 			}
 			else {
 				accessKeyId = null;
 				secretAccessKey = null;
 				host = S3.DEFAULT_HOST;
 				defaultLocation = null;
-				defaultACL = AccessControlList.REST_CANNED_PUBLIC_READ;
+				defaultACL = CannedAccessControlList.PublicRead;
 			}
 		}
 		properties.setACL(defaultACL);
+
 		storage.setValue(defaultLocation);
 
 		int atIndex = path.indexOf('@');
@@ -173,11 +155,10 @@ public final class S3ResourceProvider implements ResourceProvider {
 			path += "/";
 		}
 		int index;
-		String mappingName = null;
+
 		// key/id
 		if (atIndex != -1) {
 			index = path.indexOf(':');
-			// read properties from url
 			if (index != -1 && index < atIndex) {
 				hasCustomCredentials = true;
 				accessKeyId = path.substring(0, index);
@@ -190,94 +171,60 @@ public final class S3ResourceProvider implements ResourceProvider {
 					storage.setValue(S3.improveLocation(strLocation));
 				}
 			}
-			// get properties from mapping
-			else {
-				mappingName = path.substring(0, atIndex);
-				S3Properties mapping;
-				if (propColl != null && (mapping = propColl.getMapping(mappingName)) != null) {
-					accessKeyId = mapping.getAccessKeyId();
-					secretAccessKey = mapping.getSecretAccessKey();
-					host = mapping.getHost();
-					defaultLocation = mapping.getLocation();
-					defaultACL = mapping.getACL();
-					if (defaultACL == null) defaultACL = AccessControlList.REST_CANNED_PUBLIC_READ;
-					properties.setCache(mapping.getCache());
-					properties.setMappingName(mappingName);
-				}
-				else {
-					accessKeyId = null;
-					secretAccessKey = null;
-					host = S3.DEFAULT_HOST;
-					defaultLocation = null;
-					defaultACL = AccessControlList.REST_CANNED_PUBLIC_READ;
-
-				}
-				//
-			}
+			else accessKeyId = path.substring(0, atIndex);
 		}
 		path = prettifyPath(path.substring(atIndex + 1));
 		index = path.indexOf('/');
 		properties.setHost(host);
 		if (index == -1) {
-			if (path.equalsIgnoreCase(S3.DEFAULT_HOST) || path.equalsIgnoreCase(host)) {
+			if (isS3Host(path, host)) {
 				properties.setHost(path);
 				path = "/";
 			}
 		}
 		else {
 			String _host = path.substring(0, index);
-			if (_host.equalsIgnoreCase(S3.DEFAULT_HOST) || _host.equalsIgnoreCase(host)) {
+			if (isS3Host(_host, host)) {
 				properties.setHost(_host);
 				path = path.substring(index);
 			}
 		}
 
-		// get from system.properties/env.var
-		if (Util.isEmpty(accessKeyId, true)) {
-			if (Util.isEmpty(mappingName)) {
-				if (Util.isEmpty(accessKeyId, true)) accessKeyId = S3Util.getSystemPropOrEnvVar("lucee.s3.accesskeyid", null);
-				if (Util.isEmpty(accessKeyId, true)) accessKeyId = S3Util.getSystemPropOrEnvVar("lucee.vfs.s3.accesskeyid", null);
-				if (Util.isEmpty(accessKeyId, true)) accessKeyId = S3Util.getSystemPropOrEnvVar("lucee.s3.awsaccesskeyid", null);
-				if (Util.isEmpty(accessKeyId, true)) accessKeyId = S3Util.getSystemPropOrEnvVar("lucee.s3.accesskey", null);
-				if (Util.isEmpty(secretAccessKey, true)) secretAccessKey = S3Util.getSystemPropOrEnvVar("lucee.s3.secretkey", null);
-				if (Util.isEmpty(secretAccessKey, true)) secretAccessKey = S3Util.getSystemPropOrEnvVar("lucee.vfs.s3.secretkey", null);
-				if (Util.isEmpty(secretAccessKey, true)) secretAccessKey = S3Util.getSystemPropOrEnvVar("lucee.s3.secretaccesskey", null);
-				if (Util.isEmpty(secretAccessKey, true)) secretAccessKey = S3Util.getSystemPropOrEnvVar("lucee.s3.awssecretkey", null);
+		// env var
+		if (Util.isEmpty(secretAccessKey, true)) secretAccessKey = S3Util.getSystemPropOrEnvVar("lucee.s3.secretaccesskey", null);
+		if (Util.isEmpty(secretAccessKey, true)) secretAccessKey = S3Util.getSystemPropOrEnvVar("lucee.s3.secretkey", null);
 
-				if (Util.isEmpty(secretAccessKey, true) && Util.isEmpty(accessKeyId, true)) {
-					CFMLEngine eng = CFMLEngineFactory.getInstance();
-					throw eng.getExceptionUtil().createPageRuntimeException(eng.getCastUtil().toPageException(eng.getExceptionUtil().createApplicationException(
-							"there are no default credentials available for this this S3 path [s3://" + rawPath + "].",
-							"Default credentials can be defined in the Application.cfc (like this.vfs.s3.accessKeyId = \"...\"; this.vfs.s3.awsSecretKey = \"...\";), "
-									+ "in the enviroment variables (like LUCEE_VFS_S3_ACCESSKEYID=...;LUCEE_VFS_S3_SECRETKEY=...;), "
-									+ "in the system properties variables (like lucee.vfs.s3.accesskeyid=...;lucee.vfs.s3.accesskeyid=...;). The S3 Extension now also supports to define multiple endpoints you can use all at the same time.")));
-				}
-			}
-			else {
-				String mnlc = mappingName.toLowerCase();
-				if (Util.isEmpty(accessKeyId, true)) accessKeyId = S3Util.getSystemPropOrEnvVar("lucee.vfs.s3." + mnlc + ".accesskeyid", null);
-				if (Util.isEmpty(accessKeyId, true)) accessKeyId = S3Util.getSystemPropOrEnvVar("lucee.vfs.s3." + mnlc + ".awsaccesskeyid", null);
-				if (Util.isEmpty(accessKeyId, true)) accessKeyId = S3Util.getSystemPropOrEnvVar("lucee.vfs.s3." + mnlc + ".accesskey", null);
-				if (Util.isEmpty(secretAccessKey, true)) secretAccessKey = S3Util.getSystemPropOrEnvVar("lucee.vfs.s3." + mnlc + ".secretaccesskey", null);
-				if (Util.isEmpty(secretAccessKey, true)) secretAccessKey = S3Util.getSystemPropOrEnvVar("lucee.vfs.s3." + mnlc + ".secretkey", null);
-				if (Util.isEmpty(secretAccessKey, true)) secretAccessKey = S3Util.getSystemPropOrEnvVar("lucee.vfs.s3." + mnlc + ".awssecretkey", null);
+		if (Util.isEmpty(accessKeyId, true)) accessKeyId = S3Util.getSystemPropOrEnvVar("lucee.s3.accesskeyid", null);
+		if (Util.isEmpty(accessKeyId, true)) accessKeyId = S3Util.getSystemPropOrEnvVar("lucee.s3.accesskey", null);
 
-				if (Util.isEmpty(secretAccessKey, true) && Util.isEmpty(accessKeyId, true)) {
-					CFMLEngine eng = CFMLEngineFactory.getInstance();
-					throw eng.getExceptionUtil().createPageRuntimeException(eng.getCastUtil().toPageException(eng.getExceptionUtil().createApplicationException(
-							"there are no credentials available for this this S3 path [s3://" + rawPath + "] for the name [" + mappingName + "].",
-							"Credentials can be defined in the Application.cfc (like this.vfs.s3[\"" + mappingName + "\"].accessKeyId = \"...\"; this.vfs.s3[\"" + mappingName
-									+ " \"].awsSecretKey = \"...\";), " + "in the enviroment variables (like LUCEE_VFS_S3_" + mappingName.toUpperCase()
-									+ "_ACCESSKEYID=...;LUCEE_VFS_S3_" + mappingName.toUpperCase() + "_SECRETKEY=...;), " + "in the system properties variables (like lucee.vfs.s3."
-									+ mappingName.toLowerCase() + ".accesskeyid=...;lucee.vfs.s3." + mappingName.toLowerCase() + ".secretkey=...;)")));
-				}
-				properties.setMappingName(mappingName);
-			}
-		}
+		if (errorWhenNoCred && (Util.isEmpty(accessKeyId, true) || Util.isEmpty(secretAccessKey, true)))
+			throw new RuntimeException(new S3Exception("Could not found accessKeyId / secretAccessKey."
+
+					+ " You can define the credentials as part of the path itself (s3://{accessKeyId}:{secretAccessKey}/)."
+
+					+ " In the Application.cfc as follows (this.s3.accessKeyId={accessKeyId};this.s3.awsSecretKey={secretAccessKey};)."
+
+					+ " As enviroment variable (LUCEE_S3_ACCESSKEYID={accessKeyId}; LUCEE_S3_SECRETACCESSKEY={secretAccessKey})."
+
+					+ " As system properties (lucee.s3.accesskeyid={accessKeyId}; lucee.s3.secretaccesskey={secretAccessKey})."));
+
 		properties.setSecretAccessKey(secretAccessKey);
 		properties.setAccessKeyId(accessKeyId);
 		properties.setCustomCredentials(hasCustomCredentials);
 		return path;
+	}
+
+	private static boolean isS3Host(String path, String host) {
+		if (path.equalsIgnoreCase(host)) return true;
+
+		String pathLC = path.toLowerCase();
+
+		if (!pathLC.startsWith("s3.")) return false;
+
+		for (String provider: S3.PROVIDERS) {
+			if (pathLC.endsWith(provider)) return true;
+		}
+		return false;
 	}
 
 	private static String prettifyPath(String path) {

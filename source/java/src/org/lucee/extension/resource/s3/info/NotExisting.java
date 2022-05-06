@@ -1,21 +1,19 @@
 package org.lucee.extension.resource.s3.info;
 
-import java.util.HashMap;
-import java.util.Map;
+import com.amazonaws.services.s3.model.Owner;
 
-import org.jets3t.service.model.StorageOwner;
+import lucee.commons.io.log.Log;
 
 public class NotExisting extends S3InfoSupport {
 
 	private String bucketName;
 	private String objectName;
-	private String location;
 	private long validUntil;
 
-	public NotExisting(String bucketName, String objectName, String location, long validUntil) {
+	public NotExisting(String bucketName, String objectName, long validUntil, Log log) {
+		super(null, log);
 		this.bucketName = bucketName;
 		this.objectName = objectName;
-		this.location = location;
 		this.validUntil = validUntil;
 	}
 
@@ -70,18 +68,8 @@ public class NotExisting extends S3InfoSupport {
 	}
 
 	@Override
-	public StorageOwner getOwner() {
+	public Owner getOwner() {
 		return null;
-	}
-
-	@Override
-	public String getLocation() {
-		return null;
-	}
-
-	@Override
-	public Map<String, Object> getMetaData() {
-		return new HashMap<String, Object>();
 	}
 
 	@Override

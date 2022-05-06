@@ -21,7 +21,17 @@ import java.io.IOException;
 
 public class S3Exception extends IOException {
 
+	private String ec;
+
 	public S3Exception(String message) {
 		super(message);
+	}
+
+	public void setErrorCode(String ec) {
+		this.ec = ec;
+	}
+
+	public String getErrorCode() {
+		return ec;
 	}
 }

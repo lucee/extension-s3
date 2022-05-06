@@ -30,12 +30,11 @@ import java.util.Set;
 
 import javax.servlet.http.Cookie;
 
-import lucee.loader.engine.CFMLEngineFactory;
-
-import org.jets3t.service.model.container.ObjectKeyAndVersion;
 import org.w3c.dom.Attr;
 import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
+
+import lucee.loader.engine.CFMLEngineFactory;
 
 /**
  *  
@@ -215,7 +214,6 @@ public class aprint {
 
 	private static void _eo(PrintStream ps, Object o) {
 		if (o instanceof Enumeration) _eo(ps, (Enumeration) o);
-		else if (o instanceof ObjectKeyAndVersion) _eo(ps, (ObjectKeyAndVersion) o);
 		else if (o instanceof Object[]) _eo(ps, (Object[]) o);
 		else if (o instanceof boolean[]) _eo(ps, (boolean[]) o);
 		else if (o instanceof byte[]) _eo(ps, (byte[]) o);
@@ -299,10 +297,6 @@ public class aprint {
 			ps.print(arr[i]);
 		}
 		ps.println("}");
-	}
-
-	private static void _eo(PrintStream ps, ObjectKeyAndVersion obj) {
-		ps.print(obj.getKey() + ":" + obj.getVersion());
 	}
 
 	private static void _eo(PrintStream ps, float[] arr) {

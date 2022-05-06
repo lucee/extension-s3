@@ -18,9 +18,12 @@
  **/
 package org.lucee.extension.resource.s3.info;
 
-import java.util.Map;
+import org.lucee.extension.resource.s3.S3Exception;
 
-import org.jets3t.service.model.StorageOwner;
+import com.amazonaws.regions.Regions;
+import com.amazonaws.services.s3.model.Owner;
+
+import lucee.runtime.type.Struct;
 
 public interface S3Info {
 
@@ -44,15 +47,15 @@ public interface S3Info {
 
 	public long validUntil();
 
-	public StorageOwner getOwner();
-
-	public String getLocation();
-
-	public Map<String, Object> getMetaData();
+	public Owner getOwner();
 
 	/**
 	 * is this a pseudo object or an object really physically exists
 	 */
 	public boolean isVirtual();
+
+	public Regions getRegion();
+
+	public Struct getMetaData() throws S3Exception;
 
 }
