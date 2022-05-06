@@ -10,7 +10,7 @@ import lucee.commons.io.log.Log;
 import lucee.runtime.type.Array;
 import lucee.runtime.type.Struct;
 
-public class S3BucketWrapper extends S3InfoSupport implements S3BucketInfo {
+public class S3BucketWrapper extends S3InfoSupport {
 
 	private Bucket bucket;
 	private long validUntil;
