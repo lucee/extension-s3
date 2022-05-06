@@ -30,7 +30,7 @@ public class TestCase {
 		// 52568
 		long start = System.currentTimeMillis();
 
-		S3 s3 = new S3(prop, 100000, Regions.US_EAST_2.toString(), true, null);
+		S3 s3 = new S3(prop, 100000, 100000, 100000, Regions.US_EAST_2.toString(), true, null);
 
 		try {
 
