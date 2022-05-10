@@ -1925,23 +1925,34 @@ public class S3 {
 		if (r != null) return r;
 
 		if (loadIfNecessary) {
-			AmazonS3AndPool aap = getAmazonS3AndPool(null, null);
-			try {
-				r = toRegions(aap.amazonS3.getBucketLocation(bucketName));
-				bucketRegions.put(bucketName, r);
-			}
-			catch (AmazonServiceException ase) {
-				if (ase.getErrorCode().equals("NoSuchBucket")) return null;
-			}
-			catch (IllegalStateException ise) {
-				invalidateAmazonS3(aap);
-				throw toS3Exception(ise);
-			}
-			finally {
-				releaseAmazonS3(aap);
+			synchronized (getToken("getBucketRegion:" + bucketName)) {
+				r = bucketRegions.get(bucketName);
+				if (r == null) {
+					AmazonS3AndPool aap = getAmazonS3AndPool(null, null);
+					try {
+						r = toRegions(aap.amazonS3.getBucketLocation(bucketName));
+						bucketRegions.put(bucketName, r);
+					}
+					catch (AmazonServiceException ase) {
+						if (ase.getErrorCode().equals("NoSuchBucket")) return null;
+					}
+					catch (IllegalStateException ise) {
+						try {
+							invalidateAmazonS3(aap);
+							aap = getAmazonS3AndPool(null, null);
+							r = toRegions(aap.amazonS3.getBucketLocation(bucketName));
+							bucketRegions.put(bucketName, r);
+						}
+						catch (AmazonServiceException ase) {
+							if (ase.getErrorCode().equals("NoSuchBucket")) return null;
+						}
+					}
+					finally {
+						releaseAmazonS3(aap);
+					}
+				}
 			}
 		}
-
 		return r;
 	}
 
