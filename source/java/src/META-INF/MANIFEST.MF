@@ -2,15 +2,5 @@ Manifest-Version: 1.0
 Export-Package: org.lucee.extension.resource.s3,
  org.lucee.extension.resource.s3.function
 Bundle-ManifestVersion: 2
-Require-Bundle: joda-convert;bundle-version=1.2,
- joda-time;bundle-version=2.8.1,
- org.apache.commons.commons-codec;bundle-version=1.15.0,
- org.lucee.aws-java-sdk-s3-all;bundle-version=1.12.196,
- org.lucee.commons.logging;bundle-version=1.2.0.0000L,
- org.lucee.httpcomponents.httpclient;bundle-version=4.5.10.0002L,
- org.lucee.httpcomponents.httpcore;bundle-version=4.4.12,
- org.lucee.httpcomponents.httpmime;bundle-version=4.5.10.0002L,
- software.amazon.ion.java;bundle-version=1.0.2,
- org.apache.commons.commons-pool2;bundle-version=2.8.1,
- bcprov;bundle-version=1.70,
- jaxb-api;bundle-version=2.3.1
+Require-Bundle: org.lucee.aws-java-sdk-s3-all;bundle-version=1.12.196,
+ org.apache.commons.commons-pool2;bundle-version=2.8.1
