@@ -90,6 +90,7 @@ public class S3 {
 	public static final String[] PROVIDERS = new String[] { ".amazonaws.com", ".wasabisys.com", ".backblaze.com", ".digitaloceanspaces.com", ".dream.io" };
 
 	private static final ConcurrentHashMap<String, Object> tokens = new ConcurrentHashMap<String, Object>();
+	private static final Object ERROR = new Object();
 	private final String host;
 	private final String secretAccessKey;
 	private final String accessKeyId;
@@ -104,7 +105,7 @@ public class S3 {
 	private final Map<String, ValidUntilMap<S3Info>> objects = new ConcurrentHashMap<String, ValidUntilMap<S3Info>>();
 	private Map<String, ValidUntilElement<AccessControlList>> accessControlLists = new ConcurrentHashMap<String, ValidUntilElement<AccessControlList>>();
 	private Map<String, Regions> regions = new ConcurrentHashMap<String, Regions>();
-	private Map<String, Regions> bucketRegions = new ConcurrentHashMap<String, Regions>();
+	private final Map<String, Object> bucketRegions = new ConcurrentHashMap<String, Object>();
 	private Map<String, S3Info> exists = new ConcurrentHashMap<String, S3Info>();
 	private Log log;
 
@@ -203,7 +204,9 @@ public class S3 {
 				releaseAmazonS3(aap);
 			}
 
-			if (!Util.isEmpty(region)) bucketRegions.put(bucketName, toRegions(region));
+			if (!Util.isEmpty(region)) {
+				bucketRegions.put(bucketName, toRegions(region));
+			}
 			flushExists(bucketName, false);
 			return b;
 		}
@@ -225,6 +228,7 @@ public class S3 {
 				}
 				catch (S3Exception e) {
 					if (log != null) log.error("s3", e);
+					else e.printStackTrace();
 				}
 			}
 		}
@@ -929,6 +933,7 @@ public class S3 {
 			}
 			catch (Exception e) {
 				if (log != null) log.error("s3", e);
+				else e.printStackTrace();
 			}
 
 			/* Recursively delete all the objects inside given bucket */
@@ -1925,39 +1930,51 @@ public class S3 {
 
 	public Regions getBucketRegion(String bucketName, boolean loadIfNecessary) throws S3Exception {
 		bucketName = improveBucketName(bucketName);
-
-		Regions r = bucketRegions.get(bucketName);
-		if (r != null) return r;
-
+		Object o = bucketRegions.get(bucketName);
+		if (o != null) {
+			if (o == ERROR) return null;
+			return (Regions) o;
+		}
+		Regions r = null;
 		if (loadIfNecessary) {
-			synchronized (getToken("getBucketRegion:" + bucketName)) {
-				r = bucketRegions.get(bucketName);
-				if (r == null) {
-					AmazonS3AndPool aap = getAmazonS3AndPool(null, null);
-					try {
-						r = toRegions(aap.amazonS3.getBucketLocation(bucketName));
-						bucketRegions.put(bucketName, r);
-					}
-					catch (AmazonServiceException ase) {
-						if (ase.getErrorCode().equals("NoSuchBucket")) return null;
-					}
-					catch (IllegalStateException ise) {
-						if (log != null) log.error("s3", ise);
-						else ise.printStackTrace();
-						try {
-							invalidateAmazonS3(aap);
-							aap = getAmazonS3AndPool(null, null);
-							r = toRegions(aap.amazonS3.getBucketLocation(bucketName));
-							bucketRegions.put(bucketName, r);
-						}
-						catch (AmazonServiceException ase) {
-							if (ase.getErrorCode().equals("NoSuchBucket")) return null;
-						}
-					}
-					finally {
-						releaseAmazonS3(aap);
-					}
+			AmazonS3AndPool aap = getAmazonS3AndPool(null, null);
+			try {
+				r = toRegions(aap.amazonS3.getBucketLocation(bucketName));
+				bucketRegions.put(bucketName, r);
+			}
+			catch (AmazonServiceException ase) {
+				if (ase.getErrorCode().equals("NoSuchBucket")) {
+					return null;
 				}
+				if (log != null) log.error("s3", "failed to load region", ase);
+				else ase.printStackTrace();
+				// could be AccessDenied
+				bucketRegions.put(bucketName, ERROR);
+				return null;
+
+			}
+			catch (IllegalStateException ise) {
+				if (log != null) log.error("s3", "failed to load region", ise);
+				else ise.printStackTrace();
+				try {
+					invalidateAmazonS3(aap);
+					aap = getAmazonS3AndPool(null, null);
+					r = toRegions(aap.amazonS3.getBucketLocation(bucketName));
+					bucketRegions.put(bucketName, r);
+				}
+				catch (AmazonServiceException ase) {
+					if (ase.getErrorCode().equals("NoSuchBucket")) {
+						return null;
+					}
+					if (log != null) log.error("s3", "failed to load region", ase);
+					else ase.printStackTrace();
+					// could be AccessDenied
+					bucketRegions.put(bucketName, ERROR);
+					return null;
+				}
+			}
+			finally {
+				releaseAmazonS3(aap);
 			}
 		}
 		return r;
