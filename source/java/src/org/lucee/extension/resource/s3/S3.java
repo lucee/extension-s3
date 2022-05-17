@@ -84,8 +84,8 @@ public class S3 {
 	}
 
 	public static final String DEFAULT_HOST = "s3.amazonaws.com";
-	public static final long DEFAULT_IDLE_TIMEOUT = 10000L;
-	public static final long DEFAULT_LIVE_TIMEOUT = 300000L;
+	public static final long DEFAULT_IDLE_TIMEOUT = 30000L;
+	public static final long DEFAULT_LIVE_TIMEOUT = 600000L;
 
 	public static final String[] PROVIDERS = new String[] { ".amazonaws.com", ".wasabisys.com", ".backblaze.com", ".digitaloceanspaces.com", ".dream.io" };
 
@@ -1889,9 +1889,14 @@ public class S3 {
 	}
 
 	private void invalidateAmazonS3(AmazonS3AndPool aap) throws S3Exception {
+		invalidateAmazonS3(aap, true);
+	}
+
+	private void invalidateAmazonS3(AmazonS3AndPool aap, boolean clearAllInPool) throws S3Exception {
 		if (aap == null) return;
 		try {
 			aap.amazonS3Pool.invalidateObject(aap.amazonS3);
+			if (clearAllInPool) aap.amazonS3Pool.clear();
 			aap.doInvalidate();
 		}
 		catch (Exception e) {
@@ -1937,6 +1942,8 @@ public class S3 {
 						if (ase.getErrorCode().equals("NoSuchBucket")) return null;
 					}
 					catch (IllegalStateException ise) {
+						if (log != null) log.error("s3", ise);
+						else ise.printStackTrace();
 						try {
 							invalidateAmazonS3(aap);
 							aap = getAmazonS3AndPool(null, null);
@@ -2410,6 +2417,18 @@ public class S3 {
 					if (log != null) log.error("s3", e);
 				}
 			}
+		}
+	}
+
+	public void shutdown() throws S3Exception {
+		AmazonS3AndPool aap = null;
+		try {
+			aap = getAmazonS3AndPool(null, null);
+			aap.amazonS3.shutdown();
+		}
+
+		finally {
+			releaseAmazonS3(aap);
 		}
 	}
 

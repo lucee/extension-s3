@@ -92,7 +92,7 @@ resource: "[{'class':'${class}','bundleName':'${bundlename}','bundleVersion':'${
   <target name="compile" depends="copy"
         description="compile the source " >
     <!-- Compile ACF-Infinspan source -->
-    <javac srcdir="${temp}" target="1.7" destdir="${build}" debug="true" debuglevel="lines,vars,source">
+    <javac srcdir="${temp}" source="1.8" target="1.8" destdir="${build}" debug="true" debuglevel="lines,vars,source">
       <classpath refid="classpath" />
     </javac>
   </target>
