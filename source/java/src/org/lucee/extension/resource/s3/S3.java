@@ -84,9 +84,7 @@ public class S3 {
 	public static final short URI_STYLE_PATH = 2;
 	public static final short URI_STYLE_S3 = 4;
 	public static final short URI_STYLE_ARN = 8;
-	// private static long maxSize = 5368709120L;
-
-	private long maxSize = 20;
+	private static long maxSize = 5368709120L;
 
 	static {
 		XMLUtil.validateDocumentBuilderFactory();
