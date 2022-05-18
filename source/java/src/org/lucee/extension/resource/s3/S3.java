@@ -4,12 +4,12 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.nio.charset.Charset;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.Iterator;
@@ -38,20 +38,26 @@ import com.amazonaws.services.s3.model.AccessControlList;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
 import com.amazonaws.services.s3.model.Bucket;
 import com.amazonaws.services.s3.model.CannedAccessControlList;
+import com.amazonaws.services.s3.model.CompleteMultipartUploadRequest;
 import com.amazonaws.services.s3.model.CopyObjectRequest;
 import com.amazonaws.services.s3.model.CreateBucketRequest;
 import com.amazonaws.services.s3.model.DeleteObjectsRequest;
 import com.amazonaws.services.s3.model.DeleteObjectsRequest.KeyVersion;
 import com.amazonaws.services.s3.model.GeneratePresignedUrlRequest;
+import com.amazonaws.services.s3.model.InitiateMultipartUploadRequest;
+import com.amazonaws.services.s3.model.InitiateMultipartUploadResult;
 import com.amazonaws.services.s3.model.ListObjectsRequest;
 import com.amazonaws.services.s3.model.ListVersionsRequest;
 import com.amazonaws.services.s3.model.ObjectListing;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.Owner;
+import com.amazonaws.services.s3.model.PartETag;
 import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.amazonaws.services.s3.model.S3VersionSummary;
+import com.amazonaws.services.s3.model.UploadPartRequest;
+import com.amazonaws.services.s3.model.UploadPartResult;
 import com.amazonaws.services.s3.model.VersionListing;
 
 import lucee.commons.io.log.Log;
@@ -78,6 +84,9 @@ public class S3 {
 	public static final short URI_STYLE_PATH = 2;
 	public static final short URI_STYLE_S3 = 4;
 	public static final short URI_STYLE_ARN = 8;
+	// private static long maxSize = 5368709120L;
+
+	private long maxSize = 20;
 
 	static {
 		XMLUtil.validateDocumentBuilderFactory();
@@ -279,7 +288,6 @@ public class S3 {
 				else throw toS3Exception(ase);
 			}
 			finally {
-				client.release();
 				client.release();
 			}
 
@@ -1277,40 +1285,64 @@ public class S3 {
 	public void write(String bucketName, String objectName, String data, String mimeType, Charset charset, Object acl, String region) throws IOException {
 		bucketName = improveBucketName(bucketName);
 		objectName = improveObjectName(objectName, false);
-
 		flushExists(bucketName, objectName);
-		String ct = toContentType(mimeType, charset, null);
-		ObjectMetadata md = new ObjectMetadata();
-		if (ct != null) md.setContentType(ct);
-		md.setLastModified(new Date());
-		// create a PutObjectRequest passing the folder name suffixed by /
-		byte[] bytes = charset == null ? data.getBytes() : data.getBytes(charset);
-		md.setContentLength(bytes.length);
-		PutObjectRequest por = new PutObjectRequest(bucketName, objectName, new ByteArrayInputStream(bytes), md);
 
-		if (acl != null) setACL(por, acl);
 		AmazonS3Client client = getAmazonS3(bucketName, region);
-		try {
-			// send request to S3 to create folder
+		String ct = toContentType(mimeType, charset, null);
+		byte[] bytes = charset == null ? data.getBytes() : data.getBytes(charset);
+
+		// unlikely this ever happen, so we do not write extra code for this
+		if (data.length() > maxSize) {
+
+			File tmp = File.createTempFile("writeString-", ".txt");
 			try {
-				client.putObject(por);
-				flushExists(bucketName, objectName);
+				Util.copy(new ByteArrayInputStream(bytes), new FileOutputStream(tmp), true, true);
+				write(bucketName, objectName, tmp, acl, region);
+				return;
 			}
-			catch (AmazonServiceException ase) {
-				if (ase.getErrorCode().equals("NoSuchBucket")) {
-					createDirectory(bucketName, acl, region);
+			finally {
+				tmp.delete();
+			}
+		}
+		else {
+			ObjectMetadata md = new ObjectMetadata();
+			if (ct != null) md.setContentType(ct);
+			md.setLastModified(new Date());
+			// create a PutObjectRequest passing the folder name suffixed by /
+			md.setContentLength(bytes.length);
+			PutObjectRequest por = new PutObjectRequest(bucketName, objectName, new ByteArrayInputStream(bytes), md);
+
+			if (acl != null) setACL(por, acl);
+			try {
+				// send request to S3 to create folder
+				try {
 					client.putObject(por);
 					flushExists(bucketName, objectName);
 				}
-				else throw toS3Exception(ase);
+				catch (AmazonServiceException ase) {
+					if (ase.getErrorCode().equals("EntityTooLarge")) {
+						S3Exception s3e = toS3Exception(ase);
+						if (s3e.getProposedSize() != 0 && s3e.getProposedSize() < maxSize) {
+							maxSize = s3e.getProposedSize();
+							write(bucketName, objectName, data, mimeType, charset, acl, region);
+							return;
+						}
+						throw s3e;
+					}
+					if (ase.getErrorCode().equals("NoSuchBucket")) {
+						createDirectory(bucketName, acl, region);
+						write(bucketName, objectName, data, mimeType, charset, acl, region);
+						return;
+					}
+					else throw toS3Exception(ase);
+				}
 			}
-
-		}
-		catch (AmazonServiceException se) {
-			throw toS3Exception(se);
-		}
-		finally {
-			client.release();
+			catch (AmazonServiceException se) {
+				throw toS3Exception(se);
+			}
+			finally {
+				client.release();
+			}
 		}
 	}
 
@@ -1330,81 +1362,49 @@ public class S3 {
 		objectName = improveObjectName(objectName, false);
 
 		flushExists(bucketName, objectName);
-		ObjectMetadata md = new ObjectMetadata();
-
-		String ct = CFMLEngineFactory.getInstance().getResourceUtil().getMimeType(data, null);
-
-		if (ct != null) md.setContentType(ct);
-		md.setLastModified(new Date());
+		AmazonS3Client client = getAmazonS3(bucketName, region);
 
 		// create a PutObjectRequest passing the folder name suffixed by /
-		PutObjectRequest por = new PutObjectRequest(bucketName, objectName, new ByteArrayInputStream(data), md);
-
-		if (acl != null) setACL(por, acl);
-		AmazonS3Client client = getAmazonS3(bucketName, region);
-		try {
-			// send request to S3 to create folder
+		if (data.length > maxSize) {
+			File tmp = File.createTempFile("writeBytes-", ".txt");
 			try {
-				client.putObject(por);
-				flushExists(bucketName, objectName);
+				Util.copy(new ByteArrayInputStream(data), new FileOutputStream(tmp), true, true);
+				write(bucketName, objectName, tmp, acl, region);
+				return;
 			}
-			catch (AmazonServiceException ase) {
-				if (ase.getErrorCode().equals("NoSuchBucket")) {
-					createDirectory(bucketName, acl, region);
-					client.putObject(por);
-					flushExists(bucketName, objectName);
-				}
-				else throw toS3Exception(ase);
+			finally {
+				tmp.delete();
 			}
-
 		}
-		catch (AmazonServiceException se) {
-			throw toS3Exception(se);
-		}
-		finally {
-			client.release();
-		}
-	}
-
-	public void write(String bucketName, String objectName, InputStream is, long contentLength, boolean closeIS, String mimeType, Object acl, String region) throws IOException {
-		try {
-			bucketName = improveBucketName(bucketName);
-			objectName = improveObjectName(objectName, false);
-			flushExists(bucketName, objectName);
-
+		else {
 			ObjectMetadata md = new ObjectMetadata();
-
+			PutObjectRequest por = new PutObjectRequest(bucketName, objectName, new ByteArrayInputStream(data), md);
+			String ct = CFMLEngineFactory.getInstance().getResourceUtil().getMimeType(data, null);
+			if (ct != null) md.setContentType(ct);
 			md.setLastModified(new Date());
-			if (contentLength > -1) md.setContentLength(contentLength);
-
-			// create a PutObjectRequest passing the folder name suffixed by /
-			PutObjectRequest por = new PutObjectRequest(bucketName, objectName, is, md);
 			if (acl != null) setACL(por, acl);
-
-			// send request to S3 to create folder
-			AmazonS3Client client = getAmazonS3(bucketName, region);
 			try {
-				client.putObject(por);
-				flushExists(bucketName, objectName);
-			}
-			catch (AmazonServiceException ase) {
-				if (ase.getErrorCode().equals("NoSuchBucket")) {
-					createDirectory(bucketName, acl, region);
+				// send request to S3 to create folder
+				try {
 					client.putObject(por);
 					flushExists(bucketName, objectName);
 				}
-				else throw toS3Exception(ase);
+				catch (AmazonServiceException ase) {
+					if (ase.getErrorCode().equals("NoSuchBucket")) {
+						createDirectory(bucketName, acl, region);
+						client.putObject(por);
+						flushExists(bucketName, objectName);
+					}
+					else throw toS3Exception(ase);
+				}
+
+			}
+			catch (AmazonServiceException se) {
+				throw toS3Exception(se);
 			}
 			finally {
 				client.release();
 			}
-
-		}
-		catch (AmazonServiceException se) {
-			throw toS3Exception(se);
-		}
-		finally {
-			if (closeIS) Util.closeEL(is);
 		}
 	}
 
@@ -1414,35 +1414,168 @@ public class S3 {
 
 		flushExists(bucketName, objectName);
 
-		// create a PutObjectRequest passing the folder name suffixed by /
-		PutObjectRequest por = new PutObjectRequest(bucketName, objectName, file);
-		if (acl != null) setACL(por, acl);
 		AmazonS3Client client = getAmazonS3(bucketName, region);
 		// send request to S3 to create folder
-		try {
-			client.putObject(por);
-			flushExists(bucketName, objectName);
+
+		if (file.length() >= maxSize) {
+			try {
+				// Create a list of ETag objects. You retrieve ETags for each object part uploaded,
+				// then, after each individual part has been uploaded, pass the list of ETags to
+				// the request to complete the upload.
+				List<PartETag> partETags = new ArrayList<PartETag>();
+
+				long contentLength = file.length();
+				long partSize = 100 * 1024 * 1024; // Set part size to 100 MB.
+
+				// Initiate the multipart upload.
+				InitiateMultipartUploadRequest initRequest = new InitiateMultipartUploadRequest(bucketName, objectName);
+				InitiateMultipartUploadResult initResponse = client.initiateMultipartUpload(initRequest);
+
+				// Upload the file parts.
+				long filePosition = 0;
+				long total = 0;
+				for (int i = 1; filePosition < contentLength; i++) {
+					// Because the last part could be less than 100 MB, adjust the part size as needed.
+					partSize = Math.min(partSize, (contentLength - filePosition));
+					total += partSize;
+					// Create the request to upload a part.
+					UploadPartRequest uploadRequest = new UploadPartRequest().withBucketName(bucketName).withKey(objectName).withUploadId(initResponse.getUploadId())
+							.withPartNumber(i).withFileOffset(filePosition).withFile(file).withPartSize(partSize);
+					// TODO set ACL
+					// Upload the part and add the response's ETag to our list.
+					UploadPartResult uploadResult = client.uploadPart(uploadRequest);
+					partETags.add(uploadResult.getPartETag());
+
+					filePosition += partSize;
+				}
+
+				// Complete the multipart upload.
+				CompleteMultipartUploadRequest compRequest = new CompleteMultipartUploadRequest(bucketName, objectName, initResponse.getUploadId(), partETags);
+				client.completeMultipartUpload(compRequest);
+				if (acl != null) {
+					setACL(client, bucketName, objectName, acl);
+				}
+
+			}
+			catch (AmazonServiceException ase) {
+				if (ase.getErrorCode().equals("NoSuchBucket")) {
+					createDirectory(bucketName, acl, region);
+					write(bucketName, objectName, file, acl, region);
+					return;
+				}
+				else throw toS3Exception(ase);
+			}
+			finally {
+				client.release();
+			}
+
 		}
-		catch (AmazonServiceException ase) {
-			if (ase.getErrorCode().equals("NoSuchBucket")) {
-				createDirectory(bucketName, acl, region);
+		else {
+			// create a PutObjectRequest passing the folder name suffixed by /
+			PutObjectRequest por = new PutObjectRequest(bucketName, objectName, file);
+			if (acl != null) setACL(por, acl);
+
+			try {
 				client.putObject(por);
 				flushExists(bucketName, objectName);
 			}
-			else throw toS3Exception(ase);
-		}
-		finally {
-			client.release();
+
+			catch (AmazonServiceException ase) {
+				// Error Code: EntityTooLarge
+
+				// Your proposed upload exceeds the maximum allowed
+				// size;error-code:EntityTooLarge;ProposedSize:5800000000;MaxSizeAllowed:5368709120
+				if (ase.getErrorCode().equals("EntityTooLarge")) {
+					S3Exception s3e = toS3Exception(ase);
+					if (s3e.getProposedSize() != 0 && s3e.getProposedSize() < maxSize) {
+						maxSize = s3e.getProposedSize();
+						write(bucketName, objectName, file, acl, region);
+						return;
+					}
+					throw s3e;
+				}
+				if (ase.getErrorCode().equals("NoSuchBucket")) {
+					createDirectory(bucketName, acl, region);
+					write(bucketName, objectName, file, acl, region);
+					return;
+				}
+				else throw toS3Exception(ase);
+			}
+			finally {
+				client.release();
+			}
 		}
 	}
 
-	public void write(String bucketName, String objectName, Resource res, Object acl, String region) throws IOException, NoSuchAlgorithmException {
+	public void write(String bucketName, String objectName, Resource res, Object acl, String region) throws IOException {
 		if (res instanceof File) {
 			write(bucketName, objectName, (File) res, acl, region);
 			return;
 		}
+
 		String ct = CFMLEngineFactory.getInstance().getResourceUtil().getMimeType(res, null);
-		write(bucketName, objectName, res.getInputStream(), res.length(), true, ct, acl, region);
+		// write(bucketName, objectName, res.getInputStream(), res.length(), true, ct, acl, region);
+
+		try {
+			bucketName = improveBucketName(bucketName);
+			objectName = improveObjectName(objectName, false);
+			flushExists(bucketName, objectName);
+
+			// send request to S3 to create folder
+			AmazonS3Client client = getAmazonS3(bucketName, region);
+
+			if (res.length() > maxSize) {
+				File tmp = File.createTempFile("writeResource-", ".txt");
+				try {
+					Util.copy(res.getInputStream(), new FileOutputStream(tmp), true, true);
+					write(bucketName, objectName, tmp, acl, region);
+					return;
+				}
+				finally {
+					tmp.delete();
+				}
+			}
+			else {
+				InputStream is = null;
+				ObjectMetadata md = new ObjectMetadata();
+				md.setLastModified(new Date());
+				md.setContentLength(res.length());
+				// create a PutObjectRequest passing the folder name suffixed by /
+
+				try {
+					PutObjectRequest por = new PutObjectRequest(bucketName, objectName, is = res.getInputStream(), md);
+					if (acl != null) setACL(por, acl);
+
+					client.putObject(por);
+					flushExists(bucketName, objectName);
+				}
+				catch (AmazonServiceException ase) {
+					if (ase.getErrorCode().equals("EntityTooLarge")) {
+						S3Exception s3e = toS3Exception(ase);
+						if (s3e.getProposedSize() != 0 && s3e.getProposedSize() < maxSize) {
+							maxSize = s3e.getProposedSize();
+							write(bucketName, objectName, res, acl, region);
+							return;
+						}
+						throw s3e;
+					}
+					if (ase.getErrorCode().equals("NoSuchBucket")) {
+						createDirectory(bucketName, acl, region);
+						write(bucketName, objectName, res, acl, region);
+						return;
+					}
+					else throw toS3Exception(ase);
+				}
+				finally {
+					Util.closeEL(is);
+					client.release();
+				}
+			}
+
+		}
+		catch (AmazonServiceException se) {
+			throw toS3Exception(se);
+		}
 	}
 
 	public Struct getMetaDataStruct(String bucketName, String objectName) throws S3Exception {
@@ -1945,29 +2078,56 @@ public class S3 {
 		String msg = se.getErrorMessage();
 		if (Util.isEmpty(msg, true)) msg = se.getMessage();
 		if (msg.equals("'")) msg = "";
-
+		long proposedSize = 0;
 		if (se instanceof AmazonS3Exception) {
 			AmazonS3Exception ase = (AmazonS3Exception) se;
 
 			String raw = ase.getErrorResponseXml();
-			int startIndex = raw == null ? -1 : raw.indexOf("<Message>");
-			if (startIndex != -1) {
-				startIndex += 9;
-				int endIndex = raw.indexOf("</Message>");
-				if (endIndex > startIndex) {
-					String xmlMsg = raw.substring(startIndex, endIndex);
-					/*
-					 * TODO try { xmlMsg = CFMLEngineFactory.getInstance().getXMLUtil().unescapeXMLString(xmlMsg); }
-					 * catch (Exception e) { }
-					 */
 
-					if (!Util.isEmpty(xmlMsg, true) && !xmlMsg.equals(msg)) {
-						if (!Util.isEmpty(msg, true)) msg += ";" + xmlMsg;
-						else msg = xmlMsg;
-						;
+			// TODO read all tags dynamically and provide as a Map
+
+			// extract message
+			{
+				int startIndex = raw == null ? -1 : raw.indexOf("<Message>");
+				if (startIndex != -1) {
+					startIndex += 9;
+					int endIndex = raw.indexOf("</Message>");
+					if (endIndex > startIndex) {
+						String xmlMsg = raw.substring(startIndex, endIndex);
+						if (!Util.isEmpty(xmlMsg, true) && !xmlMsg.equals(msg)) {
+							if (!Util.isEmpty(msg, true)) msg += ";" + xmlMsg;
+							else msg = xmlMsg;
+							;
+						}
 					}
 				}
 			}
+
+			// extract ProposedSize
+			{
+				int startIndex = raw == null ? -1 : raw.indexOf("<ProposedSize>");
+				if (startIndex != -1) {
+					startIndex += 14;
+					int endIndex = raw.indexOf("</ProposedSize>");
+					if (endIndex > startIndex) {
+						String xmlProposedSize = raw.substring(startIndex, endIndex);
+						if (!Util.isEmpty(xmlProposedSize, true)) {
+
+							try {
+								proposedSize = CFMLEngineFactory.getInstance().getCastUtil().toLongValue(xmlProposedSize, proposedSize);
+							}
+							catch (Exception e) {
+								try {
+									proposedSize = Long.parseLong(xmlProposedSize.trim());
+								}
+								catch (Exception ee) {
+								}
+							}
+						}
+					}
+				}
+			}
+
 		}
 
 		// local message
@@ -1997,7 +2157,7 @@ public class S3 {
 		s3e.initCause(se);
 		s3e.setStackTrace(se.getStackTrace());
 		s3e.setErrorCode(ec);
-
+		if (proposedSize > 0) s3e.setProposedSize(proposedSize);
 		return s3e;
 	}
 

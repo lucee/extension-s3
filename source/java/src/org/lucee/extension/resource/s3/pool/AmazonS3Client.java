@@ -2182,6 +2182,8 @@ public class AmazonS3Client implements AmazonS3 {
 
 	public void release() throws S3Exception {
 		try {
+			if (pool == null) return; // should never happen unless release is called to many times
+
 			pool.returnObject(client);
 			client = null;
 			pool = null;

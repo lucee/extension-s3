@@ -21,7 +21,9 @@ import java.io.IOException;
 
 public class S3Exception extends IOException {
 
+	private static final long serialVersionUID = 454222134889105256L;
 	private String ec;
+	private long proposedSize;
 
 	public S3Exception(String message) {
 		super(message);
@@ -33,5 +35,13 @@ public class S3Exception extends IOException {
 
 	public String getErrorCode() {
 		return ec;
+	}
+
+	public void setProposedSize(long proposedSize) {
+		this.proposedSize = proposedSize;
+	}
+
+	public long getProposedSize() {
+		return proposedSize;
 	}
 }
