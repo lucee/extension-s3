@@ -24,7 +24,7 @@ import org.lucee.extension.resource.s3.info.ParentObject;
 import org.lucee.extension.resource.s3.info.S3BucketWrapper;
 import org.lucee.extension.resource.s3.info.S3Info;
 import org.lucee.extension.resource.s3.info.StorageObjectWrapper;
-import org.lucee.extension.resource.s3.pool.AmazonS3AndPool;
+import org.lucee.extension.resource.s3.pool.AmazonS3Client;
 import org.lucee.extension.resource.s3.pool.AmazonS3Pool;
 import org.lucee.extension.resource.s3.pool.AmazonS3PoolConfig;
 import org.lucee.extension.resource.s3.pool.AmazonS3PoolFactory;
@@ -183,25 +183,21 @@ public class S3 {
 			else region = targetRegion;
 
 			Bucket b;
-			AmazonS3AndPool aap = getAmazonS3AndPool(null, region);
+			AmazonS3Client client = getAmazonS3(null, region);
 			try {
-				b = aap.amazonS3.createBucket(cbr);
+				b = client.createBucket(cbr);
 			}
 			catch (AmazonServiceException ase) {
 				// TODO better way to handle this situation
 				// The authorization header is malformed; the region 'us-east-1' is wrong; expecting 'us-east-2'
 				if (Util.isEmpty(targetRegion) && "AuthorizationHeaderMalformed".equals(ase.getErrorCode()) && ase.getErrorMessage().indexOf("is wrong; expecting") != -1) {
 					region = extractExpectedRegion(ase.getErrorMessage(), ase);
-					b = aap.amazonS3.createBucket(cbr);
+					b = client.createBucket(cbr);
 				}
 				else throw ase;
 			}
-			catch (IllegalStateException ise) {
-				invalidateAmazonS3(aap);
-				throw toS3Exception(ise);
-			}
 			finally {
-				releaseAmazonS3(aap);
+				client.release();
 			}
 
 			if (!Util.isEmpty(region)) {
@@ -269,25 +265,22 @@ public class S3 {
 			if (acl != null) setACL(por, acl);
 
 			// send request to S3 to create folder
-			AmazonS3AndPool aap = getAmazonS3AndPool(bucketName, region);
+			AmazonS3Client client = getAmazonS3(bucketName, region);
 			try {
-				aap.amazonS3.putObject(por);
+				client.putObject(por);
 				flushExists(bucketName, objectName);
 			}
 			catch (AmazonServiceException ase) {
 				if (ase.getErrorCode().equals("NoSuchBucket")) {
 					createDirectory(bucketName, acl, region);
-					aap.amazonS3.putObject(por);
+					client.putObject(por);
 					flushExists(bucketName, objectName);
 				}
 				else throw toS3Exception(ase);
 			}
-			catch (IllegalStateException ise) {
-				invalidateAmazonS3(aap);
-				throw toS3Exception(ise);
-			}
 			finally {
-				releaseAmazonS3(aap);
+				client.release();
+				client.release();
 			}
 
 		}
@@ -321,26 +314,22 @@ public class S3 {
 		PutObjectRequest por = new PutObjectRequest(bucketName, objectName, new ByteArrayInputStream(new byte[0]), md);
 		if (acl != null) setACL(por, acl);
 		try {
-			AmazonS3AndPool aap = getAmazonS3AndPool(bucketName, region);
+			AmazonS3Client client = getAmazonS3(bucketName, region);
 			// send request to S3 to create folder
 			try {
-				aap.amazonS3.putObject(por);
+				client.putObject(por);
 				flushExists(bucketName, objectName);
 			}
 			catch (AmazonServiceException ase) {
 				if (ase.getErrorCode().equals("NoSuchBucket")) {
 					createDirectory(bucketName, acl, region);
-					aap.amazonS3.putObject(por);
+					client.putObject(por);
 					flushExists(bucketName, objectName);
 				}
 				else throw toS3Exception(ase);
 			}
-			catch (IllegalStateException ise) {
-				invalidateAmazonS3(aap);
-				throw toS3Exception(ise);
-			}
 			finally {
-				releaseAmazonS3(aap);
+				client.release();
 			}
 
 		}
@@ -353,19 +342,15 @@ public class S3 {
 		bucketName = improveBucketName(bucketName);
 		objectName = improveObjectName(objectName);
 
-		AmazonS3AndPool aap = getAmazonS3AndPool(bucketName, null);
+		AmazonS3Client client = getAmazonS3(bucketName, null);
 		try {
-			return aap.amazonS3.getObject(bucketName, objectName);
+			return client.getObject(bucketName, objectName);
 		}
 		catch (AmazonServiceException se) {
 			throw toS3Exception(se);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(aap);
-			throw toS3Exception(ise);
-		}
 		finally {
-			releaseAmazonS3(aap);
+			client.release();
 		}
 	}
 
@@ -394,7 +379,7 @@ public class S3 {
 		bucketName = improveBucketName(bucketName);
 		objectName = improveObjectName(objectName);
 
-		AmazonS3AndPool aap = getAmazonS3AndPool(bucketName, null);
+		AmazonS3Client client = getAmazonS3(bucketName, null);
 		try {
 
 			GeneratePresignedUrlRequest generatePresignedUrlRequest = new GeneratePresignedUrlRequest(bucketName, objectName).withMethod(HttpMethod.GET);
@@ -403,17 +388,13 @@ public class S3 {
 				if (expireDate.getTime() < System.currentTimeMillis()) throw new S3Exception("the optional expire date must be un the future");
 				generatePresignedUrlRequest.withExpiration(expireDate);
 			}
-			return aap.amazonS3.generatePresignedUrl(generatePresignedUrlRequest);
+			return client.generatePresignedUrl(generatePresignedUrlRequest);
 		}
 		catch (AmazonServiceException ase) {
 			throw toS3Exception(ase);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(aap);
-			throw toS3Exception(ise);
-		}
 		finally {
-			releaseAmazonS3(aap);
+			client.release();
 		}
 
 	}
@@ -457,13 +438,13 @@ public class S3 {
 
 	// https://s3.eu-central-1.wasabisys.com/lucee-ldev0359-43d24e88acb9b5048097f8961fc5b23c/a
 	public List<S3Info> list(boolean recursive, boolean listPseudoFolder) throws S3Exception {
-		AmazonS3AndPool aap = null;
+		AmazonS3Client client = null;
 		try {
 			// no cache for buckets
 			if (cacheTimeout <= 0 || buckets == null || buckets.validUntil < System.currentTimeMillis()) {
-				aap = getAmazonS3AndPool(null, null);
+				client = getAmazonS3(null, null);
 
-				List<Bucket> s3buckets = aap.amazonS3.listBuckets();
+				List<Bucket> s3buckets = client.listBuckets();
 				long now = System.currentTimeMillis();
 				buckets = new ValidUntilMap<S3BucketWrapper>(now + cacheTimeout);
 				for (Bucket s3b: s3buckets) {
@@ -489,12 +470,8 @@ public class S3 {
 		catch (AmazonServiceException se) {
 			throw toS3Exception(se);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(aap);
-			throw toS3Exception(ise);
-		}
 		finally {
-			releaseAmazonS3(aap);
+			if (client != null) client.release();
 		}
 	}
 
@@ -536,9 +513,9 @@ public class S3 {
 	}
 
 	public List<S3ObjectSummary> listObjectSummaries(String bucketName) throws S3Exception {
-		AmazonS3AndPool aap = getAmazonS3AndPool(bucketName, null);
+		AmazonS3Client client = getAmazonS3(bucketName, null);
 		try {
-			ObjectListing objects = aap.amazonS3.listObjects(bucketName);
+			ObjectListing objects = client.listObjects(bucketName);
 			/* Recursively delete all the objects inside given bucket */
 			List<S3ObjectSummary> summeries = new ArrayList<>();
 			if (objects != null && objects.getObjectSummaries() != null) {
@@ -547,7 +524,7 @@ public class S3 {
 						summeries.add(summary);
 					}
 					if (objects.isTruncated()) {
-						objects = aap.amazonS3.listNextBatchOfObjects(objects);
+						objects = client.listNextBatchOfObjects(objects);
 					}
 					else {
 						break;
@@ -560,19 +537,15 @@ public class S3 {
 		catch (AmazonServiceException ase) {
 			throw toS3Exception(ase);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(aap);
-			throw toS3Exception(ise);
-		}
 		finally {
-			releaseAmazonS3(aap);
+			client.release();
 		}
 	}
 
 	public List<S3Object> listObjects(String bucketName) throws S3Exception {
-		AmazonS3AndPool aap = getAmazonS3AndPool(bucketName, null);
+		AmazonS3Client client = getAmazonS3(bucketName, null);
 		try {
-			ObjectListing objects = aap.amazonS3.listObjects(bucketName);
+			ObjectListing objects = client.listObjects(bucketName);
 			/* Recursively delete all the objects inside given bucket */
 			List<S3Object> list = new ArrayList<>();
 			if (objects != null && objects.getObjectSummaries() != null) {
@@ -580,10 +553,10 @@ public class S3 {
 					for (S3ObjectSummary summary: objects.getObjectSummaries()) {
 						// summary.
 						;
-						list.add(aap.amazonS3.getObject(summary.getBucketName(), summary.getKey()));
+						list.add(client.getObject(summary.getBucketName(), summary.getKey()));
 					}
 					if (objects.isTruncated()) {
-						objects = aap.amazonS3.listNextBatchOfObjects(objects);
+						objects = client.listNextBatchOfObjects(objects);
 					}
 					else {
 						break;
@@ -595,17 +568,13 @@ public class S3 {
 		catch (AmazonServiceException ase) {
 			throw toS3Exception(ase);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(aap);
-			throw toS3Exception(ise);
-		}
 		finally {
-			releaseAmazonS3(aap);
+			client.release();
 		}
 	}
 
 	public Query listObjectsAsQuery(String bucketName) throws S3Exception, PageException {
-		AmazonS3AndPool aap = getAmazonS3AndPool(bucketName, null);
+		AmazonS3Client client = getAmazonS3(bucketName, null);
 		try {
 			CFMLEngine eng = CFMLEngineFactory.getInstance();
 			Creation creator = eng.getCreationUtil();
@@ -616,7 +585,7 @@ public class S3 {
 			final Key owner = creator.createKey("lastModified");
 			Query qry = eng.getCreationUtil().createQuery(new Key[] { objectName, size, lastModified, owner }, 0, "buckets");
 
-			ObjectListing objects = aap.amazonS3.listObjects(bucketName);
+			ObjectListing objects = client.listObjects(bucketName);
 			/* Recursively delete all the objects inside given bucket */
 			List<S3Object> list = new ArrayList<>();
 
@@ -631,7 +600,7 @@ public class S3 {
 						qry.setAt(owner, row, summary.getOwner().getDisplayName());
 					}
 					if (objects.isTruncated()) {
-						objects = aap.amazonS3.listNextBatchOfObjects(objects);
+						objects = client.listNextBatchOfObjects(objects);
 					}
 					else {
 						break;
@@ -644,12 +613,8 @@ public class S3 {
 		catch (AmazonServiceException ase) {
 			throw toS3Exception(ase);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(aap);
-			throw toS3Exception(ise);
-		}
 		finally {
-			releaseAmazonS3(aap);
+			client.release();
 		}
 	}
 
@@ -723,9 +688,9 @@ public class S3 {
 				// add bucket
 				if (!hasObjName && !onlyChildren) {
 					outer: while (true) {
-						AmazonS3AndPool aap = getAmazonS3AndPool(null, null);
+						AmazonS3Client client = getAmazonS3(null, null);
 						try {
-							for (Bucket b: aap.amazonS3.listBuckets()) {
+							for (Bucket b: client.listBuckets()) {
 								// TOD is there a more direct way?
 								if (b.getName().equals(bucketName)) {
 									_list.put("", new S3BucketWrapper(this, b, validUntil, log));
@@ -733,18 +698,14 @@ public class S3 {
 								}
 							}
 						}
-						catch (IllegalStateException ise) {
-							invalidateAmazonS3(aap);
-							throw toS3Exception(ise);
-						}
 						finally {
-							releaseAmazonS3(aap);
+							client.release();
 						}
 						throw new S3Exception("could not find bucket [" + bucketName + "]");// should never happen!
 					}
 				}
-				AmazonS3AndPool aap = getAmazonS3AndPool(bucketName, null);
-				ObjectListing list = (hasObjName ? aap.amazonS3.listObjects(bucketName, nameFile) : aap.amazonS3.listObjects(bucketName));
+				AmazonS3Client client = getAmazonS3(bucketName, null);
+				ObjectListing list = (hasObjName ? client.listObjects(bucketName, nameFile) : client.listObjects(bucketName));
 				try {
 					if (list != null && list.getObjectSummaries() != null) {
 						while (true) {
@@ -766,7 +727,7 @@ public class S3 {
 							}
 
 							if (list.isTruncated()) {
-								list = aap.amazonS3.listNextBatchOfObjects(list);
+								list = client.listNextBatchOfObjects(list);
 							}
 							else {
 								break;
@@ -774,12 +735,8 @@ public class S3 {
 						}
 					}
 				}
-				catch (IllegalStateException ise) {
-					invalidateAmazonS3(aap);
-					throw toS3Exception(ise);
-				}
 				finally {
-					releaseAmazonS3(aap);
+					client.release();
 				}
 			}
 			return _list;
@@ -841,10 +798,10 @@ public class S3 {
 			}
 		}
 		else existBuckets = new ConcurrentHashMap<String, S3BucketExists>();
-		AmazonS3AndPool aap = getAmazonS3AndPool(bucketName, null);
+		AmazonS3Client client = getAmazonS3(bucketName, null);
 		try { // delete the content of the bucket
 				// in case bucket does not exist, it will throw an error
-			aap.amazonS3.listObjects(bucketName, "sadasdsadasdasasdasd");
+			client.listObjects(bucketName, "sadasdsadasdasasdasd");
 			existBuckets.put(bucketName, new S3BucketExists(bucketName, now + cacheTimeout, true));
 			return true;
 		}
@@ -855,12 +812,8 @@ public class S3 {
 			}
 			throw toS3Exception(se);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(aap);
-			throw toS3Exception(ise);
-		}
 		finally {
-			releaseAmazonS3(aap);
+			client.release();
 		}
 	}
 
@@ -888,16 +841,12 @@ public class S3 {
 	public String getContentType(String bucketName, String objectName) throws AmazonServiceException, S3Exception {
 		bucketName = improveBucketName(bucketName);
 		objectName = improveObjectName(objectName);
-		AmazonS3AndPool aap = getAmazonS3AndPool(bucketName, null);
+		AmazonS3Client client = getAmazonS3(bucketName, null);
 		try {
-			return aap.amazonS3.getObjectMetadata(bucketName, objectName).getContentType();
-		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(aap);
-			throw toS3Exception(ise);
+			return client.getObjectMetadata(bucketName, objectName).getContentType();
 		}
 		finally {
-			releaseAmazonS3(aap);
+			client.release();
 		}
 	}
 
@@ -917,7 +866,7 @@ public class S3 {
 		}
 		info = null;
 
-		AmazonS3AndPool aap = getAmazonS3AndPool(bucketName, null);
+		AmazonS3Client client = getAmazonS3(bucketName, null);
 		try {
 			long validUntil = System.currentTimeMillis() + cacheTimeout;
 
@@ -929,7 +878,7 @@ public class S3 {
 				lor.setPrefix(nameFile);
 				lor.setMaxKeys(100);
 
-				objects = aap.amazonS3.listObjects(lor);
+				objects = client.listObjects(lor);
 			}
 			catch (Exception e) {
 				if (log != null) log.error("s3", e);
@@ -991,12 +940,8 @@ public class S3 {
 		catch (AmazonServiceException ase) {
 			throw toS3Exception(ase);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(aap);
-			throw toS3Exception(ise);
-		}
 		finally {
-			releaseAmazonS3(aap);
+			client.release();
 		}
 	}
 
@@ -1025,19 +970,19 @@ public class S3 {
 
 		bucketName = improveBucketName(bucketName);
 
-		AmazonS3AndPool aap = getAmazonS3AndPool(bucketName, null);
+		AmazonS3Client client = getAmazonS3(bucketName, null);
 		try {
 			if (force) {
-				ObjectListing objects = aap.amazonS3.listObjects(bucketName);
+				ObjectListing objects = client.listObjects(bucketName);
 				/* Recursively delete all the objects inside given bucket */
 				if (objects != null && objects.getObjectSummaries() != null) {
 					while (true) {
 						for (S3ObjectSummary summary: objects.getObjectSummaries()) {
-							aap.amazonS3.deleteObject(bucketName, summary.getKey());
+							client.deleteObject(bucketName, summary.getKey());
 						}
 
 						if (objects.isTruncated()) {
-							objects = aap.amazonS3.listNextBatchOfObjects(objects);
+							objects = client.listNextBatchOfObjects(objects);
 						}
 						else {
 							break;
@@ -1046,17 +991,17 @@ public class S3 {
 				}
 
 				/* Get list of versions in a given bucket */
-				VersionListing versions = aap.amazonS3.listVersions(new ListVersionsRequest().withBucketName(bucketName));
+				VersionListing versions = client.listVersions(new ListVersionsRequest().withBucketName(bucketName));
 
 				/* Recursively delete all the versions inside given bucket */
 				if (versions != null && versions.getVersionSummaries() != null) {
 					while (true) {
 						for (S3VersionSummary summary: versions.getVersionSummaries()) {
-							aap.amazonS3.deleteObject(bucketName, summary.getKey());
+							client.deleteObject(bucketName, summary.getKey());
 						}
 
 						if (versions.isTruncated()) {
-							versions = aap.amazonS3.listNextBatchOfVersions(versions);
+							versions = client.listNextBatchOfVersions(versions);
 						}
 						else {
 							break;
@@ -1066,18 +1011,14 @@ public class S3 {
 
 			}
 
-			aap.amazonS3.deleteBucket(bucketName);
+			client.deleteBucket(bucketName);
 			flushExists(bucketName, true);
 		}
 		catch (AmazonServiceException se) {
 			throw toS3Exception(se);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(aap);
-			throw toS3Exception(ise);
-		}
 		finally {
-			releaseAmazonS3(aap);
+			client.release();
 		}
 	}
 
@@ -1091,12 +1032,12 @@ public class S3 {
 
 		String nameFile = improveObjectName(objectName, false);
 		String nameDir = improveObjectName(objectName, true);
-		AmazonS3AndPool aap = getAmazonS3AndPool(bucketName, null);
+		AmazonS3Client client = getAmazonS3(bucketName, null);
 		try {
 			boolean matchFile = false;
 			boolean matchDir = false;
 			boolean matchKids = false;
-			ObjectListing objects = aap.amazonS3.listObjects(bucketName, nameFile);
+			ObjectListing objects = client.listObjects(bucketName, nameFile);
 			List<KeyVersion> matches = new ArrayList<>();
 			if (objects != null && objects.getObjectSummaries() != null) {
 				while (true) {
@@ -1112,7 +1053,7 @@ public class S3 {
 						}
 					}
 					if (objects.isTruncated()) {
-						objects = aap.amazonS3.listNextBatchOfObjects(objects);
+						objects = client.listNextBatchOfObjects(objects);
 					}
 					else {
 						break;
@@ -1136,7 +1077,7 @@ public class S3 {
 			}
 			if (matches.size() > 0) {
 				DeleteObjectsRequest dor = new DeleteObjectsRequest(bucketName).withKeys(matches).withQuiet(false);
-				aap.amazonS3.deleteObjects(dor);
+				client.deleteObjects(dor);
 				flushExists(bucketName, objectName);
 				// we create parent because before it maybe was a pseudi dir
 				createParentDirectory(bucketName, objectName, true);
@@ -1146,13 +1087,9 @@ public class S3 {
 		catch (AmazonServiceException se) {
 			throw toS3Exception(se);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(aap);
-			throw toS3Exception(ise);
-		}
 		finally {
 			flushExists(bucketName, objectName);
-			releaseAmazonS3(aap);
+			client.release();
 		}
 	}
 
@@ -1166,20 +1103,20 @@ public class S3 {
 	 */
 	public void clear(String bucketName, long maxAge) throws S3Exception {
 		bucketName = improveBucketName(bucketName);
-		AmazonS3AndPool aap = getAmazonS3AndPool(bucketName, null);
+		AmazonS3Client client = getAmazonS3(bucketName, null);
 		try {
 
-			ObjectListing objects = aap.amazonS3.listObjects(bucketName);
+			ObjectListing objects = client.listObjects(bucketName);
 			if (objects != null && objects.getObjectSummaries() != null) {
 				while (true) {
 					List<KeyVersion> filtered = toObjectKeyAndVersions(objects.getObjectSummaries(), maxAge);
 					if (filtered != null && filtered.size() > 0) {
 						DeleteObjectsRequest dor = new DeleteObjectsRequest(bucketName).withKeys(filtered).withQuiet(false);
-						aap.amazonS3.deleteObjects(dor);
+						client.deleteObjects(dor);
 					}
 
 					if (objects.isTruncated()) {
-						objects = aap.amazonS3.listNextBatchOfObjects(objects);
+						objects = client.listNextBatchOfObjects(objects);
 					}
 					else {
 						break;
@@ -1191,12 +1128,8 @@ public class S3 {
 		catch (AmazonServiceException se) {
 			throw toS3Exception(se);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(aap);
-			throw toS3Exception(ise);
-		}
 		finally {
-			releaseAmazonS3(aap);
+			client.release();
 		}
 	}
 
@@ -1232,16 +1165,16 @@ public class S3 {
 		trgObjectName = improveObjectName(trgObjectName, false);
 		flushExists(srcBucketName, srcObjectName);
 		flushExists(trgBucketName, trgObjectName);
-		AmazonS3AndPool aap = getAmazonS3AndPool(srcBucketName, null);
+		AmazonS3Client client = getAmazonS3(srcBucketName, null);
 		try {
 			CopyObjectRequest cor = new CopyObjectRequest(srcBucketName, srcObjectName, trgBucketName, trgObjectName);
 			if (acl != null) setACL(cor, acl);
 			try {
-				aap.amazonS3.copyObject(cor);
+				client.copyObject(cor);
 			}
 			catch (AmazonServiceException se) {
-				if (se.getErrorCode().equals("NoSuchBucket") && !aap.amazonS3.doesBucketExistV2(trgBucketName)) {
-					if (acl == null) acl = aap.amazonS3.getBucketAcl(srcBucketName);
+				if (se.getErrorCode().equals("NoSuchBucket") && !client.doesBucketExistV2(trgBucketName)) {
+					if (acl == null) acl = client.getBucketAcl(srcBucketName);
 
 					CreateBucketRequest cbr = new CreateBucketRequest(trgBucketName);
 					if (acl != null) setACL(cbr, acl);
@@ -1250,20 +1183,15 @@ public class S3 {
 					if (Util.isEmpty(targetRegion)) {
 						targetRegion = toString(getBucketRegion(srcBucketName, true));
 					}
-					AmazonS3AndPool aap1 = getAmazonS3AndPool(trgBucketName, targetRegion);
-					AmazonS3AndPool aap2 = getAmazonS3AndPool(srcBucketName, null);
+					AmazonS3Client client1 = getAmazonS3(trgBucketName, targetRegion);
+					AmazonS3Client client2 = getAmazonS3(srcBucketName, null);
 					try {
-						aap1.amazonS3.createBucket(cbr);
-						aap2.amazonS3.copyObject(cor);
-					}
-					catch (IllegalStateException ise) {
-						invalidateAmazonS3(aap1);
-						invalidateAmazonS3(aap2);
-						throw toS3Exception(ise);
+						client1.createBucket(cbr);
+						client2.copyObject(cor);
 					}
 					finally {
-						releaseAmazonS3(aap1);
-						releaseAmazonS3(aap2);
+						client1.release();
+						client2.release();
 					}
 				}
 				else throw toS3Exception(se);
@@ -1272,12 +1200,8 @@ public class S3 {
 		catch (AmazonServiceException se) {
 			throw toS3Exception(se);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(aap);
-			throw toS3Exception(ise);
-		}
 		finally {
-			releaseAmazonS3(aap);
+			client.release();
 		}
 	}
 
@@ -1365,17 +1289,17 @@ public class S3 {
 		PutObjectRequest por = new PutObjectRequest(bucketName, objectName, new ByteArrayInputStream(bytes), md);
 
 		if (acl != null) setACL(por, acl);
-		AmazonS3AndPool aap = getAmazonS3AndPool(bucketName, region);
+		AmazonS3Client client = getAmazonS3(bucketName, region);
 		try {
 			// send request to S3 to create folder
 			try {
-				aap.amazonS3.putObject(por);
+				client.putObject(por);
 				flushExists(bucketName, objectName);
 			}
 			catch (AmazonServiceException ase) {
 				if (ase.getErrorCode().equals("NoSuchBucket")) {
 					createDirectory(bucketName, acl, region);
-					aap.amazonS3.putObject(por);
+					client.putObject(por);
 					flushExists(bucketName, objectName);
 				}
 				else throw toS3Exception(ase);
@@ -1385,12 +1309,8 @@ public class S3 {
 		catch (AmazonServiceException se) {
 			throw toS3Exception(se);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(aap);
-			throw toS3Exception(ise);
-		}
 		finally {
-			releaseAmazonS3(aap);
+			client.release();
 		}
 	}
 
@@ -1421,17 +1341,17 @@ public class S3 {
 		PutObjectRequest por = new PutObjectRequest(bucketName, objectName, new ByteArrayInputStream(data), md);
 
 		if (acl != null) setACL(por, acl);
-		AmazonS3AndPool aap = getAmazonS3AndPool(bucketName, region);
+		AmazonS3Client client = getAmazonS3(bucketName, region);
 		try {
 			// send request to S3 to create folder
 			try {
-				aap.amazonS3.putObject(por);
+				client.putObject(por);
 				flushExists(bucketName, objectName);
 			}
 			catch (AmazonServiceException ase) {
 				if (ase.getErrorCode().equals("NoSuchBucket")) {
 					createDirectory(bucketName, acl, region);
-					aap.amazonS3.putObject(por);
+					client.putObject(por);
 					flushExists(bucketName, objectName);
 				}
 				else throw toS3Exception(ase);
@@ -1441,12 +1361,8 @@ public class S3 {
 		catch (AmazonServiceException se) {
 			throw toS3Exception(se);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(aap);
-			throw toS3Exception(ise);
-		}
 		finally {
-			releaseAmazonS3(aap);
+			client.release();
 		}
 	}
 
@@ -1466,25 +1382,21 @@ public class S3 {
 			if (acl != null) setACL(por, acl);
 
 			// send request to S3 to create folder
-			AmazonS3AndPool aap = getAmazonS3AndPool(bucketName, region);
+			AmazonS3Client client = getAmazonS3(bucketName, region);
 			try {
-				aap.amazonS3.putObject(por);
+				client.putObject(por);
 				flushExists(bucketName, objectName);
 			}
 			catch (AmazonServiceException ase) {
 				if (ase.getErrorCode().equals("NoSuchBucket")) {
 					createDirectory(bucketName, acl, region);
-					aap.amazonS3.putObject(por);
+					client.putObject(por);
 					flushExists(bucketName, objectName);
 				}
 				else throw toS3Exception(ase);
 			}
-			catch (IllegalStateException ise) {
-				invalidateAmazonS3(aap);
-				throw toS3Exception(ise);
-			}
 			finally {
-				releaseAmazonS3(aap);
+				client.release();
 			}
 
 		}
@@ -1505,32 +1417,22 @@ public class S3 {
 		// create a PutObjectRequest passing the folder name suffixed by /
 		PutObjectRequest por = new PutObjectRequest(bucketName, objectName, file);
 		if (acl != null) setACL(por, acl);
-		AmazonS3AndPool aap = getAmazonS3AndPool(bucketName, region);
+		AmazonS3Client client = getAmazonS3(bucketName, region);
+		// send request to S3 to create folder
 		try {
-			// send request to S3 to create folder
-			try {
-				aap.amazonS3.putObject(por);
+			client.putObject(por);
+			flushExists(bucketName, objectName);
+		}
+		catch (AmazonServiceException ase) {
+			if (ase.getErrorCode().equals("NoSuchBucket")) {
+				createDirectory(bucketName, acl, region);
+				client.putObject(por);
 				flushExists(bucketName, objectName);
 			}
-			catch (AmazonServiceException ase) {
-				if (ase.getErrorCode().equals("NoSuchBucket")) {
-					createDirectory(bucketName, acl, region);
-					aap.amazonS3.putObject(por);
-					flushExists(bucketName, objectName);
-				}
-				else throw toS3Exception(ase);
-			}
-			catch (IllegalStateException ise) {
-				invalidateAmazonS3(aap);
-				throw toS3Exception(ise);
-			}
-			finally {
-				releaseAmazonS3(aap);
-			}
-
+			else throw toS3Exception(ase);
 		}
-		catch (AmazonServiceException se) {
-			throw toS3Exception(se);
+		finally {
+			client.release();
 		}
 	}
 
@@ -1549,7 +1451,7 @@ public class S3 {
 		objectName = improveObjectName(objectName);
 
 		sct.setEL("bucketName", bucketName);
-		AmazonS3AndPool aap = getAmazonS3AndPool(bucketName, null);
+		AmazonS3Client client = getAmazonS3(bucketName, null);
 		try {
 			if (Util.isEmpty(objectName)) {
 				// TODO
@@ -1557,7 +1459,7 @@ public class S3 {
 			if (objectName != null) {
 				sct.setEL("objectName", objectName);
 
-				S3Object o = aap.amazonS3.getObject(bucketName, objectName);
+				S3Object o = client.getObject(bucketName, objectName);
 				ObjectMetadata md = o.getObjectMetadata();
 
 				Map<String, Object> rmd = md.getRawMetadata();
@@ -1571,12 +1473,8 @@ public class S3 {
 
 			}
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(aap);
-			throw toS3Exception(ise);
-		}
 		finally {
-			releaseAmazonS3(aap);
+			client.release();
 		}
 		// TODO better
 
@@ -1597,16 +1495,12 @@ public class S3 {
 	public ObjectMetadata getObjectMetadata(String bucketName, String objectName) throws S3Exception {
 		bucketName = improveBucketName(bucketName);
 		objectName = improveObjectName(objectName);
-		AmazonS3AndPool aap = getAmazonS3AndPool(bucketName, null);
+		AmazonS3Client client = getAmazonS3(bucketName, null);
 		try {
-			return aap.amazonS3.getObject(bucketName, objectName).getObjectMetadata();
-		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(aap);
-			throw toS3Exception(ise);
+			return client.getObject(bucketName, objectName).getObjectMetadata();
 		}
 		finally {
-			releaseAmazonS3(aap);
+			client.release();
 		}
 	}
 
@@ -1649,7 +1543,7 @@ public class S3 {
 		objectName = improveObjectName(objectName);
 
 		if (!Util.isEmpty(objectName)) {
-			AmazonS3AndPool aap = getAmazonS3AndPool(bucketName, null);
+			AmazonS3Client client = getAmazonS3(bucketName, null);
 			try {
 				S3BucketWrapper bw = get(bucketName);
 				if (bw == null) throw new S3Exception("there is no bucket [" + bucketName + "]");
@@ -1657,16 +1551,12 @@ public class S3 {
 
 				CopyObjectRequest request = new CopyObjectRequest(bucketName, objectName, bucketName, objectName).withNewObjectMetadata(metadataCopy);
 
-				aap.amazonS3.copyObject(request);
+				client.copyObject(request);
 
 				flushExists(bucketName, objectName);
 			}
-			catch (IllegalStateException ise) {
-				invalidateAmazonS3(aap);
-				throw toS3Exception(ise);
-			}
 			finally {
-				releaseAmazonS3(aap);
+				client.release();
 			}
 		}
 		else throw new S3Exception("cannot set metadata for a bucket"); // TOOD possible?
@@ -1722,25 +1612,21 @@ public class S3 {
 
 	public void addAccessControlList(String bucketName, String objectName, Object objACL) throws S3Exception, PageException {
 
-		AmazonS3AndPool aap = getAmazonS3AndPool(bucketName, null);
+		AmazonS3Client client = getAmazonS3(bucketName, null);
 		try {
 			bucketName = improveBucketName(bucketName);
 			objectName = improveObjectName(objectName);
 
-			AccessControlList acl = getACL(aap.amazonS3, bucketName, objectName);
+			AccessControlList acl = getACL(client, bucketName, objectName);
 			acl.grantAllPermissions(AccessControlListUtil.toGrantAndPermissions(objACL));
-			aap.amazonS3.setObjectAcl(bucketName, objectName, acl);
+			client.setObjectAcl(bucketName, objectName, acl);
 			// is it necessary to set it for bucket as well?
 		}
 		catch (AmazonServiceException se) {
 			throw toS3Exception(se);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(aap);
-			throw toS3Exception(ise);
-		}
 		finally {
-			releaseAmazonS3(aap);
+			client.release();
 		}
 
 	}
@@ -1748,33 +1634,29 @@ public class S3 {
 	public void setAccessControlList(String bucketName, String objectName, Object objACL) throws S3Exception {
 		bucketName = improveBucketName(bucketName);
 		objectName = improveObjectName(objectName);
-		AmazonS3AndPool aap = getAmazonS3AndPool(bucketName, null);
+		AmazonS3Client client = getAmazonS3(bucketName, null);
 		try {
 
 			Object newACL = AccessControlListUtil.toAccessControlList(objACL);
-			AccessControlList oldACL = getACL(aap.amazonS3, bucketName, objectName);
-			Owner aclOwner = oldACL != null ? oldACL.getOwner() : aap.amazonS3.getS3AccountOwner();
+			AccessControlList oldACL = getACL(client, bucketName, objectName);
+			Owner aclOwner = oldACL != null ? oldACL.getOwner() : client.getS3AccountOwner();
 			if (newACL instanceof AccessControlList) ((AccessControlList) newACL).setOwner(aclOwner);
 
 			if (!Util.isEmpty(objectName)) {
-				if (newACL instanceof AccessControlList) aap.amazonS3.setObjectAcl(bucketName, objectName, (AccessControlList) newACL);
-				else aap.amazonS3.setObjectAcl(bucketName, objectName, (CannedAccessControlList) newACL);
+				if (newACL instanceof AccessControlList) client.setObjectAcl(bucketName, objectName, (AccessControlList) newACL);
+				else client.setObjectAcl(bucketName, objectName, (CannedAccessControlList) newACL);
 			}
 			else {
-				if (newACL instanceof AccessControlList) aap.amazonS3.setBucketAcl(bucketName, (AccessControlList) newACL);
-				else aap.amazonS3.setBucketAcl(bucketName, (CannedAccessControlList) newACL);
+				if (newACL instanceof AccessControlList) client.setBucketAcl(bucketName, (AccessControlList) newACL);
+				else client.setBucketAcl(bucketName, (CannedAccessControlList) newACL);
 			}
 
 		}
 		catch (AmazonServiceException se) {
 			throw toS3Exception(se);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(aap);
-			throw toS3Exception(ise);
-		}
 		finally {
-			releaseAmazonS3(aap);
+			client.release();
 		}
 
 	}
@@ -1793,20 +1675,16 @@ public class S3 {
 		ValidUntilElement<AccessControlList> vuacl = accessControlLists.get(key);
 		if (vuacl != null && vuacl.validUntil > System.currentTimeMillis()) return vuacl.element;
 
-		AmazonS3AndPool aap = getAmazonS3AndPool(bucketName, null);
+		AmazonS3Client client = getAmazonS3(bucketName, null);
 		try {
-			if (Util.isEmpty(objectName)) return aap.amazonS3.getBucketAcl(bucketName);
-			return aap.amazonS3.getObjectAcl(bucketName, objectName);
+			if (Util.isEmpty(objectName)) return client.getBucketAcl(bucketName);
+			return client.getObjectAcl(bucketName, objectName);
 		}
 		catch (AmazonServiceException se) {
 			throw toS3Exception(se);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(aap);
-			throw toS3Exception(ise);
-		}
 		finally {
-			releaseAmazonS3(aap);
+			client.release();
 		}
 	}
 
@@ -1859,57 +1737,26 @@ public class S3 {
 	}
 
 	public URL url(String bucketName, String objectName, long time) throws S3Exception {
-		AmazonS3AndPool aap = getAmazonS3AndPool(bucketName, null);
+		AmazonS3Client client = getAmazonS3(bucketName, null);
 		try {
-			return aap.amazonS3.generatePresignedUrl(bucketName, objectName, new Date(System.currentTimeMillis() + time));
-		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(aap);
-			throw toS3Exception(ise);
+			return client.generatePresignedUrl(bucketName, objectName, new Date(System.currentTimeMillis() + time));
 		}
 		finally {
-			releaseAmazonS3(aap);
+			client.release();
 		}
 	}
 
-	private AmazonS3AndPool getAmazonS3AndPool(String bucketName, String strRegion) throws S3Exception {
+	private AmazonS3Client getAmazonS3(String bucketName, String strRegion) throws S3Exception {
 		if (Util.isEmpty(accessKeyId) || Util.isEmpty(secretAccessKey)) throw new S3Exception("Could not found an accessKeyId/secretAccessKey");
 		try {
-			AmazonS3Pool pool = getAmazonS3Pool(bucketName, strRegion);
-			return new AmazonS3AndPool(pool, pool.borrowObject());
+			return new AmazonS3Client(this, bucketName, strRegion, log);
 		}
 		catch (Exception e) {
 			throw toS3Exception(e);
 		}
 	}
 
-	private void releaseAmazonS3(AmazonS3AndPool aap) throws S3Exception {
-		if (aap == null || aap.isInvalidated()) return;
-		try {
-			aap.amazonS3Pool.returnObject(aap.amazonS3);
-		}
-		catch (Exception e) {
-			throw toS3Exception(e);
-		}
-	}
-
-	private void invalidateAmazonS3(AmazonS3AndPool aap) throws S3Exception {
-		invalidateAmazonS3(aap, true);
-	}
-
-	private void invalidateAmazonS3(AmazonS3AndPool aap, boolean clearAllInPool) throws S3Exception {
-		if (aap == null) return;
-		try {
-			aap.amazonS3Pool.invalidateObject(aap.amazonS3);
-			if (clearAllInPool) aap.amazonS3Pool.clear();
-			aap.doInvalidate();
-		}
-		catch (Exception e) {
-			throw toS3Exception(e);
-		}
-	}
-
-	private AmazonS3Pool getAmazonS3Pool(String bucketName, String strRegion) throws S3Exception {
+	public AmazonS3Pool getAmazonS3Pool(String bucketName, String strRegion) throws S3Exception {
 		Regions region = toRegions(bucketName, strRegion);
 		String key = region == null ? "default-region" : toString(region);
 
@@ -1937,9 +1784,9 @@ public class S3 {
 		}
 		Regions r = null;
 		if (loadIfNecessary) {
-			AmazonS3AndPool aap = getAmazonS3AndPool(null, null);
+			AmazonS3Client client = getAmazonS3(null, null);
 			try {
-				r = toRegions(aap.amazonS3.getBucketLocation(bucketName));
+				r = toRegions(client.getBucketLocation(bucketName));
 				bucketRegions.put(bucketName, r);
 			}
 			catch (AmazonServiceException ase) {
@@ -1953,28 +1800,8 @@ public class S3 {
 				return null;
 
 			}
-			catch (IllegalStateException ise) {
-				if (log != null) log.error("s3", "failed to load region", ise);
-				else ise.printStackTrace();
-				try {
-					invalidateAmazonS3(aap);
-					aap = getAmazonS3AndPool(null, null);
-					r = toRegions(aap.amazonS3.getBucketLocation(bucketName));
-					bucketRegions.put(bucketName, r);
-				}
-				catch (AmazonServiceException ase) {
-					if (ase.getErrorCode().equals("NoSuchBucket")) {
-						return null;
-					}
-					if (log != null) log.error("s3", "failed to load region", ase);
-					else ase.printStackTrace();
-					// could be AccessDenied
-					bucketRegions.put(bucketName, ERROR);
-					return null;
-				}
-			}
 			finally {
-				releaseAmazonS3(aap);
+				client.release();
 			}
 		}
 		return r;
@@ -2102,7 +1929,7 @@ public class S3 {
 		return trg.toArray(new KeyVersion[trg.size()]);
 	}
 
-	private S3Exception toS3Exception(Exception e) {
+	public S3Exception toS3Exception(Exception e) {
 		if (e instanceof AmazonServiceException) return toS3Exception((AmazonServiceException) e);
 		S3Exception s3e = new S3Exception(e.getClass().getName() + ":" + e.getMessage());
 		s3e.initCause(e);
@@ -2391,13 +2218,13 @@ public class S3 {
 
 		@Override
 		public void run() {
-			AmazonS3AndPool aap = null;
+			AmazonS3Client client = null;
 			try {
-				aap = getAmazonS3AndPool(null, null);
+				client = getAmazonS3(null, null);
 				Regions r;
-				for (Bucket b: aap.amazonS3.listBuckets()) {
+				for (Bucket b: client.listBuckets()) {
 					try {
-						r = toRegions(aap.amazonS3.getBucketLocation(b.getName()));
+						r = toRegions(client.getBucketLocation(b.getName()));
 						if (log != null) log.info("s3", "cache region [" + r.toString() + "] for bucket [" + b.getName() + "]");
 						bucketRegions.put(b.getName(), r);
 						// we don't want this to make to much load
@@ -2416,19 +2243,9 @@ public class S3 {
 				if (log != null) log.error("s3", e1);
 				else e1.printStackTrace();
 			}
-			catch (IllegalStateException ise) {
-				if (log != null) log.error("s3", ise);
-				try {
-					invalidateAmazonS3(aap);
-				}
-				catch (S3Exception e) {
-					if (log != null) log.error("s3", e);
-				}
-
-			}
 			finally {
 				try {
-					releaseAmazonS3(aap);
+					if (client != null) client.release();
 				}
 				catch (S3Exception e) {
 					if (log != null) log.error("s3", e);
@@ -2438,14 +2255,14 @@ public class S3 {
 	}
 
 	public void shutdown() throws S3Exception {
-		AmazonS3AndPool aap = null;
+		AmazonS3Client client = null;
 		try {
-			aap = getAmazonS3AndPool(null, null);
-			aap.amazonS3.shutdown();
+			client = getAmazonS3(null, null);
+			client.shutdown();
 		}
 
 		finally {
-			releaseAmazonS3(aap);
+			if (client != null) client.release();
 		}
 	}
 
