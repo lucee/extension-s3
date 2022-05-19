@@ -194,7 +194,7 @@ public class TestCase {
 
 			// Copy
 			s3.write(bucketName, file1, "Susi", "test/plain", UTF8, null, null);
-			s3.copy(bucketName, file1, bucketName, file2, null, null);
+			s3.copyObject(bucketName, file1, bucketName, file2, null, null);
 			List<S3Info> list = s3.list(bucketName, dir1, true, true, true);
 			assertEquals(4, list.size());
 			contains(list, bucketName, dir2);
@@ -205,7 +205,7 @@ public class TestCase {
 
 			// Move
 			s3.write(bucketName, file1, "Susi", "test/plain", UTF8, null, null);
-			s3.move(bucketName, file1, bucketName, file2, null, null);
+			s3.moveObject(bucketName, file1, bucketName, file2, null, null);
 			list = s3.list(bucketName, dir1, true, true, true);
 
 			assertEquals(3, list.size());
