@@ -588,7 +588,7 @@ public class S3 {
 			final Key objectName = creator.createKey("objectName");
 			final Key size = creator.createKey("size");
 			final Key lastModified = creator.createKey("lastModified");
-			final Key owner = creator.createKey("lastModified");
+			final Key owner = creator.createKey("owner");
 			Query qry = eng.getCreationUtil().createQuery(new Key[] { objectName, size, lastModified, owner }, 0, "buckets");
 
 			ObjectListing objects = client.listObjects(bucketName);
@@ -752,7 +752,7 @@ public class S3 {
 		}
 	}
 
-	private String toKey(String bucketName, String objectName) {
+	private String toKey(String bucketName, String objectName) throws S3Exception {
 		if (objectName == null) objectName = "";
 		return improveBucketName(bucketName) + ":" + improveObjectName(objectName, false);
 	}
@@ -2159,10 +2159,10 @@ public class S3 {
 		return s3e;
 	}
 
-	public static String improveBucketName(String bucketName) {
+	public static String improveBucketName(String bucketName) throws S3Exception {
 		if (bucketName.startsWith("/")) bucketName = bucketName.substring(1);
 		if (bucketName.endsWith("/")) bucketName = bucketName.substring(0, bucketName.length() - 1);
-		if (bucketName.indexOf('/') != -1) throw new RuntimeException(new S3Exception("invalid bucket name [" + bucketName + "]"));
+		if (bucketName.indexOf('/') != -1) throw new S3Exception("invalid bucket name [" + bucketName + "]");
 		return bucketName;
 	}
 
