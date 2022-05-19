@@ -12,6 +12,7 @@ import java.net.URL;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -73,7 +74,6 @@ import lucee.runtime.type.Query;
 import lucee.runtime.type.Struct;
 import lucee.runtime.util.Cast;
 import lucee.runtime.util.Creation;
-import lucee.runtime.util.Decision;
 
 public class S3 {
 	private static final short CHECK_EXISTS = 1;
@@ -1164,7 +1164,7 @@ public class S3 {
 	 *            does not exist yet)
 	 * @throws S3Exception
 	 */
-	public void copy(String srcBucketName, String srcObjectName, String trgBucketName, String trgObjectName, Object acl, String targetRegion) throws S3Exception {
+	public void copyObject(String srcBucketName, String srcObjectName, String trgBucketName, String trgObjectName, Object acl, String targetRegion) throws S3Exception {
 		srcBucketName = improveBucketName(srcBucketName);
 		srcObjectName = improveObjectName(srcObjectName, false);
 		trgBucketName = improveBucketName(trgBucketName);
@@ -1174,12 +1174,21 @@ public class S3 {
 		AmazonS3Client client = getAmazonS3(srcBucketName, null);
 		try {
 			CopyObjectRequest cor = new CopyObjectRequest(srcBucketName, srcObjectName, trgBucketName, trgObjectName);
+
 			if (acl != null) setACL(cor, acl);
 			try {
 				client.copyObject(cor);
 			}
 			catch (AmazonServiceException se) {
-				if (se.getErrorCode().equals("NoSuchBucket") && !client.doesBucketExistV2(trgBucketName)) {
+				// could be an Pseudo folder
+				if (se.getErrorCode().equals("NoSuchKey")) {
+					S3Info src = get(srcBucketName, srcObjectName);
+					if (src.isVirtual()) {
+						throw new S3Exception("Cannot copy virtual folder", se);
+					}
+					throw toS3Exception(se);
+				}
+				else if (se.getErrorCode().equals("NoSuchBucket") && !client.doesBucketExistV2(trgBucketName)) {
 					if (acl == null) acl = client.getBucketAcl(srcBucketName);
 
 					CreateBucketRequest cbr = new CreateBucketRequest(trgBucketName);
@@ -1222,8 +1231,9 @@ public class S3 {
 	 *            does not exist yet)
 	 * @throws S3Exception
 	 */
-	public void move(String srcBucketName, String srcObjectName, String trgBucketName, String trgObjectName, CannedAccessControlList cacl, String targetRegion) throws S3Exception {
-		copy(srcBucketName, srcObjectName, trgBucketName, trgObjectName, cacl, targetRegion);
+	public void moveObject(String srcBucketName, String srcObjectName, String trgBucketName, String trgObjectName, CannedAccessControlList cacl, String targetRegion)
+			throws S3Exception {
+		copyObject(srcBucketName, srcObjectName, trgBucketName, trgObjectName, cacl, targetRegion);
 		delete(srcBucketName, srcObjectName, true);
 	}
 
@@ -1658,16 +1668,25 @@ public class S3 {
 	}
 
 	public void setMetaData(String bucketName, String objectName, Struct metadata) throws PageException, S3Exception {
-		Decision dec = CFMLEngineFactory.getInstance().getDecisionUtil();
-		Cast cas = CFMLEngineFactory.getInstance().getCastUtil();
-
+		Map<String, String> data = new HashMap<>();
 		Iterator<Entry<Key, Object>> it = metadata.entryIterator();
 		Entry<Key, Object> e;
-		ObjectMetadata metadataCopy = new ObjectMetadata();
-		Map<String, String> data = new ConcurrentHashMap<String, String>();
+		Cast cas = CFMLEngineFactory.getInstance().getCastUtil();
 		while (it.hasNext()) {
 			e = it.next();
-			metadataCopy.addUserMetadata(toMetaDataKey(e.getKey()), cas.toString(e.getValue()));
+			data.put(e.getKey().getString(), cas.toString(e.getValue()));
+		}
+		setMetaDataAsMap(bucketName, objectName, data);
+	}
+
+	public void setMetaDataAsMap(String bucketName, String objectName, Map<String, String> metadata) throws S3Exception {
+
+		Iterator<Entry<String, String>> it = metadata.entrySet().iterator();
+		Entry<String, String> e;
+		ObjectMetadata metadataCopy = new ObjectMetadata();
+		while (it.hasNext()) {
+			e = it.next();
+			metadataCopy.addUserMetadata(toMetaDataKey(e.getKey()), e.getValue());
 		}
 
 		bucketName = improveBucketName(bucketName);
@@ -1678,13 +1697,23 @@ public class S3 {
 			try {
 				S3BucketWrapper bw = get(bucketName);
 				if (bw == null) throw new S3Exception("there is no bucket [" + bucketName + "]");
-				Bucket b = bw.getBucket();
-
+				// Bucket b = bw.getBucket();
 				CopyObjectRequest request = new CopyObjectRequest(bucketName, objectName, bucketName, objectName).withNewObjectMetadata(metadataCopy);
 
 				client.copyObject(request);
 
 				flushExists(bucketName, objectName);
+			}
+			catch (AmazonServiceException se) {
+				// could be an Pseudo folder
+				if (se.getErrorCode().equals("NoSuchKey")) {
+					S3Info src = get(bucketName, objectName);
+					if (src.isVirtual()) {
+						throw new S3Exception("Cannot set meta data to a virtual folder", se);
+					}
+					throw toS3Exception(se);
+				}
+
 			}
 			finally {
 				client.release();
@@ -1694,51 +1723,51 @@ public class S3 {
 
 	}
 
-	private String toMetaDataKey(Key key) {
-		if (key.equals("content-disposition")) return "Content-Disposition";
-		if (key.equals("content_disposition")) return "Content-Disposition";
-		if (key.equals("content disposition")) return "Content-Disposition";
-		if (key.equals("contentdisposition")) return "Content-Disposition";
+	private String toMetaDataKey(String key) {
+		if (key.equalsIgnoreCase("content-disposition")) return "Content-Disposition";
+		if (key.equalsIgnoreCase("content_disposition")) return "Content-Disposition";
+		if (key.equalsIgnoreCase("content disposition")) return "Content-Disposition";
+		if (key.equalsIgnoreCase("contentdisposition")) return "Content-Disposition";
 
-		if (key.equals("content-encoding")) return "Content-Encoding";
-		if (key.equals("content_encoding")) return "Content-Encoding";
-		if (key.equals("content encoding")) return "Content-Encoding";
-		if (key.equals("contentencoding")) return "Content-Encoding";
+		if (key.equalsIgnoreCase("content-encoding")) return "Content-Encoding";
+		if (key.equalsIgnoreCase("content_encoding")) return "Content-Encoding";
+		if (key.equalsIgnoreCase("content encoding")) return "Content-Encoding";
+		if (key.equalsIgnoreCase("contentencoding")) return "Content-Encoding";
 
-		if (key.equals("content-language")) return "Content-Language";
-		if (key.equals("content_language")) return "Content-Language";
-		if (key.equals("content language")) return "Content-Language";
-		if (key.equals("contentlanguage")) return "Content-Language";
+		if (key.equalsIgnoreCase("content-language")) return "Content-Language";
+		if (key.equalsIgnoreCase("content_language")) return "Content-Language";
+		if (key.equalsIgnoreCase("content language")) return "Content-Language";
+		if (key.equalsIgnoreCase("contentlanguage")) return "Content-Language";
 
-		if (key.equals("content-length")) return "Content-Length";
-		if (key.equals("content_length")) return "Content-Length";
-		if (key.equals("content length")) return "Content-Length";
-		if (key.equals("contentlength")) return "Content-Length";
+		if (key.equalsIgnoreCase("content-length")) return "Content-Length";
+		if (key.equalsIgnoreCase("content_length")) return "Content-Length";
+		if (key.equalsIgnoreCase("content length")) return "Content-Length";
+		if (key.equalsIgnoreCase("contentlength")) return "Content-Length";
 
-		if (key.equals("content-md5")) return "Content-MD5";
-		if (key.equals("content_md5")) return "Content-MD5";
-		if (key.equals("content md5")) return "Content-MD5";
-		if (key.equals("contentmd5")) return "Content-MD5";
+		if (key.equalsIgnoreCase("content-md5")) return "Content-MD5";
+		if (key.equalsIgnoreCase("content_md5")) return "Content-MD5";
+		if (key.equalsIgnoreCase("content md5")) return "Content-MD5";
+		if (key.equalsIgnoreCase("contentmd5")) return "Content-MD5";
 
-		if (key.equals("content-type")) return "Content-Type";
-		if (key.equals("content_type")) return "Content-Type";
-		if (key.equals("content type")) return "Content-Type";
-		if (key.equals("contenttype")) return "Content-Type";
+		if (key.equalsIgnoreCase("content-type")) return "Content-Type";
+		if (key.equalsIgnoreCase("content_type")) return "Content-Type";
+		if (key.equalsIgnoreCase("content type")) return "Content-Type";
+		if (key.equalsIgnoreCase("contenttype")) return "Content-Type";
 
-		if (key.equals("last-modified")) return "Last-Modified";
-		if (key.equals("last_modified")) return "Last-Modified";
-		if (key.equals("last modified")) return "Last-Modified";
-		if (key.equals("lastmodified")) return "Last-Modified";
+		if (key.equalsIgnoreCase("last-modified")) return "Last-Modified";
+		if (key.equalsIgnoreCase("last_modified")) return "Last-Modified";
+		if (key.equalsIgnoreCase("last modified")) return "Last-Modified";
+		if (key.equalsIgnoreCase("lastmodified")) return "Last-Modified";
 
-		if (key.equals("md5_hash")) return "md5-hash";
-		if (key.equals("md5_hash")) return "md5-hash";
-		if (key.equals("md5_hash")) return "md5-hash";
-		if (key.equals("md5_hash")) return "md5-hash";
+		if (key.equalsIgnoreCase("md5_hash")) return "md5-hash";
+		if (key.equalsIgnoreCase("md5_hash")) return "md5-hash";
+		if (key.equalsIgnoreCase("md5_hash")) return "md5-hash";
+		if (key.equalsIgnoreCase("md5_hash")) return "md5-hash";
 
-		if (key.equals("date")) return "Date";
-		if (key.equals("etag")) return "ETag";
+		if (key.equalsIgnoreCase("date")) return "Date";
+		if (key.equalsIgnoreCase("etag")) return "ETag";
 
-		return key.getString();
+		return key;
 	}
 
 	public void addAccessControlList(String bucketName, String objectName, Object objACL) throws S3Exception, PageException {

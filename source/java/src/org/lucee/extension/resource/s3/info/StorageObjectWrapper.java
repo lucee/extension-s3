@@ -29,7 +29,9 @@ import java.util.Map.Entry;
 
 import org.lucee.extension.resource.s3.S3;
 import org.lucee.extension.resource.s3.S3Exception;
+import org.lucee.extension.resource.s3.util.print;
 
+import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.Owner;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 
@@ -203,16 +205,37 @@ public final class StorageObjectWrapper extends S3InfoSupport {
 	public Struct getMetaData() throws S3Exception {
 		Struct data = super.getMetaData();
 
-		Map<String, Object> rmd = s3.getObjectMetadata(getBucketName(), getObjectName()).getRawMetadata();
+		ObjectMetadata omd = s3.getObjectMetadata(getBucketName(), getObjectName());
 
-		Iterator<Entry<String, Object>> it = rmd.entrySet().iterator();
-		Entry<String, Object> e;
-		String name;
-		while (it.hasNext()) {
-			e = it.next();
-			name = Util.replace(e.getKey(), "-", "", true);
-			name = Character.toLowerCase(name.charAt(0)) + (name.length() > 1 ? name.substring(1) : "");
-			data.setEL(name, e.getValue());
+		// raw
+		{
+			Map<String, Object> rmd = omd.getRawMetadata();
+			Iterator<Entry<String, Object>> it = rmd.entrySet().iterator();
+			Entry<String, Object> e;
+			String name;
+			while (it.hasNext()) {
+				e = it.next();
+				name = Util.replace(e.getKey(), "-", "", true);
+				name = Character.toLowerCase(name.charAt(0)) + (name.length() > 1 ? name.substring(1) : "");
+				data.setEL(name, e.getValue());
+			}
+		}
+
+		// user
+		{
+			print.e("----- user ----");
+			Map<String, String> umd = omd.getUserMetadata();
+			print.e(umd);
+			Iterator<Entry<String, String>> it = umd.entrySet().iterator();
+			Entry<String, String> e;
+			String name;
+			while (it.hasNext()) {
+				e = it.next();
+				name = Util.replace(e.getKey(), "-", "", true);
+				name = Character.toLowerCase(name.charAt(0)) + (name.length() > 1 ? name.substring(1) : "");
+				data.setEL(name, e.getValue());
+				print.e(name + "->" + e.getValue());
+			}
 		}
 
 		Array acl = s3.getAccessControlList(getBucketName(), getObjectName());

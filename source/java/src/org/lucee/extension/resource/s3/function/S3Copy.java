@@ -22,7 +22,7 @@ public class S3Copy extends S3Function {
 		try {
 			// create S3 Instance
 			S3 s3 = S3ResourceProvider.getS3(toS3Properties(pc, accessKeyId, secretAccessKey), toTimeout(timeout));
-			s3.copy(srcBucketName, srcObjectName, trgBucketName, trgObjectName, null, null);
+			s3.copyObject(srcBucketName, srcObjectName, trgBucketName, trgObjectName, null, null);
 		}
 		catch (Exception e) {
 			throw eng.getCastUtil().toPageException(e);

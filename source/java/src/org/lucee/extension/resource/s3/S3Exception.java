@@ -29,6 +29,10 @@ public class S3Exception extends IOException {
 		super(message);
 	}
 
+	public S3Exception(String message, Throwable t) {
+		super(message, t);
+	}
+
 	public void setErrorCode(String ec) {
 		this.ec = ec;
 	}

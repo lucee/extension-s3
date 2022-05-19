@@ -521,7 +521,7 @@ public final class S3Resource extends ResourceSupport {
 			S3Resource t = (S3Resource) to;
 			// whe have the same container
 			if (f.s3.getAccessKeyId().equals(t.s3.getAccessKeyId()) && f.s3.getSecretAccessKey().equals(t.s3.getSecretAccessKey())) {
-				s3.copy(f.bucketName, f.objectName, t.bucketName, t.objectName, null, null);
+				s3.copyObject(f.bucketName, f.objectName, t.bucketName, t.objectName, null, null);
 				return;
 			}
 
@@ -537,7 +537,7 @@ public final class S3Resource extends ResourceSupport {
 			S3Resource s3Trg = (S3Resource) trg;
 			// we have the same container
 			if (s3Trg.s3.getAccessKeyId().equals(s3Src.s3.getAccessKeyId()) && s3Trg.s3.getSecretAccessKey().equals(s3Src.s3.getSecretAccessKey())) {
-				s3.move(s3Src.bucketName, s3Src.objectName, s3Trg.bucketName, s3Trg.objectName, null, null);
+				s3.moveObject(s3Src.bucketName, s3Src.objectName, s3Trg.bucketName, s3Trg.objectName, null, null);
 				return;
 			}
 		}
