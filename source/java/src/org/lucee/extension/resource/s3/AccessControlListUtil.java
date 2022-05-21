@@ -233,12 +233,18 @@ public class AccessControlListUtil {
 		String p = permission;
 		permission = removeWordDelimter(permission);
 
-		if ("FULLCONTROL".equals(permission)) return Permission.FullControl;
-		else if ("WRITEACP".equals(permission)) return Permission.WriteAcp;
-		else if ("READACP".equals(permission)) return Permission.ReadAcp;
-		else if ("WRITE".equals(permission)) return Permission.Write;
-		else if ("READ".equals(permission)) return Permission.Read;
+		if ("FULLCONTROL".equalsIgnoreCase(permission)) return Permission.FullControl;
+		else if ("WRITEACP".equalsIgnoreCase(permission)) return Permission.WriteAcp;
+		else if ("READACP".equalsIgnoreCase(permission)) return Permission.ReadAcp;
+		else if ("WRITE".equalsIgnoreCase(permission)) return Permission.Write;
+
+		else if ("READ".equalsIgnoreCase(permission)) return Permission.Read;
+		else if ("PUBLIC-READ".equalsIgnoreCase(permission)) return Permission.Read;
+		else if ("PUBLICREAD".equalsIgnoreCase(permission)) return Permission.Read;
+		else if ("PUBLIC_READ".equalsIgnoreCase(permission)) return Permission.Read;
+
 		else throw new S3Exception("invalid permission definition [" + p + "], valid permissions are [FULL_CONTROL, WRITE, WRITE_ACP, READ, READ_ACP]");
+
 	}
 
 	private static GroupGrantee toGroupGrantee(Struct sct) throws S3Exception {
