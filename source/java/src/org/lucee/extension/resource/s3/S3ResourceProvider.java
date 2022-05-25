@@ -134,14 +134,14 @@ public final class S3ResourceProvider implements ResourceProvider {
 				host = prop.getHost();
 				secretAccessKey = prop.getSecretAccessKey();
 				defaultLocation = prop.getDefaultLocation();
-				defaultACL = S3.toACL(prop, CannedAccessControlList.PublicRead);
+				defaultACL = S3.toACL(prop, null);
 			}
 			else {
 				accessKeyId = null;
 				secretAccessKey = null;
 				host = S3.DEFAULT_HOST;
 				defaultLocation = null;
-				defaultACL = CannedAccessControlList.PublicRead;
+				defaultACL = null;
 			}
 		}
 		if (defaultACL != null) properties.setACL(defaultACL);
