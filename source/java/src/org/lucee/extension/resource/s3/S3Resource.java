@@ -75,7 +75,6 @@ public final class S3Resource extends ResourceSupport {
 		String[] bo = toBO(path);
 		this.bucketName = bo[0];
 		this.objectName = bo[1];
-
 	}
 
 	public static String[] toBO(String path) {
@@ -239,7 +238,8 @@ public final class S3Resource extends ResourceSupport {
 	@Override
 	public OutputStream getOutputStream(boolean append) throws IOException {
 
-		if (isDirectory()) throw new IOException("can't write directory [" + getPath() + "] as a file");
+		if (isBucket()) throw new IOException("You cannot write files directly into the root of S3, you need at least one folder (bucket).");
+		if (isDirectory()) throw new IOException("can't write directory [" + getPath() + "] as a file.");
 
 		if (!isRoot() && !isBucket()) {
 			S3Resource bucket = getBucket();
@@ -264,6 +264,7 @@ public final class S3Resource extends ResourceSupport {
 					Util.closeEL(os);
 				}
 			}
+
 			S3ResourceOutputStream os = new S3ResourceOutputStream(s3, bucketName, objectName, getInnerPath(), acl, location);
 			if (append && !(barr == null || barr.length == 0)) engine.getIOUtil().copy(new ByteArrayInputStream(barr), os, true, false);
 			return os;

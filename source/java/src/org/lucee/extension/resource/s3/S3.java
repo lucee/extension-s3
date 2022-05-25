@@ -2420,7 +2420,7 @@ public class S3 {
 				for (Bucket b: client.listBuckets()) {
 					try {
 						r = toRegions(client.getBucketLocation(b.getName()));
-						if (log != null) log.info("s3", "cache region [" + r.toString() + "] for bucket [" + b.getName() + "]");
+						if (log != null) log.trace("s3", "cache region [" + r.toString() + "] for bucket [" + b.getName() + "]");
 						bucketRegions.put(b.getName(), r);
 						// we don't want this to make to much load
 						sleep(100);
