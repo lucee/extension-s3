@@ -26,9 +26,8 @@ import java.util.Iterator;
 import java.util.List;
 
 import org.lucee.extension.resource.ResourceSupport;
+import org.lucee.extension.resource.s3.acl.ACLList;
 import org.lucee.extension.resource.s3.info.S3Info;
-
-import com.amazonaws.services.s3.model.CannedAccessControlList;
 
 import lucee.commons.io.res.Resource;
 import lucee.commons.io.res.ResourceProvider;
@@ -52,7 +51,7 @@ public final class S3Resource extends ResourceSupport {
 	private final S3Properties props;
 	long infoLastAccessw = 0;
 	private String location = null;
-	private CannedAccessControlList acl;// ="public-read";
+	private ACLList acl;// ="public-read";
 
 	private S3Resource(CFMLEngine engine, S3 s3, S3Properties props, String location, S3ResourceProvider provider, String buckedName, String objectName) {
 		super(engine);

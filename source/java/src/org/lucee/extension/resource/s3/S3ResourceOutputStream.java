@@ -22,14 +22,15 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 
-import com.amazonaws.services.s3.model.CannedAccessControlList;
+import org.lucee.extension.resource.s3.acl.ACLList;
+import org.lucee.extension.resource.s3.acl.AccessControlListUtil;
 
 public final class S3ResourceOutputStream extends OutputStream {
 
 	private final S3 s3;
 	private final String bucketName;
 	private final String objectName;
-	private final CannedAccessControlList acl;
+	private final ACLList acl;
 
 	private String location;
 
@@ -37,11 +38,11 @@ public final class S3ResourceOutputStream extends OutputStream {
 	private FileOutputStream os;
 	private String path;
 
-	public S3ResourceOutputStream(S3 s3, String bucketName, String objectName, String path, CannedAccessControlList acl, String location) throws IOException {
+	public S3ResourceOutputStream(S3 s3, String bucketName, String objectName, String path, Object acl, String location) throws IOException {
 		this.s3 = s3;
 		this.bucketName = bucketName;
 		this.objectName = objectName;
-		this.acl = acl;
+		this.acl = acl == null ? null : AccessControlListUtil.toAccessControlList(acl);
 		this.location = location;
 		this.path = path;
 		temp = File.createTempFile("aws-s3", "tmp");

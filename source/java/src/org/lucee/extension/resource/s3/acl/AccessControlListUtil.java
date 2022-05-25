@@ -16,12 +16,15 @@
  * License along with this library.  If not, see <http://www.gnu.org/licenses/>.
  * 
  **/
-package org.lucee.extension.resource.s3;
+package org.lucee.extension.resource.s3.acl;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+
+import org.lucee.extension.resource.s3.S3;
+import org.lucee.extension.resource.s3.S3Exception;
 
 import com.amazonaws.services.s3.model.AccessControlList;
 import com.amazonaws.services.s3.model.CannedAccessControlList;
@@ -156,7 +159,12 @@ public class AccessControlListUtil {
 		return hash().hashCode();
 	}
 
-	public static Object toAccessControlList(Object objACL) throws S3Exception {
+	public static ACLList toAccessControlList(Object objACL) throws S3Exception {
+
+		if (objACL instanceof ACLList) return (ACLList) objACL;
+		if (objACL instanceof CannedAccessControlList) return new ACLList((CannedAccessControlList) objACL);
+		if (objACL instanceof AccessControlList) return new ACLList((AccessControlList) objACL);
+
 		CFMLEngine engine = CFMLEngineFactory.getInstance();
 		Decision dec = engine.getDecisionUtil();
 		Cast cast = engine.getCastUtil();
@@ -164,7 +172,7 @@ public class AccessControlListUtil {
 		// String
 		if (dec.isSimpleValue(objACL)) {
 			String str = cast.toString(objACL, "");
-			CannedAccessControlList acl = S3.toACL(str, null);
+			ACLList acl = S3.toACL(str, null);
 			if (acl == null) throw new S3Exception("invalid access control list definition [" + str + "]");
 			return acl;
 		}
@@ -175,7 +183,16 @@ public class AccessControlListUtil {
 			if (arr == null || arr.size() == 0) return null;
 			AccessControlList acl = new AccessControlList();
 			acl.grantAllPermissions(toGrantAndPermissions(arr));
-			return acl;
+			return new ACLList(acl);
+		}
+
+		// Struct
+		if (dec.isCastableToStruct(objACL)) {
+			Struct sct = cast.toStruct(objACL, null);
+			if (sct == null || sct.size() == 0) return null;
+			AccessControlList acl = new AccessControlList();
+			acl.grantAllPermissions(new Grant[] { toGrantAndPermission(sct) });
+			return new ACLList(acl);
 		}
 
 		throw new S3Exception("access control list must be an array or a string");

@@ -1,6 +1,8 @@
 package org.lucee.extension.resource.s3;
 
-import com.amazonaws.services.s3.model.CannedAccessControlList;
+import org.lucee.extension.resource.s3.acl.ACLList;
+
+import lucee.loader.util.Util;
 
 public class S3Properties {
 
@@ -8,10 +10,12 @@ public class S3Properties {
 	private String secretAccessKey;
 	private String accessKeyId;
 	private boolean hasCustomCredentials;
-	private CannedAccessControlList acl;
+	private ACLList acl;
+	private String location;
 
 	public void setHost(String host) {
-		this.host = host;
+		if (Util.isEmpty(host, true)) return;
+		this.host = host.trim();
 	}
 
 	public String getHost() {
@@ -19,7 +23,8 @@ public class S3Properties {
 	}
 
 	public void setSecretAccessKey(String secretAccessKey) {
-		this.secretAccessKey = secretAccessKey;
+		if (Util.isEmpty(secretAccessKey, true)) return;
+		this.secretAccessKey = secretAccessKey.trim();
 	}
 
 	public String getSecretAccessKey() {
@@ -27,7 +32,8 @@ public class S3Properties {
 	}
 
 	public void setAccessKeyId(String accessKeyId) {
-		this.accessKeyId = accessKeyId;
+		if (Util.isEmpty(accessKeyId, true)) return;
+		this.accessKeyId = accessKeyId.trim();
 	}
 
 	public String getAccessKeyId() {
@@ -48,11 +54,20 @@ public class S3Properties {
 				.append(secretAccessKey).append(";").append("custom:").append(hasCustomCredentials).append(";").toString();
 	}
 
-	public void setACL(CannedAccessControlList acl) {
+	public void setACL(ACLList acl) {
 		this.acl = acl;
 	}
 
-	public CannedAccessControlList getACL() {
+	public ACLList getACL() {
 		return this.acl;
+	}
+
+	public String getLocation() {
+		return location;
+	}
+
+	public void setLocation(String location) {
+		if (Util.isEmpty(location, true)) return;
+		this.location = location.trim();
 	}
 }

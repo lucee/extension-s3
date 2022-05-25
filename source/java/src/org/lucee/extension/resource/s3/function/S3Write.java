@@ -4,10 +4,11 @@ import java.io.File;
 import java.lang.reflect.Method;
 import java.nio.charset.Charset;
 
-import org.lucee.extension.resource.s3.AccessControlListUtil;
 import org.lucee.extension.resource.s3.S3;
 import org.lucee.extension.resource.s3.S3Exception;
 import org.lucee.extension.resource.s3.S3ResourceProvider;
+import org.lucee.extension.resource.s3.acl.ACLList;
+import org.lucee.extension.resource.s3.acl.AccessControlListUtil;
 
 import lucee.commons.io.res.Resource;
 import lucee.loader.engine.CFMLEngine;
@@ -24,7 +25,7 @@ public class S3Write extends S3Function {
 			String accessKeyId, String secretAccessKey, double timeout) throws PageException {
 		CFMLEngine eng = CFMLEngineFactory.getInstance();
 
-		Object acl = null;
+		ACLList acl = null;
 		try {
 			acl = objACL != null ? AccessControlListUtil.toAccessControlList(objACL) : null;
 		}

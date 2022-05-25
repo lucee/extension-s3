@@ -7,7 +7,6 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.lang.reflect.Method;
 import java.net.URL;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
@@ -20,6 +19,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.lucee.extension.resource.s3.acl.ACLList;
+import org.lucee.extension.resource.s3.acl.AccessControlListUtil;
 import org.lucee.extension.resource.s3.info.NotExisting;
 import org.lucee.extension.resource.s3.info.ParentObject;
 import org.lucee.extension.resource.s3.info.S3BucketWrapper;
@@ -67,7 +68,6 @@ import lucee.loader.engine.CFMLEngine;
 import lucee.loader.engine.CFMLEngineFactory;
 import lucee.loader.util.Util;
 import lucee.runtime.exp.PageException;
-import lucee.runtime.net.s3.Properties;
 import lucee.runtime.type.Array;
 import lucee.runtime.type.Collection.Key;
 import lucee.runtime.type.Query;
@@ -176,13 +176,13 @@ public class S3 {
 	 * @return the bucket created
 	 * @throws S3Exception
 	 */
-	public Bucket createDirectory(String bucketName, Object acl, String targetRegion) throws S3Exception {
+	public Bucket createDirectory(String bucketName, ACLList acl, String targetRegion) throws S3Exception {
 		// flushExists(bucketName);
 		bucketName = improveBucketName(bucketName);
 		targetRegion = improveLocation(targetRegion);
 
 		CreateBucketRequest cbr = new CreateBucketRequest(bucketName);
-		if (acl != null) setACL(cbr, acl);
+		if (acl != null) acl.setACL(cbr);
 
 		try {
 			String region;
@@ -251,7 +251,7 @@ public class S3 {
 	 *            defined the default region defined with the constructor is used
 	 * @throws S3Exception
 	 */
-	public void createDirectory(String bucketName, String objectName, Object acl, final String region) throws S3Exception {
+	public void createDirectory(String bucketName, String objectName, ACLList acl, final String region) throws S3Exception {
 		if (Util.isEmpty(objectName)) {
 			createDirectory(bucketName, acl, region);
 			return;
@@ -269,7 +269,7 @@ public class S3 {
 
 			// create a PutObjectRequest passing the folder name suffixed by /
 			PutObjectRequest por = new PutObjectRequest(bucketName, objectName, new ByteArrayInputStream(new byte[0]), md);
-			if (acl != null) setACL(por, acl);
+			if (acl != null) acl.setACL(por);
 
 			// send request to S3 to create folder
 			AmazonS3Client client = getAmazonS3(bucketName, region);
@@ -304,7 +304,7 @@ public class S3 {
 	 *            defined the default region defined with the constructor is used
 	 * @throws S3Exception
 	 */
-	public void createFile(String bucketName, String objectName, Object acl, String region) throws S3Exception {
+	public void createFile(String bucketName, String objectName, ACLList acl, String region) throws S3Exception {
 		bucketName = improveBucketName(bucketName);
 		objectName = improveObjectName(objectName, false);
 
@@ -318,7 +318,7 @@ public class S3 {
 
 		// create a PutObjectRequest passing the folder name suffixed by /
 		PutObjectRequest por = new PutObjectRequest(bucketName, objectName, new ByteArrayInputStream(new byte[0]), md);
-		if (acl != null) setACL(por, acl);
+		if (acl != null) acl.setACL(por);
 		try {
 			AmazonS3Client client = getAmazonS3(bucketName, region);
 			// send request to S3 to create folder
@@ -1164,7 +1164,7 @@ public class S3 {
 	 *            does not exist yet)
 	 * @throws S3Exception
 	 */
-	public void copyObject(String srcBucketName, String srcObjectName, String trgBucketName, String trgObjectName, Object acl, String targetRegion) throws S3Exception {
+	public void copyObject(String srcBucketName, String srcObjectName, String trgBucketName, String trgObjectName, ACLList acl, String targetRegion) throws S3Exception {
 		srcBucketName = improveBucketName(srcBucketName);
 		srcObjectName = improveObjectName(srcObjectName, false);
 		trgBucketName = improveBucketName(trgBucketName);
@@ -1175,7 +1175,7 @@ public class S3 {
 		try {
 			CopyObjectRequest cor = new CopyObjectRequest(srcBucketName, srcObjectName, trgBucketName, trgObjectName);
 
-			if (acl != null) setACL(cor, acl);
+			if (acl != null) acl.setACL(cor);
 			try {
 				client.copyObject(cor);
 			}
@@ -1189,10 +1189,13 @@ public class S3 {
 					throw toS3Exception(se);
 				}
 				else if (se.getErrorCode().equals("NoSuchBucket") && !client.doesBucketExistV2(trgBucketName)) {
-					if (acl == null) acl = client.getBucketAcl(srcBucketName);
+					if (acl == null) {
+						AccessControlList tmp = client.getBucketAcl(srcBucketName);
+						if (tmp != null) acl = new ACLList(tmp);
+					}
 
 					CreateBucketRequest cbr = new CreateBucketRequest(trgBucketName);
-					if (acl != null) setACL(cbr, acl);
+					if (acl != null) acl.setACL(cbr);
 
 					// if no target region is defined, we create the bucket with the same region as the source
 					if (Util.isEmpty(targetRegion)) {
@@ -1231,9 +1234,8 @@ public class S3 {
 	 *            does not exist yet)
 	 * @throws S3Exception
 	 */
-	public void moveObject(String srcBucketName, String srcObjectName, String trgBucketName, String trgObjectName, CannedAccessControlList cacl, String targetRegion)
-			throws S3Exception {
-		copyObject(srcBucketName, srcObjectName, trgBucketName, trgObjectName, cacl, targetRegion);
+	public void moveObject(String srcBucketName, String srcObjectName, String trgBucketName, String trgObjectName, ACLList acl, String targetRegion) throws S3Exception {
+		copyObject(srcBucketName, srcObjectName, trgBucketName, trgObjectName, acl, targetRegion);
 		delete(srcBucketName, srcObjectName, true);
 	}
 
@@ -1290,7 +1292,7 @@ public class S3 {
 	 * @throws S3Exception
 	 */
 
-	public void write(String bucketName, String objectName, String data, String mimeType, Charset charset, Object acl, String region) throws IOException {
+	public void write(String bucketName, String objectName, String data, String mimeType, Charset charset, ACLList acl, String region) throws IOException {
 		bucketName = improveBucketName(bucketName);
 		objectName = improveObjectName(objectName, false);
 		flushExists(bucketName, objectName);
@@ -1321,7 +1323,7 @@ public class S3 {
 				md.setContentLength(bytes.length);
 				PutObjectRequest por = new PutObjectRequest(bucketName, objectName, new ByteArrayInputStream(bytes), md);
 
-				if (acl != null) setACL(por, acl);
+				if (acl != null) acl.setACL(por);
 				try {
 					// send request to S3 to create folder
 					try {
@@ -1366,7 +1368,7 @@ public class S3 {
 	 * @throws S3Exception
 	 */
 
-	public void write(String bucketName, String objectName, byte[] data, String mimeType, Object acl, String region) throws IOException {
+	public void write(String bucketName, String objectName, byte[] data, String mimeType, ACLList acl, String region) throws IOException {
 		bucketName = improveBucketName(bucketName);
 		objectName = improveObjectName(objectName, false);
 
@@ -1391,7 +1393,7 @@ public class S3 {
 			String ct = CFMLEngineFactory.getInstance().getResourceUtil().getMimeType(data, null);
 			if (ct != null) md.setContentType(ct);
 			md.setLastModified(new Date());
-			if (acl != null) setACL(por, acl);
+			if (acl != null) acl.setACL(por);
 			try {
 				// send request to S3 to create folder
 				try {
@@ -1417,7 +1419,7 @@ public class S3 {
 		}
 	}
 
-	public void write(String bucketName, String objectName, File file, Object acl, String region) throws IOException {
+	public void write(String bucketName, String objectName, File file, ACLList acl, String region) throws IOException {
 		bucketName = improveBucketName(bucketName);
 		objectName = improveObjectName(objectName, false);
 
@@ -1488,7 +1490,7 @@ public class S3 {
 		else {
 			// create a PutObjectRequest passing the folder name suffixed by /
 			PutObjectRequest por = new PutObjectRequest(bucketName, objectName, file);
-			if (acl != null) setACL(por, acl);
+			if (acl != null) acl.setACL(por);
 			por.setMetadata(md);
 			try {
 				client.putObject(por);
@@ -1522,7 +1524,7 @@ public class S3 {
 		}
 	}
 
-	public void write(String bucketName, String objectName, Resource res, Object acl, String region) throws IOException {
+	public void write(String bucketName, String objectName, Resource res, ACLList acl, String region) throws IOException {
 
 		if (res instanceof File) {
 			write(bucketName, objectName, (File) res, acl, region);
@@ -1560,7 +1562,7 @@ public class S3 {
 
 				try {
 					PutObjectRequest por = new PutObjectRequest(bucketName, objectName, is = res.getInputStream(), md);
-					if (acl != null) setACL(por, acl);
+					if (acl != null) acl.setACL(por);
 
 					client.putObject(por);
 					flushExists(bucketName, objectName);
@@ -1873,22 +1875,21 @@ public class S3 {
 		}
 	}
 
-	public void setACL(AmazonS3 s, String bucketName, String objectName, Object acl) throws S3Exception {
-
+	public void setACL(AmazonS3 s, String bucketName, String objectName, Object objACL) throws S3Exception {
+		ACLList acl = AccessControlListUtil.toAccessControlList(objACL);
 		bucketName = improveBucketName(bucketName);
 		objectName = improveObjectName(objectName);
 		String key = toKey(bucketName, objectName);
 
 		try {
 			if (Util.isEmpty(objectName)) {
-				if (acl instanceof AccessControlList) s.setBucketAcl(bucketName, (AccessControlList) acl);
-				else s.setBucketAcl(bucketName, (CannedAccessControlList) acl);
+				if (acl.isCanned()) s.setBucketAcl(bucketName, acl.cacl);
+				else s.setBucketAcl(bucketName, acl.acl);
 			}
 			else {
-				if (acl instanceof AccessControlList) s.setObjectAcl(bucketName, objectName, (AccessControlList) acl);
-				else s.setObjectAcl(bucketName, objectName, (CannedAccessControlList) acl);
+				if (acl.isCanned()) s.setObjectAcl(bucketName, objectName, acl.cacl);
+				else s.setObjectAcl(bucketName, objectName, acl.acl);
 			}
-
 			accessControlLists.remove(key);
 		}
 		catch (AmazonServiceException se) {
@@ -2024,47 +2025,46 @@ public class S3 {
 		return region.getName(); // WASABi does not work with toString()
 	}
 
-	public static CannedAccessControlList toACL(String acl, CannedAccessControlList defaultValue) {
+	public static ACLList toACL(String acl, ACLList defaultValue) {
 		if (acl == null) return defaultValue;
 
 		acl = acl.trim().toLowerCase();
 
-		if ("public-read".equals(acl)) return CannedAccessControlList.PublicRead;
-		if ("public read".equals(acl)) return CannedAccessControlList.PublicRead;
-		if ("public_read".equals(acl)) return CannedAccessControlList.PublicRead;
-		if ("publicread".equals(acl)) return CannedAccessControlList.PublicRead;
+		if ("public-read".equals(acl)) return ACLList.CannedPublicRead;
+		if ("public read".equals(acl)) return ACLList.CannedPublicRead;
+		if ("public_read".equals(acl)) return ACLList.CannedPublicRead;
+		if ("publicread".equals(acl)) return ACLList.CannedPublicRead;
 
-		if ("private".equals(acl)) return CannedAccessControlList.Private;
+		if ("private".equals(acl)) return ACLList.CannedPrivate;
 
-		if ("public-read-write".equals(acl)) return CannedAccessControlList.PublicReadWrite;
-		if ("public read write".equals(acl)) return CannedAccessControlList.PublicReadWrite;
-		if ("public_read_write".equals(acl)) return CannedAccessControlList.PublicReadWrite;
-		if ("publicreadwrite".equals(acl)) return CannedAccessControlList.PublicReadWrite;
+		if ("public-read-write".equals(acl)) return ACLList.CannedPublicReadWrite;
+		if ("public read write".equals(acl)) return ACLList.CannedPublicReadWrite;
+		if ("public_read_write".equals(acl)) return ACLList.CannedPublicReadWrite;
+		if ("publicreadwrite".equals(acl)) return ACLList.CannedPublicReadWrite;
 
-		if ("authenticated-read".equals(acl)) return CannedAccessControlList.AuthenticatedRead;
-		if ("authenticated read".equals(acl)) return CannedAccessControlList.AuthenticatedRead;
-		if ("authenticated_read".equals(acl)) return CannedAccessControlList.AuthenticatedRead;
-		if ("authenticatedread".equals(acl)) return CannedAccessControlList.AuthenticatedRead;
+		if ("authenticated-read".equals(acl)) return ACLList.CannedAuthenticatedRead;
+		if ("authenticated read".equals(acl)) return ACLList.CannedAuthenticatedRead;
+		if ("authenticated_read".equals(acl)) return ACLList.CannedAuthenticatedRead;
+		if ("authenticatedread".equals(acl)) return ACLList.CannedAuthenticatedRead;
 
-		if ("authenticate-read".equals(acl)) return CannedAccessControlList.AuthenticatedRead;
-		if ("authenticate read".equals(acl)) return CannedAccessControlList.AuthenticatedRead;
-		if ("authenticate_read".equals(acl)) return CannedAccessControlList.AuthenticatedRead;
-		if ("authenticateread".equals(acl)) return CannedAccessControlList.AuthenticatedRead;
+		if ("authenticate-read".equals(acl)) return ACLList.CannedAuthenticatedRead;
+		if ("authenticate read".equals(acl)) return ACLList.CannedAuthenticatedRead;
+		if ("authenticate_read".equals(acl)) return ACLList.CannedAuthenticatedRead;
+		if ("authenticateread".equals(acl)) return ACLList.CannedAuthenticatedRead;
 
 		return defaultValue;
 	}
 
-	public static CannedAccessControlList toACL(Properties prop, CannedAccessControlList defaultValue) {
-		try {
-			Method m = prop.getClass().getMethod("getACL", new Class[0]);
-			String str = CFMLEngineFactory.getInstance().getCastUtil().toString(m.invoke(prop, new Object[0]), null);
-			if (Util.isEmpty(str)) return defaultValue;
-			return toACL(str, defaultValue);
-		}
-		catch (Exception e) {
-		}
-		return defaultValue;
-	}
+	/*
+	 * public static Object toACLXX(Properties prop, Object defaultValue) { try { Method m =
+	 * prop.getClass().getMethod("getACL", new Class[0]); Object obj = m.invoke(prop, new Object[0]);
+	 * print.e(obj); String str = CFMLEngineFactory.getInstance().getCastUtil().toString(m.invoke(prop,
+	 * new Object[0]), null); if (obj != null && str == null)
+	 * AccessControlListUtil.toAccessControlList(obj);
+	 * 
+	 * print.e("->" + str); if (Util.isEmpty(str)) return defaultValue; return toACL(str, defaultValue);
+	 * } catch (Exception e) { } return defaultValue; }
+	 */
 
 	private List<KeyVersion> toObjectKeyAndVersions(List<S3ObjectSummary> summeries) {
 		List<KeyVersion> trg = new ArrayList<>();
@@ -2275,21 +2275,6 @@ public class S3 {
 			lock = newLock;
 		}
 		return lock;
-	}
-
-	private static void setACL(PutObjectRequest por, Object acl) {
-		if (acl instanceof CannedAccessControlList) por.setCannedAcl((CannedAccessControlList) acl);
-		else por.setAccessControlList((AccessControlList) acl);
-	}
-
-	private static void setACL(CreateBucketRequest por, Object acl) {
-		if (acl instanceof CannedAccessControlList) por.setCannedAcl((CannedAccessControlList) acl);
-		else por.setAccessControlList((AccessControlList) acl);
-	}
-
-	private static void setACL(CopyObjectRequest por, Object acl) {
-		if (acl instanceof CannedAccessControlList) por.setCannedAccessControlList((CannedAccessControlList) acl);
-		else por.setAccessControlList((AccessControlList) acl);
 	}
 
 	private static HostData toHostData(String host) throws S3Exception {

@@ -21,7 +21,8 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-import com.amazonaws.services.s3.model.CannedAccessControlList;
+import org.lucee.extension.resource.s3.acl.ACLList;
+import org.lucee.extension.resource.s3.acl.AccessControlListUtil;
 
 import lucee.commons.io.res.Resource;
 import lucee.commons.io.res.ResourceLock;
@@ -32,7 +33,8 @@ import lucee.loader.engine.CFMLEngine;
 import lucee.loader.engine.CFMLEngineFactory;
 import lucee.loader.util.Util;
 import lucee.runtime.PageContext;
-import lucee.runtime.net.s3.Properties;
+import lucee.runtime.ext.function.BIF;
+import lucee.runtime.type.Struct;
 
 public final class S3ResourceProvider implements ResourceProvider {
 
@@ -45,6 +47,8 @@ public final class S3ResourceProvider implements ResourceProvider {
 	private String scheme = "s3";
 	private Map arguments;
 	private static Map<String, S3> s3s = new ConcurrentHashMap<String, S3>();
+
+	private static BIF getApplicationSettings;
 
 	/**
 	 * initalize ram resource
@@ -118,23 +122,64 @@ public final class S3ResourceProvider implements ResourceProvider {
 		return new S3Resource(engine, getS3(props, cache), props, location.getValue(), this, path);
 	}
 
+	private static S3Properties loadProperties(PageContext pc) {
+		if (pc == null) return null;
+		CFMLEngine eng = CFMLEngineFactory.getInstance();
+		try {
+			if (getApplicationSettings == null || getApplicationSettings.getClass().getClassLoader() != pc.getClass().getClassLoader())
+				getApplicationSettings = eng.getClassUtil().loadBIF(pc, "lucee.runtime.functions.system.GetApplicationSettings");
+			Struct sct = (Struct) getApplicationSettings.invoke(pc, new Object[0]);
+			if (sct != null) {
+				Struct s3Sct = eng.getCastUtil().toStruct(sct.get("s3"), null);
+				if (s3Sct != null) {
+					S3Properties props = new S3Properties();
+					String accessKeyId = eng.getCastUtil().toString(s3Sct.get("accessKeyId"), null);
+					if (Util.isEmpty(accessKeyId)) accessKeyId = eng.getCastUtil().toString(s3Sct.get("accessKey"), null);
+					if (!Util.isEmpty(accessKeyId)) props.setAccessKeyId(accessKeyId);
+
+					String secretKey = eng.getCastUtil().toString(s3Sct.get("secretKey"), null);
+					if (Util.isEmpty(secretKey)) secretKey = eng.getCastUtil().toString(s3Sct.get("secretKeyId"), null);
+					if (Util.isEmpty(secretKey)) secretKey = eng.getCastUtil().toString(s3Sct.get("secret"), null);
+					if (!Util.isEmpty(secretKey)) props.setSecretAccessKey(secretKey);
+
+					String defaultLocation = eng.getCastUtil().toString(s3Sct.get("defaultLocation"), null);
+					if (Util.isEmpty(defaultLocation)) defaultLocation = eng.getCastUtil().toString(s3Sct.get("location"), null);
+					if (!Util.isEmpty(defaultLocation)) props.setLocation(defaultLocation);
+
+					String host = eng.getCastUtil().toString(s3Sct.get("host"), null);
+					if (Util.isEmpty(host)) defaultLocation = eng.getCastUtil().toString(s3Sct.get("server"), null);
+					if (!Util.isEmpty(host)) props.setHost(host);
+
+					Object acl = s3Sct.get("acl");
+					if (acl == null) acl = s3Sct.get("accesscontrollist");
+					if (acl != null) props.setACL(AccessControlListUtil.toAccessControlList(acl));
+					return props;
+				}
+
+			}
+		}
+		catch (Exception e) {
+		}
+		return null;
+	}
+
 	public static String loadWithNewPattern(S3Properties properties, RefString storage, String path, boolean errorWhenNoCred) {
 		PageContext pc = CFMLEngineFactory.getInstance().getThreadPageContext();
 
 		boolean hasCustomCredentials = false;
 		String accessKeyId, host, secretAccessKey;
 		String defaultLocation;
-		CannedAccessControlList defaultACL;
+		ACLList defaultACL;
 		{
-			Properties prop = null;
-			if (pc != null) prop = pc.getApplicationContext().getS3();
 
-			if (prop != null) {
-				accessKeyId = prop.getAccessKeyId();
-				host = prop.getHost();
-				secretAccessKey = prop.getSecretAccessKey();
-				defaultLocation = prop.getDefaultLocation();
-				defaultACL = S3.toACL(prop, null);
+			S3Properties props = (pc != null) ? loadProperties(pc) : null;
+
+			if (props != null) {
+				accessKeyId = props.getAccessKeyId();
+				host = props.getHost();
+				secretAccessKey = props.getSecretAccessKey();
+				defaultLocation = props.getLocation();
+				defaultACL = props.getACL();
 			}
 			else {
 				accessKeyId = null;
@@ -173,7 +218,9 @@ public final class S3ResourceProvider implements ResourceProvider {
 			}
 			else accessKeyId = path.substring(0, atIndex);
 		}
-		path = prettifyPath(path.substring(atIndex + 1));
+		path =
+
+				prettifyPath(path.substring(atIndex + 1));
 		index = path.indexOf('/');
 		properties.setHost(host);
 		if (index == -1) {
