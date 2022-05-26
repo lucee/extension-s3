@@ -103,7 +103,7 @@ public final class S3Resource extends ResourceSupport {
 
 	@Override
 	public void createDirectory(boolean createParentWhenNotExists) throws IOException {
-		if (isRoot()) throw new S3Exception("you cannot manipulate the root of the S3 Service!");
+		if (isRoot()) throw new S3Exception("You cannot manipulate the root of the S3 Service!");
 
 		engine.getResourceUtil().checkCreateDirectoryOK(this, createParentWhenNotExists);
 
@@ -124,10 +124,10 @@ public final class S3Resource extends ResourceSupport {
 
 	@Override
 	public void createFile(boolean createParentWhenNotExists) throws IOException {
-		if (isRoot()) throw new S3Exception("you cannot manipulate the root of the S3 Service!");
+		if (isRoot()) throw new S3Exception("You cannot manipulate the root of the S3 Service!");
 
 		engine.getResourceUtil().checkCreateFileOK(this, createParentWhenNotExists);
-		if (isBucket()) throw new IOException("can't create file [" + getPath() + "], on this level (Bucket Level) you can only create directories");
+		if (isBucket()) throw new IOException("Can't create file [" + getPath() + "], on this level (Bucket Level) you can only create directories");
 		try {
 			provider.lock(this);
 			s3.createFile(bucketName, objectName, acl, location);
@@ -238,13 +238,14 @@ public final class S3Resource extends ResourceSupport {
 	@Override
 	public OutputStream getOutputStream(boolean append) throws IOException {
 
-		if (isBucket()) throw new IOException("You cannot write files directly into the root of S3, you need at least one folder (bucket).");
-		if (isDirectory()) throw new IOException("can't write directory [" + getPath() + "] as a file.");
+		if (isBucket()) throw new IOException("Bucket is mandatory when writing a file to S3  [" + getPath() + "]");
+		if (isDirectory()) throw new IOException("Can't write to file [" + getPath() + "], as it's an existing directory.");
 
 		if (!isRoot() && !isBucket()) {
 			S3Resource bucket = getBucket();
 			if (bucket != null) {
-				if (!bucket.exists()) throw new IOException("can't write object [" + getPath() + "] as a file, missing parent bucket [" + bucket.getPath() + "]");
+				if (!bucket.exists()) throw new IOException("Can't write file [" + getPath() + "], as bucket [" 
+					+ bucket.getPath() + "] doesn't exist or cannot be accessed");
 			}
 		}
 
@@ -399,7 +400,7 @@ public final class S3Resource extends ResourceSupport {
 
 	@Override
 	public void remove(boolean force) throws IOException {
-		if (isRoot()) throw new IOException("can not remove root of S3 Service");
+		if (isRoot()) throw new IOException("Can not remove root of S3 Service");
 
 		engine.getResourceUtil().checkRemoveOK(this);
 		if (isBucket()) {
