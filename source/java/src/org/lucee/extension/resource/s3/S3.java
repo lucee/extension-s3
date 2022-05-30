@@ -25,10 +25,6 @@ import org.lucee.extension.resource.s3.info.ParentObject;
 import org.lucee.extension.resource.s3.info.S3BucketWrapper;
 import org.lucee.extension.resource.s3.info.S3Info;
 import org.lucee.extension.resource.s3.info.StorageObjectWrapper;
-import org.lucee.extension.resource.s3.pool.AmazonS3Client;
-import org.lucee.extension.resource.s3.pool.AmazonS3Pool;
-import org.lucee.extension.resource.s3.pool.AmazonS3PoolConfig;
-import org.lucee.extension.resource.s3.pool.AmazonS3PoolFactory;
 import org.lucee.extension.resource.s3.util.XMLUtil;
 
 import com.amazonaws.AmazonServiceException;
@@ -91,7 +87,6 @@ public class S3 {
 	}
 
 	public static final String DEFAULT_HOST = "s3.amazonaws.com";
-	public static final long DEFAULT_IDLE_TIMEOUT = 30000L;
 	public static final long DEFAULT_LIVE_TIMEOUT = 600000L;
 
 	public static final String[] PROVIDERS = new String[] { ".amazonaws.com", ".wasabisys.com", ".backblaze.com", ".digitaloceanspaces.com", ".dream.io" };
@@ -102,9 +97,8 @@ public class S3 {
 	private final String secretAccessKey;
 	private final String accessKeyId;
 	private final boolean customCredentials;
+	private final boolean customHost;
 	private final long cacheTimeout;
-
-	private Map<String, AmazonS3Pool> pools = new ConcurrentHashMap<>();
 
 	/////////////////////// CACHE ////////////////
 	private ValidUntilMap<S3BucketWrapper> buckets;
@@ -117,7 +111,6 @@ public class S3 {
 	private Log log;
 
 	private String defaultRegion;
-	private final long idleTimeout;
 	private final long liveTimeout;
 
 	/**
@@ -129,14 +122,14 @@ public class S3 {
 	 * @param log
 	 * @throws S3Exception
 	 */
-	public S3(S3Properties props, long cacheTimeout, long idleTimeout, long liveTimeout, String defaultRegion, boolean cacheRegions, Log log) {
+	public S3(S3Properties props, long cacheTimeout, long liveTimeout, String defaultRegion, boolean cacheRegions, Log log) {
 		this.host = props.getHost();
 		this.secretAccessKey = props.getSecretAccessKey();
 		this.accessKeyId = props.getAccessKeyId();
 		this.cacheTimeout = cacheTimeout;
-		this.idleTimeout = idleTimeout;
 		this.liveTimeout = liveTimeout;
 		this.customCredentials = props.getCustomCredentials();
+		this.customHost = props.getCustomHost();
 		if (Util.isEmpty(defaultRegion, true)) defaultRegion = toString(Regions.US_EAST_2);
 		else {
 			try {
@@ -1916,31 +1909,9 @@ public class S3 {
 
 	private AmazonS3Client getAmazonS3(String bucketName, String strRegion) throws S3Exception {
 		if (Util.isEmpty(accessKeyId) || Util.isEmpty(secretAccessKey)) throw new S3Exception("Could not found an accessKeyId/secretAccessKey");
-		try {
-			return new AmazonS3Client(this, bucketName, strRegion, log);
-		}
-		catch (Exception e) {
-			throw toS3Exception(e);
-		}
-	}
 
-	public AmazonS3Pool getAmazonS3Pool(String bucketName, String strRegion) throws S3Exception {
 		Regions region = toRegions(bucketName, strRegion);
-		String key = region == null ? "default-region" : toString(region);
-
-		// get the pool
-		AmazonS3Pool pool = pools.get(key);
-		if (pool == null) {
-			synchronized (getToken(key)) {
-				pool = pools.get(key);
-				if (pool == null) {
-					pools.put(key, pool = new AmazonS3Pool(new AmazonS3PoolFactory(host, accessKeyId, secretAccessKey, region, idleTimeout, liveTimeout, log),
-							AmazonS3PoolConfig.getStandardInstance(), null));
-
-				}
-			}
-		}
-		return pool;
+		return AmazonS3Client.get(accessKeyId, secretAccessKey, host, bucketName, region, liveTimeout, log);
 	}
 
 	public Regions getBucketRegion(String bucketName, boolean loadIfNecessary) throws S3Exception {
@@ -1975,7 +1946,7 @@ public class S3 {
 		return r;
 	}
 
-	private Regions toRegions(String bucketName, String strRegion) throws S3Exception {
+	public Regions toRegions(String bucketName, String strRegion) throws S3Exception {
 		if (!Util.isEmpty(strRegion, true)) {
 			return toRegions(strRegion);
 		}
@@ -2268,6 +2239,10 @@ public class S3 {
 		return customCredentials;
 	}
 
+	public boolean getCustomHost() {
+		return customHost;
+	}
+
 	public static Object getToken(String key) {
 		Object newLock = new Object();
 		Object lock = tokens.putIfAbsent(key, newLock);
@@ -2459,6 +2434,10 @@ public class S3 {
 		finally {
 			if (client != null) client.release();
 		}
+	}
+
+	public long getLiveTimeout() {
+		return liveTimeout;
 	}
 
 }

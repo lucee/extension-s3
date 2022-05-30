@@ -29,7 +29,6 @@ import java.util.Map.Entry;
 
 import org.lucee.extension.resource.s3.S3;
 import org.lucee.extension.resource.s3.S3Exception;
-import org.lucee.extension.resource.s3.util.print;
 
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.Owner;
@@ -223,9 +222,7 @@ public final class StorageObjectWrapper extends S3InfoSupport {
 
 		// user
 		{
-			print.e("----- user ----");
 			Map<String, String> umd = omd.getUserMetadata();
-			print.e(umd);
 			Iterator<Entry<String, String>> it = umd.entrySet().iterator();
 			Entry<String, String> e;
 			String name;
@@ -234,7 +231,6 @@ public final class StorageObjectWrapper extends S3InfoSupport {
 				name = Util.replace(e.getKey(), "-", "", true);
 				name = Character.toLowerCase(name.charAt(0)) + (name.length() > 1 ? name.substring(1) : "");
 				data.setEL(name, e.getValue());
-				print.e(name + "->" + e.getValue());
 			}
 		}
 

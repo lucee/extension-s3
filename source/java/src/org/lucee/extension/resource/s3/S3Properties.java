@@ -7,6 +7,7 @@ public class S3Properties {
 	private String host = S3.DEFAULT_HOST;
 	private String secretAccessKey;
 	private String accessKeyId;
+	private boolean hasCustomHost;
 	private boolean hasCustomCredentials;
 	private CannedAccessControlList acl;
 
@@ -40,6 +41,14 @@ public class S3Properties {
 
 	public boolean getCustomCredentials() {
 		return hasCustomCredentials;
+	}
+
+	public void setCustomHost(boolean hasCustomHost) {
+		this.hasCustomHost = hasCustomHost;
+	}
+
+	public boolean getCustomHost() {
+		return hasCustomHost;
 	}
 
 	@Override

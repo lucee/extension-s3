@@ -174,8 +174,8 @@ public final class S3Resource extends ResourceSupport {
 		String sak = s3.getSecretAccessKey();
 
 		StringBuilder sb = new StringBuilder(provider.getScheme()).append("://");
-		boolean doHost = !s3.getHost().equals(S3.DEFAULT_HOST) && s3.getHost().length() > 0;
-
+		boolean doHost = s3.getCustomHost() && !s3.getHost().equals(S3.DEFAULT_HOST) && s3.getHost().length() > 0;
+		boolean hasAt = false;
 		if (s3.getCustomCredentials() && !engine.getStringUtil().isEmpty(aki)) {
 			sb.append(aki);
 			if (!engine.getStringUtil().isEmpty(sak)) {
@@ -184,10 +184,14 @@ public final class S3Resource extends ResourceSupport {
 					sb.append(":").append(S3.improveLocation(location));
 				}
 			}
-			sb.append("@");
+			sb.append('@');
+			hasAt = true;
 		}
 
-		if (doHost) sb.append(s3.getHost());
+		if (doHost) {
+			if (!hasAt) sb.append('@');
+			sb.append(s3.getHost());
+		}
 
 		return sb.toString();
 	}

@@ -1,19 +1,23 @@
-package org.lucee.extension.resource.s3.pool;
+package org.lucee.extension.resource.s3;
 
 import java.io.File;
 import java.io.InputStream;
 import java.net.URL;
 import java.util.Date;
 import java.util.List;
-
-import org.lucee.extension.resource.s3.S3;
-import org.lucee.extension.resource.s3.S3Exception;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import com.amazonaws.AmazonServiceException;
 import com.amazonaws.AmazonWebServiceRequest;
 import com.amazonaws.HttpMethod;
 import com.amazonaws.SdkClientException;
+import com.amazonaws.auth.AWSStaticCredentialsProvider;
+import com.amazonaws.auth.BasicAWSCredentials;
+import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration;
+import com.amazonaws.regions.Regions;
 import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.S3ClientOptions;
 import com.amazonaws.services.s3.S3ResponseMetadata;
 import com.amazonaws.services.s3.model.*;
@@ -27,21 +31,70 @@ import com.amazonaws.services.s3.waiters.AmazonS3Waiters;
 import lucee.commons.io.log.Log;
 
 public class AmazonS3Client implements AmazonS3 {
-	private S3 s3;
+
+	private static Map<String, AmazonS3Client> pool = new ConcurrentHashMap<String, AmazonS3Client>();
+
+	// private S3 s3;
 	private String bucketName;
-	private String strRegion;
-	private AmazonS3Pool pool;
+	private Regions region;
+
 	private AmazonS3 client;
 	private Log log;
 
-	public AmazonS3Client(S3 s3, String bucketName, String strRegion, Log log) throws Exception {
-		this.s3 = s3;
-		this.bucketName = bucketName;
-		this.strRegion = strRegion;
-		this.log = log;
+	private long created;
 
-		pool = s3.getAmazonS3Pool(bucketName, strRegion);
-		client = pool.borrowObject();
+	private String accessKeyId;
+	private String secretAccessKey;
+	private String host;
+
+	private long liveTimeout;
+
+	public static AmazonS3Client get(String accessKeyId, String secretAccessKey, String host, String bucketName, Regions region, long liveTimeout, Log log) throws S3Exception {
+		String key = accessKeyId + ":" + secretAccessKey + ":" + host + ":" + (region == null ? "default-region" : S3.toString(region));
+		AmazonS3Client client = pool.get(key);
+		if (client == null || client.isExpired()) {
+			pool.put(key, client = new AmazonS3Client(accessKeyId, secretAccessKey, host, bucketName, region, key, liveTimeout, log));
+		}
+		return client;
+	}
+
+	private AmazonS3Client(String accessKeyId, String secretAccessKey, String host, String bucketName, Regions region, String key, long liveTimeout, Log log) throws S3Exception {
+		this.accessKeyId = accessKeyId;
+		this.secretAccessKey = secretAccessKey;
+		this.host = host;
+		this.bucketName = bucketName;
+		this.region = region;
+		this.log = log;
+		this.created = System.currentTimeMillis();
+		client = create();
+		this.liveTimeout = liveTimeout;
+	}
+
+	public AmazonS3 create() throws S3Exception {
+		AmazonS3ClientBuilder builder = AmazonS3ClientBuilder.standard();
+		builder.withCredentials(new AWSStaticCredentialsProvider(new BasicAWSCredentials(accessKeyId, secretAccessKey)));
+		// region or endpoint and region
+		if (host != null && !host.isEmpty() && !host.equalsIgnoreCase(S3.DEFAULT_HOST)) {
+			// TODO serviceEndpoint - the service endpoint either with or without the protocol (e.g.
+			// https://sns.us-west-1.amazonaws.com or sns.us-west-1.amazonaws.com)
+
+			builder = builder.withEndpointConfiguration(new EndpointConfiguration(host, region == null ? "us-east-1" : S3.toString(region)));
+		}
+		else {
+			if (region != null) {
+				builder = builder.withRegion(region);
+			}
+			else {
+				builder = builder.withRegion(Regions.US_EAST_1).withForceGlobalBucketAccessEnabled(true); // The first region to try your request against
+				// If a bucket is in a different region, try again in the correct region
+
+			}
+		}
+		return builder.build();
+	}
+
+	private boolean isExpired() {
+		return (liveTimeout + System.currentTimeMillis()) < created;
 	}
 
 	@Override
@@ -2169,10 +2222,7 @@ public class AmazonS3Client implements AmazonS3 {
 	private void invalidateAmazonS3(IllegalStateException ise) throws AmazonS3Exception {
 		if (log != null) log.error("S3", ise);
 		try {
-			pool.invalidateObject(client);
-			pool.clear();
-			pool = s3.getAmazonS3Pool(bucketName, strRegion);
-			client = pool.borrowObject();
+			client = create();
 		}
 		catch (Exception e) {
 			if (log != null) log.error("S3", e);
@@ -2181,15 +2231,7 @@ public class AmazonS3Client implements AmazonS3 {
 	}
 
 	public void release() throws S3Exception {
-		try {
-			if (pool == null) return; // should never happen unless release is called to many times
-
-			pool.returnObject(client);
-			client = null;
-			pool = null;
-		}
-		catch (Exception e) {
-			throw s3.toS3Exception(e);
-		}
+		// FUTURE remove method
 	}
+
 }

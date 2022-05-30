@@ -83,8 +83,7 @@ public final class S3ResourceProvider implements ResourceProvider {
 		String key = props.toString() + ":" + cache;
 		S3 s3 = s3s.get(key);
 		if (s3 == null) {
-			s3s.put(key, s3 = new S3(props, cache, S3.DEFAULT_IDLE_TIMEOUT, S3.DEFAULT_LIVE_TIMEOUT, null, true,
-					CFMLEngineFactory.getInstance().getThreadConfig().getLog("application")));
+			s3s.put(key, s3 = new S3(props, cache, S3.DEFAULT_LIVE_TIMEOUT, null, true, CFMLEngineFactory.getInstance().getThreadConfig().getLog("application")));
 		}
 		return s3;
 	}
@@ -121,6 +120,7 @@ public final class S3ResourceProvider implements ResourceProvider {
 	public static String loadWithNewPattern(S3Properties properties, RefString storage, String path, boolean errorWhenNoCred) {
 		PageContext pc = CFMLEngineFactory.getInstance().getThreadPageContext();
 
+		boolean hasCustomHost = false;
 		boolean hasCustomCredentials = false;
 		String accessKeyId, host, secretAccessKey;
 		String defaultLocation;
@@ -185,6 +185,7 @@ public final class S3ResourceProvider implements ResourceProvider {
 		else {
 			String _host = path.substring(0, index);
 			if (isS3Host(_host, host)) {
+				hasCustomHost = true;
 				properties.setHost(_host);
 				path = path.substring(index);
 			}
@@ -211,6 +212,7 @@ public final class S3ResourceProvider implements ResourceProvider {
 		properties.setSecretAccessKey(secretAccessKey);
 		properties.setAccessKeyId(accessKeyId);
 		properties.setCustomCredentials(hasCustomCredentials);
+		properties.setCustomHost(hasCustomHost);
 		return path;
 	}
 

@@ -63,6 +63,7 @@ public abstract class S3Function extends BIF {
 					s3props.setSecretAccessKey(secretAccessKey);
 					s3props.setAccessKeyId(accessKeyId);
 					s3props.setCustomCredentials(false);
+					s3props.setCustomHost(false);
 					if (props.getHost() != null) s3props.setHost(props.getHost());
 					return s3props;
 				}
@@ -83,6 +84,7 @@ public abstract class S3Function extends BIF {
 		props.setSecretAccessKey(secretAccessKey);
 		props.setAccessKeyId(accessKeyId);
 		props.setCustomCredentials(false);
+		props.setCustomHost(false);
 
 		return props;
 	}
