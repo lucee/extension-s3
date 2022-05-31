@@ -157,6 +157,8 @@ public class AccessControlListUtil {
 	}
 
 	public static Object toAccessControlList(Object objACL) throws S3Exception {
+		if (objACL instanceof CannedAccessControlList || objACL instanceof AccessControlList) return objACL;
+
 		CFMLEngine engine = CFMLEngineFactory.getInstance();
 		Decision dec = engine.getDecisionUtil();
 		Cast cast = engine.getCastUtil();
