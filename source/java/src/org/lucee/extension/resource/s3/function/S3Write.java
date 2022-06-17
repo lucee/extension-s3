@@ -3,10 +3,7 @@ package org.lucee.extension.resource.s3.function;
 import java.io.File;
 import java.lang.reflect.Method;
 
-import org.jets3t.service.acl.AccessControlList;
-import org.lucee.extension.resource.s3.AccessControlListUtil;
 import org.lucee.extension.resource.s3.S3;
-import org.lucee.extension.resource.s3.S3Exception;
 import org.lucee.extension.resource.s3.S3ResourceProvider;
 
 import lucee.commons.io.res.Resource;
@@ -20,17 +17,10 @@ public class S3Write extends S3Function {
 
 	private static final long serialVersionUID = -1542466765971539713L;
 
-	public static Object call(PageContext pc, String bucketName, String objectName, Object value, String charset, String mimeType, Object objACL, String location,
-			String accessKeyId, String secretAccessKey, double timeout) throws PageException {
+	public static Object call(PageContext pc, String bucketName, String objectName, Object value, String charset, String mimeType, Object acl, String location, String accessKeyId,
+			String secretAccessKey, double timeout) throws PageException {
 		CFMLEngine eng = CFMLEngineFactory.getInstance();
 
-		AccessControlList acl = null;
-		try {
-			acl = objACL != null ? AccessControlListUtil.toAccessControlList(objACL) : null;
-		}
-		catch (S3Exception s3e) {
-			throw eng.getCastUtil().toPageException(s3e);
-		}
 		if (eng.getStringUtil().isEmpty(mimeType, true)) mimeType = null;
 		if (eng.getStringUtil().isEmpty(location, true)) location = null;
 

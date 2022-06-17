@@ -30,6 +30,7 @@ import org.jets3t.service.acl.GrantAndPermission;
 import org.jets3t.service.acl.GranteeInterface;
 import org.jets3t.service.acl.GroupGrantee;
 import org.jets3t.service.acl.Permission;
+import org.jets3t.service.model.StorageOwner;
 
 import lucee.loader.engine.CFMLEngine;
 import lucee.loader.engine.CFMLEngineFactory;
@@ -155,7 +156,10 @@ public class AccessControlListUtil {
 		return hash().hashCode();
 	}
 
-	public static AccessControlList toAccessControlList(Object objACL) throws S3Exception {
+	public static AccessControlList toAccessControlList(Object objACL, StorageOwner owner) throws S3Exception {
+		if (objACL instanceof AccessControlList) return (AccessControlList) objACL;
+		if (objACL == null) return null;
+
 		CFMLEngine engine = CFMLEngineFactory.getInstance();
 		Decision dec = engine.getDecisionUtil();
 		Cast cast = engine.getCastUtil();
@@ -163,8 +167,9 @@ public class AccessControlListUtil {
 		// String
 		if (dec.isSimpleValue(objACL)) {
 			String str = cast.toString(objACL, "");
-			AccessControlList acl = S3.toACL(str, null);
+			AccessControlList acl = S3.toACL(str, owner, null);
 			if (acl == null) throw new S3Exception("invalid access control list definition [" + str + "]");
+			acl.setOwner(owner);
 			return acl;
 		}
 
@@ -174,6 +179,7 @@ public class AccessControlListUtil {
 			if (arr == null || arr.size() == 0) return null;
 			AccessControlList acl = new AccessControlList();
 			acl.grantAllPermissions(toGrantAndPermissions(arr));
+			acl.setOwner(owner);
 			return acl;
 		}
 

@@ -26,6 +26,10 @@ import org.jets3t.service.S3Service;
 import org.jets3t.service.ServiceException;
 import org.jets3t.service.StorageObjectsChunk;
 import org.jets3t.service.acl.AccessControlList;
+import org.jets3t.service.acl.CanonicalGrantee;
+import org.jets3t.service.acl.GrantAndPermission;
+import org.jets3t.service.acl.GroupGrantee;
+import org.jets3t.service.acl.Permission;
 import org.jets3t.service.impl.rest.httpclient.RestS3Service;
 import org.jets3t.service.model.S3Bucket;
 import org.jets3t.service.model.S3Object;
@@ -117,7 +121,7 @@ public class S3 {
 		return secretAccessKey;
 	}
 
-	public S3Bucket createDirectory(String bucketName, AccessControlList acl, String location) throws S3Exception {
+	public S3Bucket createDirectory(String bucketName, Object objACL, String location) throws S3Exception {
 		// flushExists(bucketName);
 
 		bucketName = improveBucketName(bucketName);
@@ -125,8 +129,10 @@ public class S3 {
 		try {
 			S3Bucket bucket;
 			if (!Util.isEmpty(l, true)) {
-				if (acl != null) bucket = getS3Service().createBucket(bucketName, l, acl);
-				else bucket = getS3Service().createBucket(bucketName, l);
+				S3Service s = getS3Service();
+				AccessControlList acl = AccessControlListUtil.toAccessControlList(objACL, null);
+				if (acl != null) bucket = s.createBucket(bucketName, l, acl);
+				else bucket = s.createBucket(bucketName, l);
 			}
 			else bucket = getS3Service().createBucket(bucketName);
 			// buckets.put(bucketName, new S3BucketWrapper(bucket, validUntil()));
@@ -155,9 +161,9 @@ public class S3 {
 	 * @param storage only used when creating a non existing bucket
 	 * @throws IOException
 	 */
-	public void createDirectory(String bucketName, String objectName, AccessControlList acl, String location) throws S3Exception {
+	public void createDirectory(String bucketName, String objectName, Object objACL, String location) throws S3Exception {
 		if (Util.isEmpty(objectName)) {
-			createDirectory(bucketName, acl, location);
+			createDirectory(bucketName, objACL, location);
 			return;
 		}
 
@@ -167,7 +173,14 @@ public class S3 {
 
 		S3Object object = new S3Object("object");
 		object.addMetadata("Content-Type", "application/x-directory");
-		if (acl != null) object.setAcl(acl);
+		if (objACL != null) {
+			try {
+				object.setAcl(AccessControlListUtil.toAccessControlList(objACL, getS3Service().getAccountOwner()));
+			}
+			catch (ServiceException se) {
+				throw toS3Exception(se);
+			}
+		}
 
 		objectName = improveObjectName(objectName, true);
 		object.setName(objectName);
@@ -179,7 +192,7 @@ public class S3 {
 		catch (ServiceException se) {
 			if (exists(bucketName, true)) throw toS3Exception(se);
 
-			S3Bucket bucket = createDirectory(bucketName, acl, location);
+			S3Bucket bucket = createDirectory(bucketName, objACL, location);
 			try {
 				S3Object so = getS3Service().putObject(bucket, object);
 				flushExists(bucketName, objectName);
@@ -887,7 +900,7 @@ public class S3 {
 		createParentDirectory(srcBucketName, srcObjectName, true);
 	}
 
-	public void write(String bucketName, String objectName, String data, String mimeType, String charset, AccessControlList acl, String location) throws IOException {
+	public void write(String bucketName, String objectName, String data, String mimeType, String charset, Object objACL, String location) throws IOException {
 		bucketName = improveBucketName(bucketName);
 		objectName = improveObjectName(objectName, false);
 		flushExists(bucketName, objectName);
@@ -908,7 +921,7 @@ public class S3 {
 				}
 			}
 
-			_write(so, bucketName, objectName, acl, location, split);
+			_write(so, bucketName, objectName, toAccessControlList(objACL, so), location, split);
 			flushExists(bucketName, objectName);
 		}
 		catch (NoSuchAlgorithmException e) {
@@ -916,7 +929,7 @@ public class S3 {
 		}
 	}
 
-	public void write(String bucketName, String objectName, byte[] data, String mimeType, AccessControlList acl, String location) throws IOException {
+	public void write(String bucketName, String objectName, byte[] data, String mimeType, Object objACL, String location) throws IOException {
 		bucketName = improveBucketName(bucketName);
 		objectName = improveObjectName(objectName, false);
 		flushExists(bucketName, objectName);
@@ -925,7 +938,7 @@ public class S3 {
 			S3Object so = new S3Object(objectName, data);
 			if (!Util.isEmpty(mimeType)) so.setContentType(mimeType);
 
-			_write(so, bucketName, objectName, acl, location, data.length >= MAX_SINGLE_SIZE);
+			_write(so, bucketName, objectName, toAccessControlList(objACL, so), location, data.length >= MAX_SINGLE_SIZE);
 			flushExists(bucketName, objectName);
 		}
 		catch (NoSuchAlgorithmException e) {
@@ -933,7 +946,22 @@ public class S3 {
 		}
 	}
 
-	public void write(String bucketName, String objectName, File file, AccessControlList acl, String location) throws IOException {
+	private AccessControlList toAccessControlList(Object objACL, S3Object so) throws S3Exception {
+		if (objACL == null) return null;
+		StorageOwner o = so == null ? null : so.getOwner();
+		if (o == null) {
+			try {
+				o = getS3Service().getAccountOwner();
+			}
+			catch (ServiceException e) {
+				throw toS3Exception(e);
+			}
+		}
+
+		return AccessControlListUtil.toAccessControlList(objACL, o);
+	}
+
+	public void write(String bucketName, String objectName, File file, Object objACL, String location) throws IOException {
 		bucketName = improveBucketName(bucketName);
 		objectName = improveObjectName(objectName, false);
 		flushExists(bucketName, objectName);
@@ -943,7 +971,7 @@ public class S3 {
 			String mt = CFMLEngineFactory.getInstance().getResourceUtil().getMimeType(max1000(file), null);
 			if (mt != null) so.setContentType(mt);
 
-			_write(so, bucketName, objectName, acl, location, file.length() >= MAX_SINGLE_SIZE);
+			_write(so, bucketName, objectName, toAccessControlList(objACL, so), location, file.length() >= MAX_SINGLE_SIZE);
 			flushExists(bucketName, objectName);
 		}
 		catch (NoSuchAlgorithmException e) {
@@ -951,9 +979,9 @@ public class S3 {
 		}
 	}
 
-	public void write(String bucketName, String objectName, Resource res, AccessControlList acl, String location) throws IOException, NoSuchAlgorithmException {
+	public void write(String bucketName, String objectName, Resource res, Object objACL, String location) throws IOException, NoSuchAlgorithmException {
 		if (res instanceof File) {
-			write(bucketName, objectName, (File) res, acl, location);
+			write(bucketName, objectName, (File) res, objACL, location);
 			return;
 		}
 		if (!res.exists()) {
@@ -967,7 +995,7 @@ public class S3 {
 		try {
 			S3Object so = S3ObjectFactory.getInstance(res);
 
-			_write(so, bucketName, objectName, acl, location, res.length() >= MAX_SINGLE_SIZE);
+			_write(so, bucketName, objectName, toAccessControlList(objACL, so), location, res.length() >= MAX_SINGLE_SIZE);
 			flushExists(bucketName, objectName);
 		}
 		finally {
@@ -977,7 +1005,7 @@ public class S3 {
 
 	private void _write(S3Object so, String bucketName, String objectName, AccessControlList acl, String location, boolean split) throws IOException {
 		try {
-
+			print.ds();
 			so.setName(objectName);
 
 			if (acl != null) so.setAcl(acl);
@@ -1183,7 +1211,6 @@ public class S3 {
 	public void setAccessControlList(String bucketName, String objectName, Object objACL) throws S3Exception {
 		bucketName = improveBucketName(bucketName);
 		objectName = improveObjectName(objectName);
-
 		try {
 			S3Service s = getS3Service();
 			bucketName = improveBucketName(bucketName);
@@ -1191,10 +1218,12 @@ public class S3 {
 			if (b == null) throw new S3Exception("there is no bucket with name [" + bucketName + "]");
 
 			AccessControlList oldACL = getACL(s, b, objectName);
-			AccessControlList newACL = AccessControlListUtil.toAccessControlList(objACL);
-
 			StorageOwner aclOwner = oldACL != null ? oldACL.getOwner() : s.getAccountOwner();
+			AccessControlList newACL = AccessControlListUtil.toAccessControlList(objACL, aclOwner);
+
 			newACL.setOwner(aclOwner);
+			// UserByIdGrantee
+
 			setACL(s, b.getName(), objectName, newACL);
 		}
 		catch (ServiceException se) {
@@ -1211,7 +1240,7 @@ public class S3 {
 		return AccessControlListUtil.toArray(acl.getGrantAndPermissions());
 	}
 
-	private AccessControlList getACL(String bucketName, String objectName) throws S3Exception {
+	public AccessControlList getACL(String bucketName, String objectName) throws S3Exception {
 		bucketName = improveBucketName(bucketName);
 		objectName = improveObjectName(objectName);
 
@@ -1348,42 +1377,42 @@ public class S3 {
 		}
 	}
 
-	public static AccessControlList toACL(String acl, AccessControlList defaultValue) {
+	public static AccessControlList toACLx(String acl, AccessControlList defaultValue) {
+		return toACL(acl, null, defaultValue);
+	}
+
+	public static AccessControlList toACL(String acl, StorageOwner owner, AccessControlList defaultValue) {
 		if (acl == null) return defaultValue;
 
 		acl = acl.trim().toLowerCase();
+		AccessControlList _acl = new AccessControlList();
 
-		if ("public-read".equals(acl)) return AccessControlList.REST_CANNED_PUBLIC_READ;
-		if ("public read".equals(acl)) return AccessControlList.REST_CANNED_PUBLIC_READ;
-		if ("public_read".equals(acl)) return AccessControlList.REST_CANNED_PUBLIC_READ;
-		if ("publicread".equals(acl)) return AccessControlList.REST_CANNED_PUBLIC_READ;
+		GrantAndPermission ownerGAP = new GrantAndPermission(new CanonicalGrantee(owner.getId()), Permission.PERMISSION_FULL_CONTROL);
 
-		if ("private".equals(acl)) return AccessControlList.REST_CANNED_PRIVATE;
+		if ("public-read".equals(acl) || "public read".equals(acl) || "public_read".equals(acl) || "publicread".equals(acl)) {
+			_acl.grantAllPermissions(new GrantAndPermission[] { ownerGAP, new GrantAndPermission(GroupGrantee.ALL_USERS, Permission.PERMISSION_READ) });
+		}
+		else if ("private".equals(acl)) {
+			_acl.grantAllPermissions(new GrantAndPermission[] { ownerGAP });
+		}
+		else if ("public-read-write".equals(acl) || "public read write".equals(acl) || "public_read_write".equals(acl) || "publicreadwrite".equals(acl)) {
+			_acl.grantAllPermissions(new GrantAndPermission[] { ownerGAP, new GrantAndPermission(GroupGrantee.ALL_USERS, Permission.PERMISSION_READ),
+					new GrantAndPermission(GroupGrantee.ALL_USERS, Permission.PERMISSION_WRITE) });
+		}
+		else if ("authenticated-read".equals(acl) || "authenticated read".equals(acl) || "authenticated_read".equals(acl) || "authenticatedread".equals(acl)) {
+			_acl.grantAllPermissions(new GrantAndPermission[] { ownerGAP, new GrantAndPermission(GroupGrantee.AUTHENTICATED_USERS, Permission.PERMISSION_READ) });
+		}
+		else return defaultValue;
 
-		if ("public-read-write".equals(acl)) return AccessControlList.REST_CANNED_PUBLIC_READ_WRITE;
-		if ("public read write".equals(acl)) return AccessControlList.REST_CANNED_PUBLIC_READ_WRITE;
-		if ("public_read_write".equals(acl)) return AccessControlList.REST_CANNED_PUBLIC_READ_WRITE;
-		if ("publicreadwrite".equals(acl)) return AccessControlList.REST_CANNED_PUBLIC_READ_WRITE;
-
-		if ("authenticated-read".equals(acl)) return AccessControlList.REST_CANNED_AUTHENTICATED_READ;
-		if ("authenticated read".equals(acl)) return AccessControlList.REST_CANNED_AUTHENTICATED_READ;
-		if ("authenticated_read".equals(acl)) return AccessControlList.REST_CANNED_AUTHENTICATED_READ;
-		if ("authenticatedread".equals(acl)) return AccessControlList.REST_CANNED_AUTHENTICATED_READ;
-
-		if ("authenticate-read".equals(acl)) return AccessControlList.REST_CANNED_AUTHENTICATED_READ;
-		if ("authenticate read".equals(acl)) return AccessControlList.REST_CANNED_AUTHENTICATED_READ;
-		if ("authenticate_read".equals(acl)) return AccessControlList.REST_CANNED_AUTHENTICATED_READ;
-		if ("authenticateread".equals(acl)) return AccessControlList.REST_CANNED_AUTHENTICATED_READ;
-
-		return defaultValue;
+		return _acl;
 	}
 
-	public static AccessControlList toACL(Properties prop, AccessControlList defaultValue) {
+	public static Object toACL(Properties prop, Object defaultValue) {
 		try {
 			Method m = prop.getClass().getMethod("getACL", new Class[0]);
 			String str = CFMLEngineFactory.getInstance().getCastUtil().toString(m.invoke(prop, new Object[0]), null);
 			if (Util.isEmpty(str)) return defaultValue;
-			return toACL(str, defaultValue);
+			return str;
 		}
 		catch (Exception e) {
 		}
@@ -1604,6 +1633,15 @@ public class S3 {
 			this.name = name;
 			this.validUntil = validUntil;
 			this.exists = exists;
+		}
+	}
+
+	public StorageOwner getOwner() throws S3Exception {
+		try {
+			return getS3Service().getAccountOwner();
+		}
+		catch (ServiceException e) {
+			throw toS3Exception(e);
 		}
 	}
 }

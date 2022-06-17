@@ -25,7 +25,6 @@ import java.io.OutputStream;
 import java.util.Iterator;
 import java.util.List;
 
-import org.jets3t.service.acl.AccessControlList;
 import org.lucee.extension.resource.ResourceSupport;
 import org.lucee.extension.resource.s3.info.S3Info;
 
@@ -51,7 +50,7 @@ public final class S3Resource extends ResourceSupport {
 	private final S3Properties props;
 	long infoLastAccessw = 0;
 	private String location = null;
-	private AccessControlList acl;// ="public-read";
+	private Object acl;// ="public-read";
 
 	private S3Resource(CFMLEngine engine, S3 s3, S3Properties props, String location, S3ResourceProvider provider, String buckedName, String objectName) {
 		super(engine);
@@ -124,7 +123,7 @@ public final class S3Resource extends ResourceSupport {
 		if (isBucket()) throw new IOException("can't create file [" + getPath() + "], on this level (Bucket Level) you can only create directories");
 		try {
 			provider.lock(this);
-			s3.createFile(bucketName, objectName, acl, location);
+			s3.createFile(bucketName, objectName, AccessControlListUtil.toAccessControlList(acl, s3.getOwner()), location);
 		}
 		finally {
 			provider.unlock(this);
@@ -255,7 +254,9 @@ public final class S3Resource extends ResourceSupport {
 					Util.closeEL(os);
 				}
 			}
-			S3ResourceOutputStream os = new S3ResourceOutputStream(s3, bucketName, objectName, getInnerPath(), acl, location);
+
+			S3ResourceOutputStream os = new S3ResourceOutputStream(s3, bucketName, objectName, getInnerPath(), AccessControlListUtil.toAccessControlList(acl, s3.getOwner()),
+					location);
 			if (append && !(barr == null || barr.length == 0)) engine.getIOUtil().copy(new ByteArrayInputStream(barr), os, true, false);
 			return os;
 		}
@@ -481,7 +482,11 @@ public final class S3Resource extends ResourceSupport {
 	}
 
 	public void setACL(String acl) {
-		this.acl = S3.toACL(acl, null);
+		this.acl = acl;
+	}
+
+	public void setACL(Object acl) {
+		this.acl = acl;
 	}
 
 	public void setLocation(String location) {

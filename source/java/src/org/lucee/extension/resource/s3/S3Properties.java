@@ -1,14 +1,12 @@
 package org.lucee.extension.resource.s3;
 
-import org.jets3t.service.acl.AccessControlList;
-
 public class S3Properties {
 
 	private String host = S3.DEFAULT_HOST;
 	private String secretAccessKey;
 	private String accessKeyId;
 	private boolean hasCustomCredentials;
-	private AccessControlList acl;
+	private Object acl;
 
 	public void setHost(String host) {
 		this.host = host;
@@ -42,16 +40,17 @@ public class S3Properties {
 		return hasCustomCredentials;
 	}
 
+	@Override
 	public String toString() {
 		return new StringBuilder().append("host:").append(host).append(";").append("accessKeyId:").append(accessKeyId).append(";").append("secretAccessKey:")
 				.append(secretAccessKey).append(";").append("custom:").append(hasCustomCredentials).append(";").toString();
 	}
 
-	public void setACL(AccessControlList acl) {
+	public void setACL(Object acl) {
 		this.acl = acl;
 	}
 
-	public AccessControlList getACL() {
+	public Object getACL() {
 		return this.acl;
 	}
 }
