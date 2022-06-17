@@ -1005,7 +1005,6 @@ public class S3 {
 
 	private void _write(S3Object so, String bucketName, String objectName, AccessControlList acl, String location, boolean split) throws IOException {
 		try {
-			print.ds();
 			so.setName(objectName);
 
 			if (acl != null) so.setAcl(acl);
