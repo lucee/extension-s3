@@ -10,7 +10,7 @@ jobs:
 
     runs-on: ubuntu-latest
     env:
-      luceeVersion: light-6.0.0.149-SNAPSHOT
+      luceeVersion: light-6.0.0.210-SNAPSHOT
     services:
       minio:
        image: fclairamb/minio-github-actions
@@ -57,7 +57,6 @@ jobs:
         execute: /bootstrap-tests.cfm
         luceeVersion: ${{ env.luceeVersion }}
         extensionDir: ${{ github.workspace }}/dist
-        extensions: 8D7FB0DF-08BB-1589-FE3975678F07DB17,37C61C0A-5D7E-4256-8572639BE0CF5838 # the compress and esapi extensions are required to run tests lucee with lucee-light
       env:
         testLabels: s3
         testAdditional: ${{ github.workspace }}/tests
