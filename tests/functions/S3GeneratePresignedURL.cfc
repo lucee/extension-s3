@@ -1,4 +1,4 @@
-component extends="org.lucee.cfml.test.LuceeTestCase"{
+component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 	function run( testResults , testBox ) {
 		describe( title="Test suite for S3GeneratePresignedURL()", body=function() {
 			it(title="checking function with a path", body = function( currentSpec ) {
