@@ -153,6 +153,7 @@ public class S3 {
 	}
 
 	public String getAccessKeyId() {
+		com.amazonaws.util.AWSRequestMetrics d;
 		return accessKeyId;
 	}
 
@@ -2410,8 +2411,10 @@ public class S3 {
 				}
 			}
 			catch (S3Exception e1) {
-				if (log != null) log.error("s3", e1);
-				else e1.printStackTrace();
+				if ("AccessDenied".equalsIgnoreCase(e1.getErrorCode())) { // in case we can not the region because of access right, we don't care.
+					if (log != null) log.error("s3", e1);
+					else e1.printStackTrace();
+				}
 			}
 			finally {
 				try {
