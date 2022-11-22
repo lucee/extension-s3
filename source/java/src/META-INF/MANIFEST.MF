@@ -3,7 +3,7 @@ Export-Package: org.lucee.extension.resource.s3,
  org.lucee.extension.resource.s3.function
 Bundle-ManifestVersion: 2
 Require-Bundle: org.lucee.bouncycastle.bcprov;bundle-version=1.52.0,
- org.apache.commons.codec;bundle-version=1.9.0,
+ org.apache.commons.commons-codec;bundle-version=1.15.0,
  org.lucee.commons.logging;bundle-version=1.2.0.0000L,
  org.lucee.httpcomponents.httpcore;bundle-version=4.4.12,
  org.lucee.httpcomponents.httpclient;bundle-version=4.5.10.0002L,
