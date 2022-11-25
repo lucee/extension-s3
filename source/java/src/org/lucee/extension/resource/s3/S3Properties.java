@@ -150,6 +150,7 @@ public class S3Properties {
 
 		String host = eng.getCastUtil().toString(sct.get("host", null), null);
 		if (Util.isEmpty(host)) host = eng.getCastUtil().toString(sct.get("server", null), null);
+		if (Util.isEmpty(host)) host = eng.getCastUtil().toString(sct.get("endpoint", null), null);
 
 		String sk = eng.getCastUtil().toString(sct.get("awsSecretKey", null), null);
 		if (Util.isEmpty(sk)) sk = eng.getCastUtil().toString(sct.get("secretKey", null), null);

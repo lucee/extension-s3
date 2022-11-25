@@ -116,7 +116,12 @@ public final class S3ResourceProvider implements ResourceProvider {
 	}
 
 	public static String loadWithNewPattern(S3Properties properties, RefString storage, String path, boolean errorWhenNoCred) {
-		PageContext pc = CFMLEngineFactory.getInstance().getThreadPageContext();
+		PageContext pc = null;
+		try {
+			pc = CFMLEngineFactory.getInstance().getThreadPageContext();
+		}
+		catch (Exception e) {
+		}
 
 		boolean hasCustomHost = false;
 		boolean hasCustomCredentials = false;
@@ -265,7 +270,8 @@ public final class S3ResourceProvider implements ResourceProvider {
 
 	private static String prettifyPath(String path) {
 		path = path.replace('\\', '/');
-		return CFMLEngineFactory.getInstance().getStringUtil().replace(path, "//", "/", false, false);
+		return Util.replace(path, "//", "/", false);
+		// return CFMLEngineFactory.getInstance().getStringUtil().replace(path, "//", "/", false, false);
 		// TODO /aaa/../bbb/
 	}
 
