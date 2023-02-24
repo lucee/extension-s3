@@ -110,8 +110,14 @@ public final class S3ResourceProvider implements ResourceProvider {
 		// S3 s3 = new S3(cache);
 		RefString location = engine.getCreationUtil().createRefString(null);
 
-		path = loadWithNewPattern(props, location, path, true);
-
+		/*
+		 * print.e("-------------------------------"); print.e("raw:" + path); path =
+		 * loadWithNewPattern(props, location, path, true); print.e("path:" + path); print.e("AccessKeyId:"
+		 * + props.getAccessKeyId()); print.e("SecretAccessKey:" + props.getSecretAccessKey());
+		 * print.e("Host:" + props.getHost()); print.e("Location:" + props.getDefaultLocation());
+		 * print.e("ACL"); print.e(props.getACL()); print.e("CustomCredentials:" +
+		 * props.getCustomCredentials()); print.e("CustomHost:" + props.getCustomHost());
+		 */
 		return new S3Resource(engine, getS3(props, cache), props, location.getValue(), this, path);
 	}
 
@@ -156,16 +162,21 @@ public final class S3ResourceProvider implements ResourceProvider {
 				prop = appData != null ? S3Properties.load(pc, appData, null) : null;// pc.getApplicationContext().getS3();
 			}
 
-			if (prop != null && !Util.isEmpty(prop.getAccessKeyId()) && !Util.isEmpty(prop.getSecretAccessKey())) {
-				accessKeyId = prop.getAccessKeyId();
-				secretAccessKey = prop.getSecretAccessKey();
-				host = prop.getHost();
-				defaultLocation = prop.getDefaultLocation();
-				defaultACL = prop.getACL();
+			if (prop != null) {
+				// we only update the credntials if they are complete
+				if (!Util.isEmpty(prop.getAccessKeyId()) && !Util.isEmpty(prop.getSecretAccessKey())) {
+					accessKeyId = prop.getAccessKeyId();
+					secretAccessKey = prop.getSecretAccessKey();
+					// because it is unlikely that you have the same credntials for a different host, host is always
+					// part of the credntials and cannot be defined standalone
+					if (!Util.isEmpty(prop.getHost())) host = prop.getHost();
+
+				}
+				if (!Util.isEmpty(prop.getDefaultLocation())) defaultLocation = prop.getDefaultLocation();
+				if (prop.getACL() != null) defaultACL = prop.getACL();
 			}
 		}
 		if (defaultACL != null) properties.setACL(defaultACL);
-
 		storage.setValue(defaultLocation);
 
 		// Path Data
