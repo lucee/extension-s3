@@ -110,13 +110,15 @@ public final class S3ResourceProvider implements ResourceProvider {
 		// S3 s3 = new S3(cache);
 		RefString location = engine.getCreationUtil().createRefString(null);
 
+		path = loadWithNewPattern(props, location, path, true);
+
 		/*
-		 * print.e("-------------------------------"); print.e("raw:" + path); path =
-		 * loadWithNewPattern(props, location, path, true); print.e("path:" + path); print.e("AccessKeyId:"
-		 * + props.getAccessKeyId()); print.e("SecretAccessKey:" + props.getSecretAccessKey());
-		 * print.e("Host:" + props.getHost()); print.e("Location:" + props.getDefaultLocation());
-		 * print.e("ACL"); print.e(props.getACL()); print.e("CustomCredentials:" +
-		 * props.getCustomCredentials()); print.e("CustomHost:" + props.getCustomHost());
+		 * print.e("------------------------------b-"); print.e("raw:" + path); print.e("path:" + path);
+		 * print.e("AccessKeyId:" + props.getAccessKeyId()); print.e("SecretAccessKey:" +
+		 * props.getSecretAccessKey()); print.e("Host:" + props.getHost()); print.e("Location:" +
+		 * props.getDefaultLocation()); print.e("ACL"); print.e(props.getACL());
+		 * print.e("CustomCredentials:" + props.getCustomCredentials()); print.e("CustomHost:" +
+		 * props.getCustomHost());
 		 */
 		return new S3Resource(engine, getS3(props, cache), props, location.getValue(), this, path);
 	}
