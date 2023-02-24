@@ -1,6 +1,6 @@
 component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 	function run( testResults , testBox ) {
-		describe( title="Test suite for S3GeneratePresignedURL()", body=function() {
+		describe( title="Test suite for S3GeneratePresignedURL()",skip=isNotSupported(), body=function() {
 			it(title="checking function with a path", skip=isNotSupported(), body = function( currentSpec ) {
 				var cred=getCredentials();
 				var  res=S3GeneratePresignedURL(
