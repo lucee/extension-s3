@@ -12,7 +12,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 			it(title="checking function with a bucketname/objectname", body = function( currentSpec ) {
 				var  res=S3GeneratePresignedURL(
 					bucketName:"bundle-download"
-					objectName:"sentry-log4j-1.7.22.jar"
+					,objectName:"sentry-log4j-1.7.22.jar"
 					,expire:dateAdd("n", 5, now())
 				);
 				http url=res result="local.res";
@@ -23,7 +23,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 			it( title="should handle dots in bucket names ", body=function(currentSpec){
 				var res = S3GeneratePresignedURL(
 					bucketName:"bundle.download"
-					objectName:"sentry-log4j-1.7.22.jar"
+					,objectName:"sentry-log4j-1.7.22.jar"
 					,expire:dateAdd("n", 5, now())
 				);
 
