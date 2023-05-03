@@ -2026,6 +2026,12 @@ public class S3 {
 		return defaultValue;
 	}
 
+	public static CannedAccessControlList toACL(String acl) throws S3Exception {
+		CannedAccessControlList cacl = toACL(acl, null);
+		if (cacl != null) return cacl;
+		throw new S3Exception("cannot convert [" + acl + "] to a valid access control list");
+	}
+
 	public static CannedAccessControlList toACL(Properties prop, CannedAccessControlList defaultValue) {
 		try {
 			Method m = prop.getClass().getMethod("getACL", new Class[0]);
