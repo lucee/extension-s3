@@ -9,11 +9,9 @@
 	<classpathentry kind="lib" path="libs/javax.servlet-api-3.1.0.jar"/>
 	<classpathentry kind="lib" path="libs/jsp-api-2.2.jar"/>
 	<classpathentry kind="lib" path="libs/lucee.jar"/>
-	<classpathentry kind="lib" path="libs/bcprov-1.70.jar"/>
 	<classpathentry kind="lib" path="libs/joda-convert-1.2.jar"/>
 	<classpathentry kind="lib" path="libs/joda-time-2.8.1.jar"/>
 	<classpathentry kind="lib" path="libs/org.apache.commons.commons-codec-1.15.0.jar"/>
-	<classpathentry kind="lib" path="libs/software.amazon.ion.java-1.0.2.jar"/>
 	<classpathentry kind="lib" path="libs/org.lucee.commons.logging-1.2.0.0000L.jar"/>
 	<classpathentry kind="lib" path="libs/jaxb-api-2.3.1.jar"/>
 	<classpathentry kind="lib" path="libs/org.apache.commons.pool2-2.8.1.jar"/>
@@ -25,5 +23,9 @@
 	<classpathentry kind="lib" path="libs/com.fasterxml.jackson.core.jackson-databind-2.15.0.jar"/>
 	<classpathentry kind="lib" path="libs/com.fasterxml.jackson.dataformat.jackson-dataformat-cbor-2.15.0.jar"/>
 	<classpathentry kind="lib" path="libs/org.lucee.aws-java-sdk-s3-all-1.12.456.jar"/>
+	<classpathentry kind="lib" path="libs/bouncycastle.mail-1.38.0.jar"/>
+	<classpathentry kind="lib" path="libs/bouncycastle.prov-1.38.0.jar"/>
+	<classpathentry kind="lib" path="libs/bouncycastle.tsp-1.38.0.jar"/>
+	<classpathentry kind="lib" path="libs/software.amazon.ion.java-1.5.1.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
