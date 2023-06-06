@@ -10,7 +10,7 @@ jobs:
 
     runs-on: ubuntu-latest
     env:
-      luceeVersion: light-6.0.0.300-SNAPSHOT
+      luceeVersion: light-6.0.0.427-SNAPSHOT
     services:
       minio:
        image: fclairamb/minio-github-actions
