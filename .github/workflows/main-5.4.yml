@@ -1,7 +1,7 @@
 # This workflow will build a Java project with Ant
 # For more information see: https://help.github.com/actions/language-and-framework-guides/building-and-testing-java-with-ant
 
-name: Java CI
+name: Java CI - Lucee 5.4
 
 on: [push, pull_request,workflow_dispatch]
  
@@ -10,7 +10,7 @@ jobs:
 
     runs-on: ubuntu-latest
     env:
-      luceeVersion: light-6.0.0.427-SNAPSHOT
+      luceeVersion: light-5.4.0.69-SNAPSHOT
     services:
       minio:
        image: fclairamb/minio-github-actions
@@ -57,6 +57,7 @@ jobs:
         execute: /bootstrap-tests.cfm
         luceeVersion: ${{ env.luceeVersion }}
         extensionDir: ${{ github.workspace }}/dist
+        extensions:
       env:
         testLabels: s3
         testAdditional: ${{ github.workspace }}/tests
