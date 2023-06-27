@@ -93,6 +93,7 @@ public class S3 {
 
 	private static final ConcurrentHashMap<String, Object> tokens = new ConcurrentHashMap<String, Object>();
 	private static final Object ERROR = new Object();
+	private static final int CHECK_INTERVALL = 1000;
 	private final String host;
 	private final String secretAccessKey;
 	private final String accessKeyId;
@@ -112,6 +113,7 @@ public class S3 {
 
 	private String defaultRegion;
 	private final long liveTimeout;
+	private int existCheckIntervall = 0;
 
 	/**
 	 * 
@@ -718,11 +720,12 @@ public class S3 {
 
 								if (!hasObjName || name.equals(nameFile) || name.startsWith(nameDir)) _list.put(kid.getKey(), tmp);
 								exists.put(toKey(kid.getBucketName(), name), tmp);
-
+								_flush(exists);
 								int index;
 								while ((index = name.lastIndexOf('/')) != -1) {
 									name = name.substring(0, index);
 									exists.put(toKey(bucketName, name), new ParentObject(this, bucketName, name, validUntil, log));
+									_flush(exists);
 								}
 							}
 
@@ -902,6 +905,7 @@ public class S3 {
 				targetName = summary.getKey();
 				if (nameFile.equals(targetName) || nameDir.equals(targetName)) {
 					exists.put(toKey(bucketName, nameFile), info = new StorageObjectWrapper(this, stoObj = summary, validUntil, log));
+					_flush(exists);
 				}
 
 				// pseudo directory?
@@ -909,11 +913,13 @@ public class S3 {
 				targetName = summary.getKey();
 				if (nameDir.length() < targetName.length() && targetName.startsWith(nameDir)) {
 					exists.put(toKey(bucketName, nameFile), info = new ParentObject(this, bucketName, nameDir, validUntil, log));
+					_flush(exists);
 				}
 
 				// set the value to exist when not a match
 				if (!(stoObj != null && stoObj.equals(summary))) {
 					exists.put(toKey(summary.getBucketName(), summary.getKey()), new StorageObjectWrapper(this, summary, validUntil, log));
+					_flush(exists);
 				}
 				// set all the parents when not exist
 				// TODO handle that also a file with that name can exist at the same time
@@ -922,6 +928,7 @@ public class S3 {
 				while ((index = parent.lastIndexOf('/')) != -1) {
 					parent = parent.substring(0, index);
 					exists.put(toKey(bucketName, parent), new ParentObject(this, bucketName, parent, validUntil, log));
+					_flush(exists);
 				}
 
 			}
@@ -934,6 +941,7 @@ public class S3 {
 				exists.put(toKey(bucketName, objectName), new NotExisting(bucketName, objectName, validUntil, log) // we do not return this, we just store it to cache that it does
 																													// not exis
 				);
+				_flush(exists);
 			}
 			return info;
 		}
@@ -1260,15 +1268,36 @@ public class S3 {
 		Iterator<?> it = map.entrySet().iterator();
 		Entry<String, ?> e;
 		String key;
+		long now = System.currentTimeMillis();
+		Boolean isS3Info = null;
 		while (it.hasNext()) {
 			e = (Entry<String, ?>) it.next();
 			key = e.getKey();
 			if (key == null) continue;
+			if (isS3Info == null) isS3Info = e.getValue() instanceof S3Info;
+
 			if ((exact != null && key.equals(exact)) || (prefix != null && key.startsWith(prefix))) {
 				map.remove(key);
 			}
 			else if (prefix != null && prefix.startsWith(key + "/") && e.getValue() instanceof NotExisting) {
 				map.remove(key);
+			}
+			else if (isS3Info.booleanValue() && ((S3Info) e.getValue()).validUntil() < now) {
+				map.remove(key);
+			}
+		}
+	}
+
+	private void _flush(Map<String, S3Info> map) {
+		if (++existCheckIntervall < CHECK_INTERVALL) return;
+		existCheckIntervall = 0;
+		Iterator<Entry<String, S3Info>> it = map.entrySet().iterator();
+		Entry<String, S3Info> e;
+		long now = System.currentTimeMillis();
+		while (it.hasNext()) {
+			e = it.next();
+			if (e.getValue().validUntil() < now) {
+				map.remove(e.getKey());
 			}
 		}
 	}
