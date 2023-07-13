@@ -62,7 +62,7 @@ jobs:
         testAdditional: ${{ github.workspace }}/tests
         S3_ACCESS_KEY_ID: ${{ secrets.S3_ACCESS_ID_TEST }}
         S3_SECRET_KEY: ${{ secrets.S3_SECRET_KEY_TEST }}
-        SS_BUCKET_PREFIX: lucee-ldev-e-
+        S3_BUCKET_PREFIX: lucee-ldev-e-
         S3_CUSTOM_ACCESS_KEY_ID: "minioadmin"
         S3_CUSTOM_SECRET_KEY: "minioadmin"
         S3_CUSTOM_HOST: "localhost:9000"
