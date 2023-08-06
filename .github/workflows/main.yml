@@ -11,6 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       luceeVersion: light-6.0.0.507-SNAPSHOT
+      luceeVersionQuery: 0/all/light
     services:
       minio:
        image: fclairamb/minio-github-actions
@@ -28,16 +29,11 @@ jobs:
       with:
         path: ~/.m2
         key: lucee-s3
-        restore-keys: |
-          ${{ runner.os }}-m2
-          maven-cache
     - name: Cache Lucee files
       uses: actions/cache@v3
       with:
-        path: _actions/lucee/script-runner/main/lucee-download-cache
-        key: lucee-downloads-${{ env.luceeVersion }}
-        restore-keys: |
-          lucee-downloads
+        path: ~/work/_actions/lucee/script-runner/main/lucee-download-cache
+        key: lucee-downloads
     - name: Build extension-s3 with Ant
       run: ant -noinput -verbose -buildfile build.xml
     - name: Upload Artifact
@@ -56,6 +52,7 @@ jobs:
         webroot: ${{ github.workspace }}/lucee/test
         execute: /bootstrap-tests.cfm
         luceeVersion: ${{ env.luceeVersion }}
+        luceeVersionQuery: ${{ env.luceeVersionQuery }}
         extensionDir: ${{ github.workspace }}/dist
       env:
         testLabels: s3
