@@ -19,8 +19,8 @@
 package org.lucee.extension.resource.s3.info;
 
 import org.lucee.extension.resource.s3.S3Exception;
+import org.lucee.extension.resource.s3.region.RegionFactory.Region;
 
-import com.amazonaws.regions.Regions;
 import com.amazonaws.services.s3.model.Owner;
 
 import lucee.runtime.type.Struct;
@@ -54,7 +54,7 @@ public interface S3Info {
 	 */
 	public boolean isVirtual();
 
-	public Regions getRegion();
+	public Region getRegion();
 
 	public Struct getMetaData() throws S3Exception;
 

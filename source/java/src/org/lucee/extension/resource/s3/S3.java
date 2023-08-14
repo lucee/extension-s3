@@ -25,11 +25,12 @@ import org.lucee.extension.resource.s3.info.ParentObject;
 import org.lucee.extension.resource.s3.info.S3BucketWrapper;
 import org.lucee.extension.resource.s3.info.S3Info;
 import org.lucee.extension.resource.s3.info.StorageObjectWrapper;
+import org.lucee.extension.resource.s3.region.RegionFactory;
+import org.lucee.extension.resource.s3.region.RegionFactory.Region;
 import org.lucee.extension.resource.s3.util.XMLUtil;
 
 import com.amazonaws.AmazonServiceException;
 import com.amazonaws.HttpMethod;
-import com.amazonaws.regions.Regions;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.AccessControlList;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
@@ -92,7 +93,6 @@ public class S3 {
 	public static final String[] PROVIDERS = new String[] { ".amazonaws.com", ".wasabisys.com", ".backblazeb2.com", ".digitaloceanspaces.com", ".dream.io" };
 
 	private static final ConcurrentHashMap<String, Object> tokens = new ConcurrentHashMap<String, Object>();
-	private static final Object ERROR = new Object();
 	private static final int CHECK_INTERVALL = 1000;
 	private final String host;
 	private final String secretAccessKey;
@@ -106,8 +106,8 @@ public class S3 {
 	private Map<String, S3BucketExists> existBuckets;
 	private final Map<String, ValidUntilMap<S3Info>> objects = new ConcurrentHashMap<String, ValidUntilMap<S3Info>>();
 	private Map<String, ValidUntilElement<AccessControlList>> accessControlLists = new ConcurrentHashMap<String, ValidUntilElement<AccessControlList>>();
-	private Map<String, Regions> regions = new ConcurrentHashMap<String, Regions>();
-	private final Map<String, Object> bucketRegions = new ConcurrentHashMap<String, Object>();
+	private Map<String, Region> regions = new ConcurrentHashMap<String, Region>();
+	private final Map<String, Region> bucketRegions = new ConcurrentHashMap<String, Region>();
 	private Map<String, S3Info> exists = new ConcurrentHashMap<String, S3Info>();
 	private Log log;
 
@@ -132,13 +132,13 @@ public class S3 {
 		this.liveTimeout = liveTimeout;
 		this.customCredentials = props.getCustomCredentials();
 		this.customHost = props.getCustomHost();
-		if (Util.isEmpty(defaultRegion, true)) defaultRegion = toString(Regions.US_EAST_2);
+		if (Util.isEmpty(defaultRegion, true)) defaultRegion = toString(RegionFactory.US_EAST_2);
 		else {
 			try {
-				defaultRegion = toString(toRegions(defaultRegion));
+				defaultRegion = toString(RegionFactory.getInstance(defaultRegion));
 			}
 			catch (S3Exception e) {
-				defaultRegion = toString(Regions.US_EAST_2);
+				defaultRegion = toString(RegionFactory.US_EAST_2);
 			}
 		}
 		if (cacheRegions) {
@@ -146,7 +146,7 @@ public class S3 {
 		}
 		this.log = log;
 
-		regions.put("US", Regions.US_EAST_1);
+		regions.put("US", RegionFactory.US_EAST_1);
 
 	}
 
@@ -204,7 +204,7 @@ public class S3 {
 			}
 
 			if (!Util.isEmpty(region)) {
-				bucketRegions.put(bucketName, toRegions(region));
+				bucketRegions.put(bucketName, RegionFactory.getInstance(region));
 			}
 			flushExists(bucketName, false);
 			return b;
@@ -223,7 +223,7 @@ public class S3 {
 			int endIndex = msg.indexOf("'", startIndex + 11);
 			if (endIndex > startIndex) {
 				try {
-					return toString(toRegions(msg.substring(startIndex + 11, endIndex)));
+					return toString(RegionFactory.getInstance(msg.substring(startIndex + 11, endIndex)));
 				}
 				catch (S3Exception e) {
 					if (log != null) log.error("s3", e);
@@ -1198,7 +1198,7 @@ public class S3 {
 
 					// if no target region is defined, we create the bucket with the same region as the source
 					if (Util.isEmpty(targetRegion)) {
-						targetRegion = toString(getBucketRegion(srcBucketName, true));
+						targetRegion = getBucketRegion(srcBucketName, true).toString();
 					}
 					AmazonS3Client client1 = getAmazonS3(trgBucketName, targetRegion);
 					AmazonS3Client client2 = getAmazonS3(srcBucketName, null);
@@ -1940,22 +1940,22 @@ public class S3 {
 	private AmazonS3Client getAmazonS3(String bucketName, String strRegion) throws S3Exception {
 		if (Util.isEmpty(accessKeyId) || Util.isEmpty(secretAccessKey)) throw new S3Exception("Could not found an accessKeyId/secretAccessKey");
 
-		Regions region = toRegions(bucketName, strRegion);
+		Region region = toRegion(bucketName, strRegion);
 		return AmazonS3Client.get(accessKeyId, secretAccessKey, host, bucketName, region, liveTimeout, log);
 	}
 
-	public Regions getBucketRegion(String bucketName, boolean loadIfNecessary) throws S3Exception {
+	public Region getBucketRegion(String bucketName, boolean loadIfNecessary) throws S3Exception {
 		bucketName = improveBucketName(bucketName);
-		Object o = bucketRegions.get(bucketName);
-		if (o != null) {
-			if (o == ERROR) return null;
-			return (Regions) o;
+		Region r = bucketRegions.get(bucketName);
+		if (r != null) {
+			if (r == RegionFactory.ERROR) return null;
+			return r;
 		}
-		Regions r = null;
+		r = null;
 		if (loadIfNecessary) {
 			AmazonS3Client client = getAmazonS3(null, null);
 			try {
-				r = toRegions(client.getBucketLocation(bucketName));
+				r = RegionFactory.getInstance(client.getBucketLocation(bucketName));
 				bucketRegions.put(bucketName, r);
 			}
 			catch (AmazonServiceException ase) {
@@ -1965,7 +1965,7 @@ public class S3 {
 				if (log != null) log.error("s3", "failed to load region", ase);
 				else ase.printStackTrace();
 				// could be AccessDenied
-				bucketRegions.put(bucketName, ERROR);
+				bucketRegions.put(bucketName, RegionFactory.ERROR);
 				return null;
 
 			}
@@ -1976,9 +1976,9 @@ public class S3 {
 		return r;
 	}
 
-	public Regions toRegions(String bucketName, String strRegion) throws S3Exception {
+	public Region toRegion(String bucketName, String strRegion) throws S3Exception {
 		if (!Util.isEmpty(strRegion, true)) {
-			return toRegions(strRegion);
+			return RegionFactory.getInstance(strRegion);
 		}
 		else if (!Util.isEmpty(bucketName)) {
 			return getBucketRegion(bucketName, true);
@@ -1986,42 +1986,7 @@ public class S3 {
 		return null;
 	}
 
-	public Regions toRegions(String region) throws S3Exception {
-		if (Util.isEmpty(region)) throw new S3Exception("no region defined");
-
-		// cached?
-		{
-			Regions r = regions.get(region);
-			if (r != null) return r;
-		}
-
-		// direct match
-		try {
-			Regions r = Regions.valueOf(region);
-			regions.put(region, r);
-			return r;
-		}
-		catch (Exception e) {
-		}
-		// compare match
-		for (Regions r: Regions.values()) {
-			if (region.equalsIgnoreCase(r.getName()) || region.equalsIgnoreCase(r.toString()) || region.equalsIgnoreCase(r.getDescription()) || region.equalsIgnoreCase(r.name())) {
-				regions.put(region, r);
-				return r;
-			}
-		}
-
-		// failed
-		StringBuilder sb = new StringBuilder();
-		for (Regions r: Regions.values()) {
-			if (sb.length() != 0) sb.append(",");
-			sb.append(toString(r));
-		}
-		throw new S3Exception("could not find a matching region for [" + region + "], valid region names are [" + sb + "]");
-
-	}
-
-	public static String toString(Regions region) {
+	public static String toString(Region region) {
 		return region.getName(); // WASABi does not work with toString()
 	}
 
@@ -2427,10 +2392,10 @@ public class S3 {
 			AmazonS3Client client = null;
 			try {
 				client = getAmazonS3(null, null);
-				Regions r;
+				Region r;
 				for (Bucket b: client.listBuckets()) {
 					try {
-						r = toRegions(client.getBucketLocation(b.getName()));
+						r = RegionFactory.getInstance(client.getBucketLocation(b.getName()));
 						if (log != null) log.trace("s3", "cache region [" + r.toString() + "] for bucket [" + b.getName() + "]");
 						bucketRegions.put(b.getName(), r);
 						// we don't want this to make to much load

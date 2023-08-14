@@ -4,8 +4,8 @@ import java.util.Date;
 
 import org.lucee.extension.resource.s3.S3;
 import org.lucee.extension.resource.s3.S3Exception;
+import org.lucee.extension.resource.s3.region.RegionFactory.Region;
 
-import com.amazonaws.regions.Regions;
 import com.amazonaws.services.s3.model.Owner;
 
 import lucee.commons.io.log.Log;
@@ -16,7 +16,7 @@ import lucee.runtime.type.Struct;
 public abstract class S3InfoSupport implements S3Info {
 
 	protected final S3 s3;
-	private Regions region;
+	private Region region;
 	protected Log log;
 
 	public S3InfoSupport(S3 s3, Log log) {
@@ -39,7 +39,7 @@ public abstract class S3InfoSupport implements S3Info {
 			data.setEL("ownerNd", ow.getId());
 
 		}
-		Regions r = getRegion();
+		Region r = getRegion();
 		if (r != null) {
 			data.setEL("region", region.getName());
 		}
@@ -68,7 +68,7 @@ public abstract class S3InfoSupport implements S3Info {
 	}
 
 	@Override
-	public final Regions getRegion() {
+	public final Region getRegion() {
 		if (s3 == null) return null;
 		if (region == null) {
 			synchronized (S3.getToken("S3InfoSupport:region:" + getBucketName())) {
