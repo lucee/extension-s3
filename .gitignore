@@ -1,5 +1,6 @@
 /dist
 **/Test.java
+**/TestCase.java
 **/.DS_Store
 **/.svn/
 /*.project
