@@ -222,13 +222,15 @@ public class AmazonS3Client implements AmazonS3 {
 	}
 
 	@Override
-	public void deleteBucket(String arg0) throws SdkClientException, AmazonServiceException {
+	public void deleteBucket(String bucketName) throws SdkClientException, AmazonServiceException {
+		DeleteBucketRequest dbr = new DeleteBucketRequest(bucketName);
+
 		try {
-			client.deleteBucket(arg0);
+			client.deleteBucket(dbr);
 		}
 		catch (IllegalStateException ise) {
 			invalidateAmazonS3(ise);
-			client.deleteBucket(arg0);
+			client.deleteBucket(dbr);
 		}
 	}
 

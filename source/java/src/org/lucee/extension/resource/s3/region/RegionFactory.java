@@ -26,6 +26,8 @@ public class RegionFactory {
 			regions.put(r.getDescription().toLowerCase(), rr);
 			regions.put(r.name().toLowerCase(), rr);
 		}
+
+		regions.put("us", US_EAST_1);
 	}
 
 	public static Region getInstance(String region) throws S3Exception {
