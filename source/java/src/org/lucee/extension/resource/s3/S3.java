@@ -89,11 +89,13 @@ public class S3 {
 
 	public static final String DEFAULT_HOST = "s3.amazonaws.com";
 	public static final long DEFAULT_LIVE_TIMEOUT = 600000L;
+	public static final String GOOGLE = ".googleapis.com";
 
-	public static final String[] PROVIDERS = new String[] { ".amazonaws.com", ".wasabisys.com", ".backblazeb2.com", ".digitaloceanspaces.com", ".dream.io" };
+	public static final String[] PROVIDERS = new String[] { ".amazonaws.com", ".wasabisys.com", ".backblazeb2.com", ".digitaloceanspaces.com", ".dream.io", GOOGLE };
 
 	private static final ConcurrentHashMap<String, Object> tokens = new ConcurrentHashMap<String, Object>();
 	private static final int CHECK_INTERVALL = 1000;
+
 	private final String host;
 	private final String secretAccessKey;
 	private final String accessKeyId;
