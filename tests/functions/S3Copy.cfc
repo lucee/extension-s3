@@ -75,12 +75,16 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 	private struct function getCredentials() {
 		var ACCESS_KEY_ID=server.system.environment.S3_ACCESS_KEY_ID?:nullValue();
 		if(isNull(ACCESS_KEY_ID) || isEmpty(ACCESS_KEY_ID)) return {};
+		
 		var SECRET_KEY=server.system.environment.S3_SECRET_KEY?:nullValue();
 		if(isNull(SECRET_KEY) || isEmpty(SECRET_KEY)) return {};
+		
+		var PREFIX=server.system.environment.S3_BUCKET_PREFIX?:nullValue();
+		if(isNull(PREFIX) || isEmpty(PREFIX)) return {};
 
-		return {ACCESS_KEY_ID:ACCESS_KEY_ID,SECRET_KEY:SECRET_KEY};
+		return {ACCESS_KEY_ID:ACCESS_KEY_ID,SECRET_KEY:SECRET_KEY,PREFIX:PREFIX};
 	}
-
+	
 	private boolean function isBackBlazeNotSupported() {
 		res= getBackBlazeCredentials();
 		return isNull(res) || len(res)==0;
