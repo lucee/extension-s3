@@ -56,7 +56,11 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 					srcBucketName:srcBucketName,  srcObjectName:srcObjectName, trgBucketName:trgBucketName, trgObjectName:trgObjectName, 
 					accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY);
 				
+				var meta=S3GetMetadata( 
+					bucketName:srcBucketName,  objectName:srcObjectName, 
+					accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY);
 				
+				throw serialize(meta);
 				
 				//assertEquals("http://bundle-download.s3.eu-west-1.amazonaws.com/sentry-log4j-1.7.22.jar", res);
 			});			
