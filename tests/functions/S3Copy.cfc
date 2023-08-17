@@ -11,12 +11,15 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 				var trgObjectName="trg/test.txt";
 
 				// create source bucket
-				S3Write( 
-					location:"us-east-1",
-					value:"Susi Sorglos",
+				if(!S3Exists( 
 					bucketName:srcBucketName,  objectName:srcObjectName, 
-					accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY,host:cred.HOST);
-				
+					accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY,host:cred.HOST)) {
+					S3Write( 
+						location:"us-east-1",
+						value:"Susi Sorglos",
+						bucketName:srcBucketName,  objectName:srcObjectName, 
+						accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY,host:cred.HOST);
+				}
 				// copy
 				S3Copy( 
 					location:"us-east-1",
