@@ -60,9 +60,18 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 					bucketName:srcBucketName,  objectName:srcObjectName, 
 					accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY);
 				
-				throw serialize(meta);
+				assertEquals("us-east-1", meta.region);
+				assertEquals(srcBucketName, meta.bucketName);
+				assertEquals(srcObjectName, meta.objectName);
+
+
+				var meta=S3GetMetadata( 
+					bucketName:trgBucketName,  objectName:trgObjectName, 
+					accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY);
 				
-				//assertEquals("http://bundle-download.s3.eu-west-1.amazonaws.com/sentry-log4j-1.7.22.jar", res);
+				assertEquals("us-east-1", meta.region);
+				assertEquals(trgBucketName, meta.bucketName);
+				assertEquals(trgObjectName, meta.objectName);
 			});			
 	
 		});
