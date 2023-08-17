@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Method;
 import java.net.URL;
+import java.net.UnknownHostException;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Date;
@@ -31,6 +32,7 @@ import org.lucee.extension.resource.s3.util.XMLUtil;
 
 import com.amazonaws.AmazonServiceException;
 import com.amazonaws.HttpMethod;
+import com.amazonaws.SdkClientException;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.AccessControlList;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
@@ -2425,6 +2427,12 @@ public class S3 {
 					else e1.printStackTrace();
 				}
 			}
+			catch (SdkClientException sce) {
+				if (!(sce.getCause() instanceof UnknownHostException)) {
+					throw sce;
+				}
+			}
+
 			finally {
 				try {
 					if (client != null) client.release();
