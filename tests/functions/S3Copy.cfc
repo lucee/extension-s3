@@ -3,7 +3,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 		describe( title="Test suite for S3Copy()", body=function() {
 			it(title="check region with blackbaze",skip=isBackBlazeNotSupported(), body = function( currentSpec ) {
 				var cred=getBackBlazeCredentials();
-				throw serialize(cred.HOST);
+				
 				// create variables
 				var srcBucketName=cred.PREFIX&"src-filecopy";
 				var trgBucketName=cred.PREFIX&"trg-filecopy";
@@ -25,6 +25,36 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 					location:"us-east-1",
 					srcBucketName:srcBucketName,  srcObjectName:srcObjectName, trgBucketName:trgBucketName, trgObjectName:trgObjectName, 
 					accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY,host:cred.HOST);
+				
+				
+				
+				//assertEquals("http://bundle-download.s3.eu-west-1.amazonaws.com/sentry-log4j-1.7.22.jar", res);
+			});	
+
+			it(title="check region with amazon",skip=isNotSupported(), body = function( currentSpec ) {
+				var cred=getCredentials();
+				
+				// create variables
+				var srcBucketName=cred.PREFIX&"src-filecopy";
+				var trgBucketName=cred.PREFIX&"trg-filecopy";
+				var srcObjectName="src/test.txt";
+				var trgObjectName="trg/test.txt";
+
+				// create source bucket
+				if(!S3Exists( 
+					bucketName:srcBucketName,  objectName:srcObjectName, 
+					accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY)) {
+					S3Write( 
+						location:"us-east-1",
+						value:"Susi Sorglos",
+						bucketName:srcBucketName,  objectName:srcObjectName, 
+						accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY);
+				}
+				// copy
+				S3Copy( 
+					location:"us-east-1",
+					srcBucketName:srcBucketName,  srcObjectName:srcObjectName, trgBucketName:trgBucketName, trgObjectName:trgObjectName, 
+					accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY);
 				
 				
 				
