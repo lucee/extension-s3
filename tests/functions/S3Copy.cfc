@@ -3,7 +3,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 		describe( title="Test suite for S3Copy()", body=function() {
 			it(title="check region with blackbaze",skip=isBackBlazeNotSupported(), body = function( currentSpec ) {
 				var cred=getBackBlazeCredentials();
-				
+				throw serialize(cred.HOST);
 				// create variables
 				var srcBucketName=cred.PREFIX&"src-filecopy";
 				var trgBucketName=cred.PREFIX&"trg-filecopy";
