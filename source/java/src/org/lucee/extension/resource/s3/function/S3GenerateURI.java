@@ -19,15 +19,20 @@ public class S3GenerateURI extends S3Function {
 	private static final long serialVersionUID = -1361680673704246251L;
 
 	// see https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-bucket-intro.html
-	public static String call(PageContext pc, String bucketNameOrPath, String objectName, String type, boolean secure, String accessKeyId, String secretAccessKey, double timeout)
-			throws PageException {
+	public static String call(PageContext pc, String bucketNameOrPath, String objectName, String type, boolean secure, String accessKeyId, String secretAccessKey, String host,
+			double timeout) throws PageException {
 
 		// arn:partition:service:region:account-id:resource-id
 
 		CFMLEngine eng = CFMLEngineFactory.getInstance();
+		// for backward compatibility, when host was not existing
+		if (eng.getDecisionUtil().isNumber(host)) {
+			timeout = eng.getCastUtil().toDoubleValue(host);
+			host = null;
+		}
 		try {
 			// create S3 Instance
-			S3 s3 = S3ResourceProvider.getS3(toS3Properties(pc, accessKeyId, secretAccessKey), toTimeout(timeout));
+			S3 s3 = S3ResourceProvider.getS3(toS3Properties(pc, accessKeyId, secretAccessKey, host), toTimeout(timeout));
 
 			if (Util.isEmpty(objectName) && ("" + bucketNameOrPath).toLowerCase().startsWith("s3://")) {
 				S3Properties props = new S3Properties();
@@ -64,30 +69,34 @@ public class S3GenerateURI extends S3Function {
 		CFMLEngine engine = CFMLEngineFactory.getInstance();
 		Cast cast = engine.getCastUtil();
 
+		if (args.length == 8) {
+			return call(pc, cast.toString(args[0]), cast.toString(args[1]), cast.toString(args[2]), cast.toBooleanValue(args[3]), cast.toString(args[4]), cast.toString(args[5]),
+					cast.toString(args[6]), cast.toDoubleValue(args[7]));
+		}
 		if (args.length == 7) {
 			return call(pc, cast.toString(args[0]), cast.toString(args[1]), cast.toString(args[2]), cast.toBooleanValue(args[3]), cast.toString(args[4]), cast.toString(args[5]),
-					cast.toDoubleValue(args[6]));
+					cast.toString(args[6]), 0);
 		}
 		if (args.length == 6) {
 			return call(pc, cast.toString(args[0]), cast.toString(args[1]), cast.toString(args[2]), cast.toBooleanValue(args[3]), cast.toString(args[4]), cast.toString(args[5]),
-					0);
+					null, 0);
 		}
 		if (args.length == 5) {
-			return call(pc, cast.toString(args[0]), cast.toString(args[1]), cast.toString(args[2]), cast.toBooleanValue(args[3]), cast.toString(args[4]), null, 0);
+			return call(pc, cast.toString(args[0]), cast.toString(args[1]), cast.toString(args[2]), cast.toBooleanValue(args[3]), cast.toString(args[4]), null, null, 0);
 		}
 		if (args.length == 4) {
-			return call(pc, cast.toString(args[0]), cast.toString(args[1]), cast.toString(args[2]), cast.toBooleanValue(args[3]), null, null, 0);
+			return call(pc, cast.toString(args[0]), cast.toString(args[1]), cast.toString(args[2]), cast.toBooleanValue(args[3]), null, null, null, 0);
 		}
 		if (args.length == 3) {
-			return call(pc, cast.toString(args[0]), cast.toString(args[1]), cast.toString(args[2]), true, null, null, 0);
+			return call(pc, cast.toString(args[0]), cast.toString(args[1]), cast.toString(args[2]), true, null, null, null, 0);
 		}
 		if (args.length == 2) {
-			return call(pc, cast.toString(args[0]), cast.toString(args[1]), null, true, null, null, 0);
+			return call(pc, cast.toString(args[0]), cast.toString(args[1]), null, true, null, null, null, 0);
 		}
 		if (args.length == 1) {
-			return call(pc, cast.toString(args[0]), null, null, true, null, null, 0);
+			return call(pc, cast.toString(args[0]), null, null, true, null, null, null, 0);
 		}
 
-		throw engine.getExceptionUtil().createFunctionException(pc, "S3GenerateURL", 1, 7, args.length);
+		throw engine.getExceptionUtil().createFunctionException(pc, "S3GenerateURL", 1, 8, args.length);
 	}
 }

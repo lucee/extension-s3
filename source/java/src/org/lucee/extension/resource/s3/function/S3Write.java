@@ -21,8 +21,14 @@ public class S3Write extends S3Function {
 	private static final long serialVersionUID = -1542466765971539713L;
 
 	public static Object call(PageContext pc, String bucketName, String objectName, Object value, String charset, String mimeType, Object objACL, String location,
-			String accessKeyId, String secretAccessKey, double timeout) throws PageException {
+			String accessKeyId, String secretAccessKey, String host, double timeout) throws PageException {
 		CFMLEngine eng = CFMLEngineFactory.getInstance();
+
+		// for backward compatibility, when host was not existing
+		if (eng.getDecisionUtil().isNumber(host)) {
+			timeout = eng.getCastUtil().toDoubleValue(host);
+			host = null;
+		}
 
 		Object acl = null;
 		try {
@@ -36,7 +42,7 @@ public class S3Write extends S3Function {
 
 		try {
 			// create S3 Instance
-			S3 s3 = S3ResourceProvider.getS3(toS3Properties(pc, accessKeyId, secretAccessKey), toTimeout(timeout));
+			S3 s3 = S3ResourceProvider.getS3(toS3Properties(pc, accessKeyId, secretAccessKey, host), toTimeout(timeout));
 
 			value = toResource(pc, value);
 
@@ -106,19 +112,20 @@ public class S3Write extends S3Function {
 		Cast cast = engine.getCastUtil();
 
 		if (args.length == 10) return call(pc, cast.toString(args[0]), cast.toString(args[1]), args[2], cast.toString(args[3]), cast.toString(args[4]), args[5],
-				cast.toString(args[6]), cast.toString(args[7]), cast.toString(args[8]), cast.toDoubleValue(args[9]));
+				cast.toString(args[6]), cast.toString(args[7]), cast.toString(args[8]), cast.toString(args[9]), cast.toDoubleValue(args[10]));
 		if (args.length == 9) return call(pc, cast.toString(args[0]), cast.toString(args[1]), args[2], cast.toString(args[3]), cast.toString(args[4]), args[5],
-				cast.toString(args[6]), cast.toString(args[7]), cast.toString(args[8]), 0);
+				cast.toString(args[6]), cast.toString(args[7]), cast.toString(args[8]), cast.toString(args[9]), 0);
 		if (args.length == 8) return call(pc, cast.toString(args[0]), cast.toString(args[1]), args[2], cast.toString(args[3]), cast.toString(args[4]), args[5],
-				cast.toString(args[6]), cast.toString(args[7]), null, 0);
+				cast.toString(args[6]), cast.toString(args[7]), null, null, 0);
 		if (args.length == 7) return call(pc, cast.toString(args[0]), cast.toString(args[1]), args[2], cast.toString(args[3]), cast.toString(args[4]), args[5],
-				cast.toString(args[6]), null, null, 0);
+				cast.toString(args[6]), null, null, null, 0);
 		if (args.length == 6)
-			return call(pc, cast.toString(args[0]), cast.toString(args[1]), args[2], cast.toString(args[3]), cast.toString(args[4]), args[5], null, null, null, 0);
-		if (args.length == 5) return call(pc, cast.toString(args[0]), cast.toString(args[1]), args[2], cast.toString(args[3]), cast.toString(args[4]), null, null, null, null, 0);
-		if (args.length == 4) return call(pc, cast.toString(args[0]), cast.toString(args[1]), args[2], cast.toString(args[3]), null, null, null, null, null, 0);
-		if (args.length == 3) return call(pc, cast.toString(args[0]), cast.toString(args[1]), args[2], null, null, null, null, null, null, 0);
+			return call(pc, cast.toString(args[0]), cast.toString(args[1]), args[2], cast.toString(args[3]), cast.toString(args[4]), args[5], null, null, null, null, 0);
+		if (args.length == 5)
+			return call(pc, cast.toString(args[0]), cast.toString(args[1]), args[2], cast.toString(args[3]), cast.toString(args[4]), null, null, null, null, null, 0);
+		if (args.length == 4) return call(pc, cast.toString(args[0]), cast.toString(args[1]), args[2], cast.toString(args[3]), null, null, null, null, null, null, 0);
+		if (args.length == 3) return call(pc, cast.toString(args[0]), cast.toString(args[1]), args[2], null, null, null, null, null, null, null, 0);
 
-		throw engine.getExceptionUtil().createFunctionException(pc, "S3Write", 3, 10, args.length);
+		throw engine.getExceptionUtil().createFunctionException(pc, "S3Write", 3, 11, args.length);
 	}
 }

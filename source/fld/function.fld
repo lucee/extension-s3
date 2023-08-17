@@ -145,6 +145,13 @@
 			<description>S3 secretAccessKey, if not defined it checks the system property/environment variable for [lucee.s3.secretaccesskey].</description>
 	    </argument>
 		<argument>
+			<name>host</name>
+			<alias>provider,server</alias>
+			<type>string</type>
+			<required>No</required>
+			<description>the provider to connect, if not set Amazon AWS is used.</description>
+	    </argument>
+		<argument>
 			<name>timeout</name>
 			<type>number</type>
 			<required>No</required>
@@ -196,6 +203,13 @@
 			<description>S3 secretAccessKey, if not defined it checks the system property/environment variable for [lucee.s3.secretaccesskey].</description>
 	    </argument>
 		<argument>
+			<name>host</name>
+			<alias>provider,server</alias>
+			<type>string</type>
+			<required>No</required>
+			<description>the provider to connect, if not set Amazon AWS is used.</description>
+	    </argument>
+		<argument>
 			<name>timeout</name>
 			<type>number</type>
 			<required>No</required>
@@ -238,6 +252,13 @@
 			<type>string</type>
 			<required>No</required>
 			<description>S3 secretAccessKey, if not defined it checks the system property/environment variable for [lucee.s3.secretaccesskey].</description>
+	    </argument>
+		<argument>
+			<name>host</name>
+			<alias>provider,server</alias>
+			<type>string</type>
+			<required>No</required>
+			<description>the provider to connect, if not set Amazon AWS is used.</description>
 	    </argument>
 		<argument>
 			<name>timeout</name>
@@ -319,6 +340,13 @@
 			<description>S3 secretAccessKey, if not defined it checks the system property/environment variable for [lucee.s3.secretaccesskey].</description>
 	    </argument>
 		<argument>
+			<name>host</name>
+			<alias>provider,server</alias>
+			<type>string</type>
+			<required>No</required>
+			<description>the provider to connect, if not set Amazon AWS is used.</description>
+	    </argument>
+		<argument>
 			<name>timeout</name>
 			<type>number</type>
 			<required>No</required>
@@ -356,6 +384,13 @@
 			<type>string</type>
 			<required>No</required>
 			<description>S3 secretAccessKey, if not defined it checks the system property/environment variable for [lucee.s3.secretaccesskey].</description>
+	    </argument>
+		<argument>
+			<name>host</name>
+			<alias>provider,server</alias>
+			<type>string</type>
+			<required>No</required>
+			<description>the provider to connect, if not set Amazon AWS is used.</description>
 	    </argument>
 		<argument>
 			<name>timeout</name>
@@ -402,6 +437,13 @@
 			<type>string</type>
 			<required>No</required>
 			<description>S3 secretAccessKey, if not defined it checks the system property/environment variable for [lucee.s3.secretaccesskey].</description>
+	    </argument>
+		<argument>
+			<name>host</name>
+			<alias>provider,server</alias>
+			<type>string</type>
+			<required>No</required>
+			<description>the provider to connect, if not set Amazon AWS is used.</description>
 	    </argument>
 		<argument>
 			<name>timeout</name>
@@ -479,6 +521,13 @@
 			<description>S3 secretAccessKey, if not defined it checks the system property/environment variable for [lucee.s3.secretaccesskey].</description>
 	    </argument>
 		<argument>
+			<name>host</name>
+			<alias>provider,server</alias>
+			<type>string</type>
+			<required>No</required>
+			<description>the provider to connect, if not set Amazon AWS is used.</description>
+	    </argument>
+		<argument>
 			<name>timeout</name>
 			<type>number</type>
 			<required>No</required>
@@ -554,6 +603,13 @@
 			<description>S3 secretAccessKey, if not defined it checks the system property/environment variable for [lucee.s3.secretaccesskey].</description>
 	    </argument>
 		<argument>
+			<name>host</name>
+			<alias>provider,server</alias>
+			<type>string</type>
+			<required>No</required>
+			<description>the provider to connect, if not set Amazon AWS is used.</description>
+	    </argument>
+		<argument>
 			<name>timeout</name>
 			<type>number</type>
 			<required>No</required>
@@ -604,6 +660,13 @@
 			<type>string</type>
 			<required>No</required>
 			<description>S3 secretAccessKey, if not defined it checks the system property/environment variable for [lucee.s3.secretaccesskey].</description>
+	    </argument>
+		<argument>
+			<name>host</name>
+			<alias>provider,server</alias>
+			<type>string</type>
+			<required>No</required>
+			<description>the provider to connect, if not set Amazon AWS is used.</description>
 	    </argument>
 		<argument>
 			<name>timeout</name>
@@ -675,6 +738,13 @@
 			<type>string</type>
 			<required>No</required>
 			<description>S3 secretAccessKey, if not defined it checks the system property/environment variable for [lucee.s3.secretaccesskey].</description>
+	    </argument>
+		<argument>
+			<name>host</name>
+			<alias>provider,server</alias>
+			<type>string</type>
+			<required>No</required>
+			<description>the provider to connect, if not set Amazon AWS is used.</description>
 	    </argument>
 		<argument>
 			<name>timeout</name>

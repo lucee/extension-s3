@@ -18,8 +18,13 @@ public class S3Move extends S3Function {
 	private static final long serialVersionUID = 7678256258034826909L;
 
 	public static Object call(PageContext pc, String srcBucketName, String srcObjectName, String trgBucketName, String trgObjectName, Object objACL, String location,
-			String accessKeyId, String secretAccessKey, double timeout) throws PageException {
+			String accessKeyId, String secretAccessKey, String host, double timeout) throws PageException {
 		CFMLEngine eng = CFMLEngineFactory.getInstance();
+		// for backward compatibility, when host was not existing
+		if (eng.getDecisionUtil().isNumber(host)) {
+			timeout = eng.getCastUtil().toDoubleValue(host);
+			host = null;
+		}
 		if (Util.isEmpty(trgObjectName, true)) trgObjectName = srcObjectName;
 
 		CannedAccessControlList acl = null;
@@ -37,7 +42,7 @@ public class S3Move extends S3Function {
 
 		try {
 			// create S3 Instance
-			S3 s3 = S3ResourceProvider.getS3(toS3Properties(pc, accessKeyId, secretAccessKey), toTimeout(timeout));
+			S3 s3 = S3ResourceProvider.getS3(toS3Properties(pc, accessKeyId, secretAccessKey, host), toTimeout(timeout));
 			s3.moveObject(srcBucketName, srcObjectName, trgBucketName, trgObjectName, acl, location);
 		}
 		catch (Exception e) {
@@ -51,17 +56,19 @@ public class S3Move extends S3Function {
 		CFMLEngine engine = CFMLEngineFactory.getInstance();
 		Cast cast = engine.getCastUtil();
 
+		if (args.length == 10) return call(pc, cast.toString(args[0]), cast.toString(args[1]), cast.toString(args[2]), cast.toString(args[3]), args[4], cast.toString(args[5]),
+				cast.toString(args[6]), cast.toString(args[7]), cast.toString(args[8]), cast.toDoubleValue(args[9]));
 		if (args.length == 9) return call(pc, cast.toString(args[0]), cast.toString(args[1]), cast.toString(args[2]), cast.toString(args[3]), args[4], cast.toString(args[5]),
-				cast.toString(args[6]), cast.toString(args[7]), cast.toDoubleValue(args[8]));
+				cast.toString(args[6]), cast.toString(args[7]), cast.toString(args[8]), 0);
 		if (args.length == 8) return call(pc, cast.toString(args[0]), cast.toString(args[1]), cast.toString(args[2]), cast.toString(args[3]), args[4], cast.toString(args[5]),
-				cast.toString(args[6]), cast.toString(args[7]), 0);
+				cast.toString(args[6]), cast.toString(args[7]), null, 0);
 		if (args.length == 7) return call(pc, cast.toString(args[0]), cast.toString(args[1]), cast.toString(args[2]), cast.toString(args[3]), args[4], cast.toString(args[5]),
-				cast.toString(args[6]), null, 0);
+				cast.toString(args[6]), null, null, 0);
 		if (args.length == 6)
-			return call(pc, cast.toString(args[0]), cast.toString(args[1]), cast.toString(args[2]), cast.toString(args[3]), args[4], cast.toString(args[5]), null, null, 0);
-		if (args.length == 5) return call(pc, cast.toString(args[0]), cast.toString(args[1]), cast.toString(args[2]), cast.toString(args[3]), args[4], null, null, null, 0);
-		if (args.length == 4) return call(pc, cast.toString(args[0]), cast.toString(args[1]), cast.toString(args[2]), cast.toString(args[3]), null, null, null, null, 0);
-		if (args.length == 3) return call(pc, cast.toString(args[0]), cast.toString(args[1]), cast.toString(args[2]), null, null, null, null, null, 0);
+			return call(pc, cast.toString(args[0]), cast.toString(args[1]), cast.toString(args[2]), cast.toString(args[3]), args[4], cast.toString(args[5]), null, null, null, 0);
+		if (args.length == 5) return call(pc, cast.toString(args[0]), cast.toString(args[1]), cast.toString(args[2]), cast.toString(args[3]), args[4], null, null, null, null, 0);
+		if (args.length == 4) return call(pc, cast.toString(args[0]), cast.toString(args[1]), cast.toString(args[2]), cast.toString(args[3]), null, null, null, null, null, 0);
+		if (args.length == 3) return call(pc, cast.toString(args[0]), cast.toString(args[1]), cast.toString(args[2]), null, null, null, null, null, null, 0);
 
 		throw engine.getExceptionUtil().createFunctionException(pc, "S3Move", 3, 9, args.length);
 	}

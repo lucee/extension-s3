@@ -40,13 +40,17 @@ public abstract class S3Function extends BIF {
 	private static final long serialVersionUID = 5591490809164267541L;
 	private static final long DEFAULT_TIMEOUT = 10000L;
 
-	protected static S3Properties toS3Properties(PageContext pc, String accessKeyId, String secretAccessKey) throws PageException, RuntimeException {
+	protected static S3Properties toS3Properties(PageContext pc, String accessKeyId, String secretAccessKey, String host) throws PageException, RuntimeException {
 
 		// directly
 		if (!Util.isEmpty(accessKeyId, true) && !Util.isEmpty(secretAccessKey, true)) {
 			S3Properties props = new S3Properties();
 			props.setSecretAccessKey(secretAccessKey);
 			props.setAccessKeyId(accessKeyId);
+			if (!Util.isEmpty(host, true)) {
+				props.setHost(host);
+				props.setCustomHost(true);
+			}
 			props.setCustomCredentials(true);
 			return props;
 		}
@@ -63,8 +67,11 @@ public abstract class S3Function extends BIF {
 					s3props.setSecretAccessKey(secretAccessKey);
 					s3props.setAccessKeyId(accessKeyId);
 					s3props.setCustomCredentials(false);
-					s3props.setCustomHost(false);
-					if (props.getHost() != null) s3props.setHost(props.getHost());
+					if (props.getHost() != null) {
+						s3props.setHost(props.getHost());
+						s3props.setCustomHost(true);
+					}
+					else s3props.setCustomHost(false);
 					return s3props;
 				}
 			}
@@ -76,6 +83,10 @@ public abstract class S3Function extends BIF {
 		if (Util.isEmpty(accessKeyId, true)) accessKeyId = S3Util.getSystemPropOrEnvVar("lucee.s3.accesskeyid", null);
 		if (Util.isEmpty(accessKeyId, true)) accessKeyId = S3Util.getSystemPropOrEnvVar("lucee.s3.accesskey", null);
 
+		if (Util.isEmpty(host, true)) host = S3Util.getSystemPropOrEnvVar("lucee.s3.host", null);
+		if (Util.isEmpty(host, true)) host = S3Util.getSystemPropOrEnvVar("lucee.s3.server", null);
+		if (Util.isEmpty(host, true)) host = S3Util.getSystemPropOrEnvVar("lucee.s3.provider", null);
+
 		if (Util.isEmpty(secretAccessKey, true) || Util.isEmpty(accessKeyId, true)) throw CFMLEngineFactory.getInstance().getExceptionUtil().createApplicationException(
 				"missing S3 credentials",
 				"you can define the credentials as argument for the function [accessKeyId, secretAccessKey], in the application.cfc [this.s3.accessKeyId, this.s3.secretAccessKey] or in the system properties/environment variables [lucee.s3.secretaccesskey,lucee.s3.accesskeyid]");
@@ -84,7 +95,11 @@ public abstract class S3Function extends BIF {
 		props.setSecretAccessKey(secretAccessKey);
 		props.setAccessKeyId(accessKeyId);
 		props.setCustomCredentials(false);
-		props.setCustomHost(false);
+		if (!Util.isEmpty(host, true)) {
+			props.setHost(host);
+			props.setCustomHost(true);
+		}
+		else props.setCustomHost(false);
 
 		return props;
 	}
