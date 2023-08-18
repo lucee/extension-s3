@@ -1193,6 +1193,26 @@ public class S3 {
 					}
 				}
 			}
+
+			/* Get list of versions in a given bucket */
+			VersionListing versions = client.listVersions(new ListVersionsRequest().withBucketName(bucketName));
+
+			/* Recursively delete all the versions inside given bucket */
+			if (versions != null && versions.getVersionSummaries() != null) {
+				while (true) {
+					for (S3VersionSummary summary: versions.getVersionSummaries()) {
+						client.deleteObject(bucketName, summary.getKey());
+					}
+
+					if (versions.isTruncated()) {
+						versions = client.listNextBatchOfVersions(versions);
+					}
+					else {
+						break;
+					}
+				}
+			}
+
 			flushExists(bucketName, false);
 		}
 		catch (AmazonServiceException se) {
