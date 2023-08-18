@@ -32,7 +32,6 @@ import org.lucee.extension.resource.s3.util.XMLUtil;
 
 import com.amazonaws.AmazonServiceException;
 import com.amazonaws.HttpMethod;
-import com.amazonaws.SdkClientException;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.AccessControlList;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
@@ -2503,9 +2502,9 @@ public class S3 {
 					else e1.printStackTrace();
 				}
 			}
-			catch (SdkClientException sce) {
-				if (!(sce.getCause() instanceof UnknownHostException)) {
-					throw sce;
+			catch (Exception e) {
+				if (!(e.getCause() instanceof UnknownHostException)) {
+					if (log != null) log.error("s3", e);
 				}
 			}
 
