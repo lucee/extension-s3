@@ -21,7 +21,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 	}
 
 
-	private function testit(cred,region) {
+	private function testit(cred) {
 		try {
 			// create variables
 			var srcBucketName=cred.PREFIX&"src-move";
@@ -35,7 +35,6 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 				bucketName:srcBucketName,  objectName:srcObjectName, 
 				accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST))) {
 				S3Write( 
-					location:region,
 					value:"Susi Sorglos",
 					bucketName:srcBucketName,  objectName:srcObjectName, 
 					accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST));
