@@ -41,7 +41,7 @@ public class S3DeleteBucket extends S3Function {
 		if (args.length == 4) return call(pc, cast.toString(args[0]), cast.toBooleanValue(args[1]), cast.toString(args[2]), cast.toString(args[3]), null, 0);
 		if (args.length == 3) return call(pc, cast.toString(args[0]), cast.toBooleanValue(args[1]), cast.toString(args[2]), null, null, 0);
 		if (args.length == 2) return call(pc, cast.toString(args[0]), cast.toBooleanValue(args[1]), null, null, null, 0);
-		if (args.length == 1) return call(pc, cast.toString(args[0]), cast.toBooleanValue(args[1]), null, null, null, 0);
+		if (args.length == 1) return call(pc, cast.toString(args[0]), true, null, null, null, 0);
 		throw engine.getExceptionUtil().createFunctionException(pc, "S3DeleteBucket", 1, 6, args.length);
 	}
 }
