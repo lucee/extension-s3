@@ -14,7 +14,7 @@ public class S3Exists extends S3Function {
 
 	private static final long serialVersionUID = -3512292354903523227L;
 
-	public static boolean call(PageContext pc, String bucketName, String objectName, String accessKeyId, String host, String secretAccessKey, double timeout) throws PageException {
+	public static boolean call(PageContext pc, String bucketName, String objectName, String accessKeyId, String secretAccessKey, String host, double timeout) throws PageException {
 		CFMLEngine eng = CFMLEngineFactory.getInstance();
 		// for backward compatibility, when host was not existing
 		if (eng.getDecisionUtil().isNumber(host)) {

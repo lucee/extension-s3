@@ -1254,8 +1254,12 @@ public class S3 {
 					throw toS3Exception(se);
 				}
 				else if (se.getErrorCode().equals("NoSuchBucket") && !client.doesBucketExistV2(trgBucketName)) {
-					if (acl == null) acl = client.getBucketAcl(srcBucketName);
+					boolean customACL = true;
 
+					if (acl == null) {
+						acl = client.getBucketAcl(srcBucketName);
+						customACL = acl == null;
+					}
 					CreateBucketRequest cbr = new CreateBucketRequest(trgBucketName);
 					if (acl != null) setACL(cbr, acl);
 
@@ -1266,7 +1270,16 @@ public class S3 {
 					AmazonS3Client clientTarget = getAmazonS3(trgBucketName, targetRegion);
 					AmazonS3Client clientSource = getAmazonS3(srcBucketName, null);
 					try {
-						clientTarget.createBucket(cbr);
+						try {
+							clientTarget.createBucket(cbr);
+						}
+						catch (AmazonS3Exception e) {
+							// releaseEL(clientTarget);
+							if (customACL) throw e;
+							cbr = new CreateBucketRequest(trgBucketName);
+							clientTarget.createBucket(cbr);
+						}
+
 						clientSource.copyObject(cor);
 					}
 					finally {
@@ -1282,6 +1295,15 @@ public class S3 {
 		}
 		finally {
 			client.release();
+		}
+	}
+
+	private void releaseEL(AmazonS3Client client) {
+		try {
+			if (client != null) client.release();
+		}
+		catch (Exception e) {
+
 		}
 	}
 

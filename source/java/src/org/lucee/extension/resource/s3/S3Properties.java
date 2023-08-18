@@ -12,6 +12,7 @@ public class S3Properties {
 
 	private static BIF bif;
 	private String host = S3.DEFAULT_HOST;
+	private String bucket = null;
 	private String secretAccessKey;
 	private String accessKeyId;
 	private boolean hasCustomHost;
@@ -20,6 +21,14 @@ public class S3Properties {
 	private String defaultLocation;
 	private long cache;
 	private String mapping;
+
+	public void setBucket(String bucket) {
+		if (!Util.isEmpty(bucket, true)) this.bucket = bucket;
+	}
+
+	public String getBucket() {
+		return bucket;
+	}
 
 	public void setHost(String host) {
 		this.host = host;
@@ -152,15 +161,18 @@ public class S3Properties {
 		if (Util.isEmpty(host)) host = eng.getCastUtil().toString(sct.get("server", null), null);
 		if (Util.isEmpty(host)) host = eng.getCastUtil().toString(sct.get("endpoint", null), null);
 
+		String bucket = eng.getCastUtil().toString(sct.get("bucket", null), null);
+		if (Util.isEmpty(host)) bucket = eng.getCastUtil().toString(sct.get("bucketname", null), null);
+
 		String sk = eng.getCastUtil().toString(sct.get("awsSecretKey", null), null);
 		if (Util.isEmpty(sk)) sk = eng.getCastUtil().toString(sct.get("secretKey", null), null);
 
-		return toS3(eng.getCastUtil().toString(sct.get("accessKeyId", null), null), sk, eng.getCastUtil().toString(sct.get("defaultLocation", null), null), host,
+		return toS3(eng.getCastUtil().toString(sct.get("accessKeyId", null), null), sk, eng.getCastUtil().toString(sct.get("defaultLocation", null), null), host, bucket,
 				eng.getCastUtil().toString(sct.get("acl", null), null), eng.getCastUtil().toTimespan(sct.get("cache", null), null));
 
 	}
 
-	private static S3Properties toS3(String accessKeyId, String awsSecretKey, String defaultLocation, String host, String acl, TimeSpan cache) throws S3Exception {
+	private static S3Properties toS3(String accessKeyId, String awsSecretKey, String defaultLocation, String host, String bucket, String acl, TimeSpan cache) throws S3Exception {
 
 		S3Properties s3 = new S3Properties();
 
@@ -168,6 +180,7 @@ public class S3Properties {
 		if (!Util.isEmpty(awsSecretKey)) s3.setSecretAccessKey(awsSecretKey);
 		if (!Util.isEmpty(defaultLocation)) s3.setDefaultLocation(defaultLocation);
 		if (!Util.isEmpty(host)) s3.setHost(host);
+		if (!Util.isEmpty(bucket)) s3.setBucket(bucket);
 		if (!Util.isEmpty(acl)) s3.setACL(AccessControlListUtil.toAccessControlList(acl));
 		if (cache != null) s3.setCache(cache.getMillis());
 

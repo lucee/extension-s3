@@ -120,6 +120,7 @@ public final class S3ResourceProvider implements ResourceProvider {
 		 * print.e("CustomCredentials:" + props.getCustomCredentials()); print.e("CustomHost:" +
 		 * props.getCustomHost());
 		 */
+
 		return new S3Resource(engine, getS3(props, cache), props, location.getValue(), this, path);
 	}
 
@@ -133,7 +134,7 @@ public final class S3ResourceProvider implements ResourceProvider {
 
 		boolean hasCustomHost = false;
 		boolean hasCustomCredentials = false;
-		String accessKeyId, host, secretAccessKey, defaultLocation, mapping = null;
+		String accessKeyId, host, secretAccessKey, defaultLocation, bucket, mapping = null;
 		Object defaultACL;
 		Struct appData = null;
 
@@ -147,10 +148,14 @@ public final class S3ResourceProvider implements ResourceProvider {
 
 			host = S3Util.getSystemPropOrEnvVar("lucee.s3.host", null);
 			if (Util.isEmpty(host, true)) host = S3Util.getSystemPropOrEnvVar("lucee.s3.server", null);
+			if (Util.isEmpty(host, true)) host = S3Util.getSystemPropOrEnvVar("lucee.s3.provider", null);
 
 			defaultLocation = S3Util.getSystemPropOrEnvVar("lucee.s3.location", null);
 			if (Util.isEmpty(defaultLocation, true)) defaultLocation = S3Util.getSystemPropOrEnvVar("lucee.s3.defaultLocation", null);
 			if (Util.isEmpty(defaultLocation, true)) defaultLocation = S3Util.getSystemPropOrEnvVar("lucee.s3.region", null);
+
+			bucket = S3Util.getSystemPropOrEnvVar("lucee.s3.bucket", null);
+			if (Util.isEmpty(bucket, true)) bucket = S3Util.getSystemPropOrEnvVar("lucee.s3.bucketname", null);
 
 			defaultACL = S3Util.getSystemPropOrEnvVar("lucee.s3.acl", null);
 			if (defaultACL == null) defaultACL = S3Util.getSystemPropOrEnvVar("lucee.s3.accesscontrollist", null);
@@ -172,6 +177,7 @@ public final class S3ResourceProvider implements ResourceProvider {
 					// because it is unlikely that you have the same credntials for a different host, host is always
 					// part of the credntials and cannot be defined standalone
 					if (!Util.isEmpty(prop.getHost())) host = prop.getHost();
+					if (!Util.isEmpty(prop.getBucket())) bucket = prop.getBucket();
 
 				}
 				if (!Util.isEmpty(prop.getDefaultLocation())) defaultLocation = prop.getDefaultLocation();
@@ -218,6 +224,7 @@ public final class S3ResourceProvider implements ResourceProvider {
 					mapping = accessKeyId;
 					accessKeyId = prop.getAccessKeyId();
 					host = prop.getHost();
+					bucket = prop.getBucket();
 					secretAccessKey = prop.getSecretAccessKey();
 					defaultLocation = prop.getDefaultLocation();
 					defaultACL = prop.getACL();
@@ -271,6 +278,13 @@ public final class S3ResourceProvider implements ResourceProvider {
 		if (defaultACL != null) properties.setACL(defaultACL);
 		if (defaultLocation != null) properties.setDefaultLocation(defaultLocation);
 		if (!hasCustomHost && !Util.isEmpty(host, true)) properties.setHost(host);
+
+		/*
+		 * if (!Util.isEmpty(bucket, true)) { if (Util.isEmpty(path, true)) { path = "/" + bucket + "/"; }
+		 * else if (path.startsWith("/")) { path = "/" + bucket + path; } else { path = "/" + bucket + "/" +
+		 * path; } }
+		 */
+
 		return path;
 	}
 
