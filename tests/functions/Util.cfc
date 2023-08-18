@@ -1,5 +1,15 @@
 component  {
 	
+	static function deleteBucketEL(cred,bucketName) {
+		try {
+			S3DeleteBucket(bucketName:bucketName,force:true, accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY,host:(isNull(cred.HOST)?nullvalue():cred.HOST));
+		}
+		finally {
+
+		}
+	}
+
+
 	public static boolean function isAWSNotSupported() {
 		res= getAWSCredentials();
 		return isNull(res) || len(res)==0;
