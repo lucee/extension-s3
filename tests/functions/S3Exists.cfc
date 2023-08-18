@@ -1,19 +1,19 @@
 component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 	function run( testResults , testBox ) {
 		describe( title="Test suite for S3ClearBucket()", body=function() {
-			it(title="check region with blackbaze",skip=Util::isBackBlazeNotSupported(), body = function( currentSpec ) {
+			it(title="check with blackbaze",skip=Util::isBackBlazeNotSupported(), body = function( currentSpec ) {
 				testit(Util::getBackBlazeCredentials());
 			});	
 
-			it(title="check region with amazon",skip=Util::isAWSNotSupported(), body = function( currentSpec ) {
+			it(title="check with amazon",skip=Util::isAWSNotSupported(), body = function( currentSpec ) {
 				testit(Util::getAWSCredentials());
 			});	
 
-			it(title="check region with wasabi",skip=Util::isWasabiNotSupported(), body = function( currentSpec ) {
+			it(title="check with wasabi",skip=Util::isWasabiNotSupported(), body = function( currentSpec ) {
 				testit(Util::getWasabiCredentials());
 			});		
 
-			it(title="check region with google",skip=Util::isGoogleNotSupported(), body = function( currentSpec ) {
+			it(title="check with google",skip=Util::isGoogleNotSupported(), body = function( currentSpec ) {
 				testit(Util::getGoogleCredentials());
 			});			
 	
