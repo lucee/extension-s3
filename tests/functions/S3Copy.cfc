@@ -15,20 +15,22 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 					bucketName:srcBucketName,  objectName:srcObjectName, 
 					accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY,host:cred.HOST)) {
 					S3Write( 
-						location:"us-east-1",
+						location:"us-east-5",
 						value:"Susi Sorglos",
 						bucketName:srcBucketName,  objectName:srcObjectName, 
 						accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY,host:cred.HOST);
 				}
 				// copy
 				S3Copy( 
-					location:"us-east-1",
+					location:"us-east-5",
 					srcBucketName:srcBucketName,  srcObjectName:srcObjectName, trgBucketName:trgBucketName, trgObjectName:trgObjectName, 
 					accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY,host:cred.HOST);
 				
 				
 				
-				//assertEquals("http://bundle-download.s3.eu-west-1.amazonaws.com/sentry-log4j-1.7.22.jar", res);
+				assertEquals("us-east-5", meta.region);
+				assertEquals(trgBucketName, meta.bucketName);
+				assertEquals(trgObjectName, meta.objectName);
 			});	
 
 			it(title="check region with amazon",skip=isNotSupported(), body = function( currentSpec ) {
