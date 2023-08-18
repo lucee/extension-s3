@@ -23,7 +23,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 
 	private function testit(cred) {
 		// create variables
-		var bucketName=cred.PREFIX&"-clear-bucket";
+		var bucketName=cred.PREFIX&"-exists";
 		var objectName="sub/test.txt";
 		
 
@@ -36,15 +36,37 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 				bucketName:bucketName,  objectName:objectName, 
 				accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST));
 		}
+		// existing bucket 
+		assertTrue(
+			S3Exists( 
+				bucketName:bucketName,  
+				accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST))
+		);
+		// existing bucket/object
+		assertTrue(
+			S3Exists( 
+				bucketName:bucketName,  objectName:objectName, 
+				accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST))
+		);
 
-		var kids=S3ListBucket(bucketName:bucketName, accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY,host:(isNull(cred.HOST)?nullvalue():cred.HOST));
-		assertTrue(kids.recordcount>0);
-
-		S3ClearBucket(bucketName:bucketName, accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY,host:(isNull(cred.HOST)?nullvalue():cred.HOST));
-		
-		var kids=S3ListBucket(bucketName:bucketName, accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY,host:(isNull(cred.HOST)?nullvalue():cred.HOST));
-		assertTrue(kids.recordcount==0);
-		
+		// NOT existing bucket 
+		assertTrue(
+			S3Exists( 
+				bucketName:bucketName&"NOT",  
+				accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST))
+		);
+		// NOT existing bucket/object
+		assertTrue(
+			S3Exists( 
+				bucketName:bucketName&"NOT",  objectName:objectName&"NOT", 
+				accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST))
+		);
+		// NOT existing object
+		assertTrue(
+			S3Exists( 
+				bucketName:bucketName,  objectName:objectName&"NOT", 
+				accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST))
+		);
 	}
 
 
