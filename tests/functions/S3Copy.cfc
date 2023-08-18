@@ -1,122 +1,66 @@
 component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 	function run( testResults , testBox ) {
 		describe( title="Test suite for S3Copy()", body=function() {
-			it(title="check region with blackbaze",skip=isBackBlazeNotSupported(), body = function( currentSpec ) {
-				var cred=getBackBlazeCredentials();
-				
-				// create variables
-				var srcBucketName=cred.PREFIX&"src-filecopy";
-				var trgBucketName=cred.PREFIX&"trg-filecopy";
-				var srcObjectName="src/test.txt";
-				var trgObjectName="trg/test.txt";
-
-				// create source bucket
-				if(!S3Exists( 
-					bucketName:srcBucketName,  objectName:srcObjectName, 
-					accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY,host:cred.HOST)) {
-					S3Write( 
-						location:"us-east-5",
-						value:"Susi Sorglos",
-						bucketName:srcBucketName,  objectName:srcObjectName, 
-						accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY,host:cred.HOST);
-				}
-				// copy
-				S3Copy( 
-					location:"us-east-5",
-					srcBucketName:srcBucketName,  srcObjectName:srcObjectName, trgBucketName:trgBucketName, trgObjectName:trgObjectName, 
-					accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY,host:cred.HOST);
-				
-				
-				
-				assertEquals("us-east-5", meta.region);
-				assertEquals(trgBucketName, meta.bucketName);
-				assertEquals(trgObjectName, meta.objectName);
+			it(title="check region with blackbaze",skip=Util::isBackBlazeNotSupported(), body = function( currentSpec ) {
+				testit(Util::getBackBlazeCredentials(),"us-east-5");
 			});	
 
-			it(title="check region with amazon",skip=isNotSupported(), body = function( currentSpec ) {
-				var cred=getCredentials();
-				
-				// create variables
-				var srcBucketName=cred.PREFIX&"src-filecopy";
-				var trgBucketName=cred.PREFIX&"trg-filecopy";
-				var srcObjectName="src/test.txt";
-				var trgObjectName="trg/test.txt";
+			it(title="check region with amazon",skip=Util::isAWSNotSupported(), body = function( currentSpec ) {
+				testit(Util::getAWSCredentials(),"us-east-1");
+			});	
 
-				// create source bucket
-				if(!S3Exists( 
-					bucketName:srcBucketName,  objectName:srcObjectName, 
-					accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY)) {
-					S3Write( 
-						location:"us-east-1",
-						value:"Susi Sorglos",
-						bucketName:srcBucketName,  objectName:srcObjectName, 
-						accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY);
-				}
-				// copy
-				S3Copy( 
-					location:"us-east-1",
-					srcBucketName:srcBucketName,  srcObjectName:srcObjectName, trgBucketName:trgBucketName, trgObjectName:trgObjectName, 
-					accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY);
-				
-				var meta=S3GetMetadata( 
-					bucketName:srcBucketName,  objectName:srcObjectName, 
-					accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY);
-				
-				assertEquals("us-east-1", meta.region);
-				assertEquals(srcBucketName, meta.bucketName);
-				assertEquals(srcObjectName, meta.objectName);
-
-
-				var meta=S3GetMetadata( 
-					bucketName:trgBucketName,  objectName:trgObjectName, 
-					accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY);
-				
-				assertEquals("us-east-1", meta.region);
-				assertEquals(trgBucketName, meta.bucketName);
-				assertEquals(trgObjectName, meta.objectName);
+			it(title="check region with wasabi",skip=Util::isWasabiNotSupported(), body = function( currentSpec ) {
+				testit(Util::getWasabiCredentials(),"eu-central-1");
 			});			
 	
 		});
 	}
 
+
+	private function testit(cred,region) {
+		// create variables
+		var srcBucketName=cred.PREFIX&"src-filecopy";
+		var trgBucketName=cred.PREFIX&"trg-filecopy";
+		var srcObjectName="src/test.txt";
+		var trgObjectName="trg/test.txt";
+
+		// create source bucket
+		if(!S3Exists( 
+			bucketName:srcBucketName,  objectName:srcObjectName, 
+			accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY)) {
+			S3Write( 
+				location:region,
+				value:"Susi Sorglos",
+				bucketName:srcBucketName,  objectName:srcObjectName, 
+				accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY);
+		}
+		// copy
+		S3Copy( 
+			location:region,
+			srcBucketName:srcBucketName,  srcObjectName:srcObjectName, trgBucketName:trgBucketName, trgObjectName:trgObjectName, 
+			accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY);
+		
+		var meta=S3GetMetadata( 
+			bucketName:srcBucketName,  objectName:srcObjectName, 
+			accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY);
+		
+		assertEquals(region, meta.region);
+		assertEquals(srcBucketName, meta.bucketName);
+		assertEquals(srcObjectName, meta.objectName);
+
+
+		var meta=S3GetMetadata( 
+			bucketName:trgBucketName,  objectName:trgObjectName, 
+			accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY);
+		
+		assertEquals(region, meta.region);
+		assertEquals(trgBucketName, meta.bucketName);
+		assertEquals(trgObjectName, meta.objectName);
+	}
+
+
 	private function doFind(value){
 		return value EQ "world";
 	}
 	
-	private boolean function isNotSupported() {
-		res= getCredentials();
-		return isNull(res) || len(res)==0;
-	}
-	private struct function getCredentials() {
-		var ACCESS_KEY_ID=server.system.environment.S3_ACCESS_KEY_ID?:nullValue();
-		if(isNull(ACCESS_KEY_ID) || isEmpty(ACCESS_KEY_ID)) return {};
-		
-		var SECRET_KEY=server.system.environment.S3_SECRET_KEY?:nullValue();
-		if(isNull(SECRET_KEY) || isEmpty(SECRET_KEY)) return {};
-		
-		var PREFIX=server.system.environment.S3_BUCKET_PREFIX?:nullValue();
-		if(isNull(PREFIX) || isEmpty(PREFIX)) return {};
-
-		return {ACCESS_KEY_ID:ACCESS_KEY_ID,SECRET_KEY:SECRET_KEY,PREFIX:PREFIX};
-	}
-	
-	private boolean function isBackBlazeNotSupported() {
-		res= getBackBlazeCredentials();
-		return isNull(res) || len(res)==0;
-	}
-	private struct function getBackBlazeCredentials() {
-		var ACCESS_KEY_ID=server.system.environment.S3_BACKBLAZE_ACCESS_KEY_ID?:nullValue();
-		if(isNull(ACCESS_KEY_ID) || isEmpty(ACCESS_KEY_ID)) return {};
-		
-		var SECRET_KEY=server.system.environment.S3_BACKBLAZE_SECRET_KEY?:nullValue();
-		if(isNull(SECRET_KEY) || isEmpty(SECRET_KEY)) return {};
-		
-		var HOST=server.system.environment.S3_BACKBLAZE_HOST?:nullValue();
-		if(isNull(HOST) || isEmpty(HOST)) return {};
-		
-		var PREFIX=server.system.environment.S3_BACKBLAZE_BUCKET_PREFIX?:nullValue();
-		if(isNull(PREFIX) || isEmpty(PREFIX)) return {};
-
-		return {ACCESS_KEY_ID:ACCESS_KEY_ID,SECRET_KEY:SECRET_KEY,HOST:HOST,PREFIX:PREFIX};
-	}
 }

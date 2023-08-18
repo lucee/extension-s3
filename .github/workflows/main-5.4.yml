@@ -68,3 +68,7 @@ jobs:
         S3_BACKBLAZE_SECRET_KEY: ${{ secrets.S3_BACKBLAZE_SECRET_KEY }}
         S3_BACKBLAZE_HOST: s3.us-east-005.backblazeb2.com
         S3_BACKBLAZE_BUCKET_PREFIX: lucee-ldev-e-
+        S3_WASABI_ACCESS_KEY_ID: JM8VC29WSODA1DRT2H4Y
+        S3_WASABI_SECRET_KEY: ${{ secrets.S3_WASABI_SECRET_KEY }}
+        S3_WASABI_HOST: s3.eu-central-1.wasabisys.com
+        S3_WASABI_BUCKET_PREFIX: lucee-ldev-e-
