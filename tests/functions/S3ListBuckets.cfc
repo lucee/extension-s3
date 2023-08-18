@@ -39,7 +39,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 			}
 
 			var buckets=S3ListBuckets( accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY,host:(isNull(cred.HOST)?nullvalue():cred.HOST));
-			assertTrue(kids.recordcount>0);
+			assertTrue(buckets.recordcount>0);
 		}
 		finally {
 			Util::deleteBucketEL(cred,bucketName);
