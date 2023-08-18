@@ -27,27 +27,27 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 		var trgBucketName=cred.PREFIX&"trg-filecopy";
 		var srcObjectName="src/test.txt";
 		var trgObjectName="trg/test.txt";
-		var host=isNull(cred.HOST)?nullvalue():cred.HOST;
+		
 
 		// create source bucket
 		if(!S3Exists( 
 			bucketName:srcBucketName,  objectName:srcObjectName, 
-			accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:host)) {
+			accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST))) {
 			S3Write( 
 				location:region,
 				value:"Susi Sorglos",
 				bucketName:srcBucketName,  objectName:srcObjectName, 
-				accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:host);
+				accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST));
 		}
 		// copy
 		S3Copy( 
 			location:region,
 			srcBucketName:srcBucketName,  srcObjectName:srcObjectName, trgBucketName:trgBucketName, trgObjectName:trgObjectName, 
-			accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:host);
+			accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST));
 		
 		var meta=S3GetMetadata( 
 			bucketName:srcBucketName,  objectName:srcObjectName, 
-			accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:host);
+			accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST));
 		
 		assertEquals(region, meta.region);
 		assertEquals(srcBucketName, meta.bucketName);
@@ -56,7 +56,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 
 		var meta=S3GetMetadata( 
 			bucketName:trgBucketName,  objectName:trgObjectName, 
-			accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:host);
+			accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST));
 		
 		assertEquals(region, meta.region);
 		assertEquals(trgBucketName, meta.bucketName);
