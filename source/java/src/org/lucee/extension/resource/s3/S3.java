@@ -377,7 +377,9 @@ public class S3 {
 		objectName = improveObjectName(objectName);
 
 		S3Info info = get(bucketName, objectName);
-		if (info instanceof StorageObjectWrapper) return ((StorageObjectWrapper) info).getStorageObject();
+		if (info instanceof StorageObjectWrapper) {
+			return fixBackBlazeBug(((StorageObjectWrapper) info).getStorageObject(), bucketName);
+		}
 		return null;
 	}
 
@@ -527,6 +529,7 @@ public class S3 {
 			if (objects != null && objects.getObjectSummaries() != null) {
 				while (true) {
 					for (S3ObjectSummary summary: objects.getObjectSummaries()) {
+						fixBackBlazeBug(summary, bucketName);
 						summeries.add(summary);
 					}
 					if (objects.isTruncated()) {
@@ -559,6 +562,7 @@ public class S3 {
 				if (summeries != null) {
 					while (true) {
 						for (S3ObjectSummary summary: summeries) {
+							fixBackBlazeBug(summary, bucketName);
 							list.add(client.getObject(bucketName, summary.getKey()));
 						}
 						if (objects.isTruncated()) {
@@ -571,6 +575,43 @@ public class S3 {
 				}
 			}
 			return list;
+		}
+		catch (AmazonServiceException ase) {
+			throw toS3Exception(ase);
+		}
+		finally {
+			client.release();
+		}
+	}
+
+	public Query listBucketsAsQuery() throws S3Exception, PageException {
+		AmazonS3Client client = getAmazonS3(null, null);
+		try {
+			CFMLEngine eng = CFMLEngineFactory.getInstance();
+			Creation creator = eng.getCreationUtil();
+
+			final Key nameKey = creator.createKey("name");
+			final Key size = creator.createKey("size");
+			final Key lastModified = creator.createKey("lastModified");
+			final Key ownerKey = creator.createKey("owner");
+			Query qry = eng.getCreationUtil().createQuery(new Key[] { nameKey, ownerKey, lastModified }, 0, "buckets");
+
+			List<Bucket> listBuckets = client.listBuckets();
+
+			if (listBuckets != null && listBuckets.size() > 0) {
+				int row;
+				Owner owner;
+				for (Bucket b: listBuckets) {
+					if (b == null) continue;
+					row = qry.addRow();
+					qry.setAt(nameKey, row, b.getName());
+					owner = b.getOwner();
+					if (owner != null) qry.setAt(ownerKey, row, owner.getDisplayName());
+					qry.setAt(lastModified, row, b.getCreationDate());
+				}
+			}
+
+			return qry;
 		}
 		catch (AmazonServiceException ase) {
 			throw toS3Exception(ase);
@@ -600,6 +641,7 @@ public class S3 {
 				int row;
 				while (true) {
 					for (S3ObjectSummary summary: objects.getObjectSummaries()) {
+						fixBackBlazeBug(summary, bucketName);
 						row = qry.addRow();
 						qry.setAt(objectName, row, summary.getKey());
 						qry.setAt(lastModified, row, summary.getLastModified());
@@ -720,11 +762,13 @@ public class S3 {
 							StorageObjectWrapper tmp;
 							String name;
 							for (S3ObjectSummary kid: kids) {
+								fixBackBlazeBug(kid, bucketName);
 								name = kid.getKey();
+
 								tmp = new StorageObjectWrapper(this, kid, validUntil, log);
 
 								if (!hasObjName || name.equals(nameFile) || name.startsWith(nameDir)) _list.put(kid.getKey(), tmp);
-								exists.put(toKey(kid.getBucketName(), name), tmp);
+								exists.put(toKey(bucketName, name), tmp);
 								_flush(exists);
 								int index;
 								while ((index = name.lastIndexOf('/')) != -1) {
@@ -752,6 +796,12 @@ public class S3 {
 		catch (AmazonS3Exception ase) {
 			throw toS3Exception(ase);
 		}
+	}
+
+	private S3ObjectSummary fixBackBlazeBug(S3ObjectSummary kid, String bucketName) {
+		// the method getBucketName does not deliver the bucket name
+		if (kid != null && Util.isEmpty(kid.getBucketName()) && !Util.isEmpty(bucketName)) kid.setBucketName(bucketName);
+		return kid;
 	}
 
 	private String toKey(String bucketName, String objectName) throws S3Exception {
@@ -910,6 +960,7 @@ public class S3 {
 			int count = 0;
 			// while (true) {
 			for (S3ObjectSummary summary: objects.getObjectSummaries()) {
+				fixBackBlazeBug(summary, bucketName);
 				count++;
 				// direct match
 				targetName = summary.getKey();
@@ -996,6 +1047,7 @@ public class S3 {
 				if (objects != null && objects.getObjectSummaries() != null) {
 					while (true) {
 						for (S3ObjectSummary summary: objects.getObjectSummaries()) {
+							fixBackBlazeBug(summary, bucketName);
 							client.deleteObject(bucketName, summary.getKey());
 						}
 
@@ -1060,6 +1112,7 @@ public class S3 {
 			if (objects != null && objects.getObjectSummaries() != null) {
 				while (true) {
 					for (S3ObjectSummary summary: objects.getObjectSummaries()) {
+						fixBackBlazeBug(summary, bucketName);
 						if (summary.getKey().equals(nameFile)) {
 							matchFile = true;
 							matches.add(new KeyVersion(summary.getKey()));
@@ -1210,15 +1263,15 @@ public class S3 {
 					if (Util.isEmpty(targetRegion)) {
 						targetRegion = getBucketRegion(srcBucketName, true).toString();
 					}
-					AmazonS3Client client1 = getAmazonS3(trgBucketName, targetRegion);
-					AmazonS3Client client2 = getAmazonS3(srcBucketName, null);
+					AmazonS3Client clientTarget = getAmazonS3(trgBucketName, targetRegion);
+					AmazonS3Client clientSource = getAmazonS3(srcBucketName, null);
 					try {
-						client1.createBucket(cbr);
-						client2.copyObject(cor);
+						clientTarget.createBucket(cbr);
+						clientSource.copyObject(cor);
 					}
 					finally {
-						client1.release();
-						client2.release();
+						clientTarget.release();
+						clientSource.release();
 					}
 				}
 				else throw toS3Exception(se);
@@ -1701,6 +1754,7 @@ public class S3 {
 				S3Info info = get(bucketName, objectName);
 				if (info == null || info.isVirtual()) throw new S3Exception("there is no object [" + objectName + "] in bucket [" + bucketName + "]");
 				S3ObjectSummary so = ((StorageObjectWrapper) info).getStorageObject();
+				fixBackBlazeBug(so, bucketName);
 				so.setLastModified(new Date(time));
 			}
 		}
