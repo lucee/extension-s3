@@ -22,29 +22,33 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 
 
 	private function testit(cred) {
-		// create variables
-		var bucketName=cred.PREFIX&"-clear-bucket";
-		var objectName="sub/test.txt";
-		
+		try {
+			// create variables
+			var bucketName=cred.PREFIX&"-clear-bucket";
+			var objectName="sub/test.txt";
+			
 
-		// create source bucket
-		if(!S3Exists( 
-			bucketName:bucketName,  objectName:objectName, 
-			accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST))) {
-			S3Write( 
-				value:"Susi Sorglos",
+			// create source bucket
+			if(!S3Exists( 
 				bucketName:bucketName,  objectName:objectName, 
-				accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST));
+				accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST))) {
+				S3Write( 
+					value:"Susi Sorglos",
+					bucketName:bucketName,  objectName:objectName, 
+					accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST));
+			}
+
+			var kids=S3ListBucket(bucketName:bucketName, accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY,host:(isNull(cred.HOST)?nullvalue():cred.HOST));
+			assertTrue(kids.recordcount>0);
+
+			S3ClearBucket(bucketName:bucketName, accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY,host:(isNull(cred.HOST)?nullvalue():cred.HOST));
+			
+			var kids=S3ListBucket(bucketName:bucketName, accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY,host:(isNull(cred.HOST)?nullvalue():cred.HOST));
+			assertTrue(kids.recordcount==0);
 		}
-
-		var kids=S3ListBucket(bucketName:bucketName, accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY,host:(isNull(cred.HOST)?nullvalue():cred.HOST));
-		assertTrue(kids.recordcount>0);
-
-		S3ClearBucket(bucketName:bucketName, accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY,host:(isNull(cred.HOST)?nullvalue():cred.HOST));
-		
-		var kids=S3ListBucket(bucketName:bucketName, accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY,host:(isNull(cred.HOST)?nullvalue():cred.HOST));
-		assertTrue(kids.recordcount==0);
-		
+		finally {
+			Util::deleteBucketEL(cred,bucketName);
+		}
 	}
 
 

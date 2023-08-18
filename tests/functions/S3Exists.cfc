@@ -22,51 +22,56 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 
 
 	private function testit(cred) {
-		// create variables
-		var bucketName=cred.PREFIX&"-exists";
-		var objectName="sub/test.txt";
-		
+		try {
+			// create variables
+			var bucketName=cred.PREFIX&"-exists";
+			var objectName="sub/test.txt";
+			
 
-		// create source bucket
-		if(!S3Exists( 
-			bucketName:bucketName,  objectName:objectName, 
-			accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST))) {
-			S3Write( 
-				value:"Susi Sorglos",
+			// create source bucket
+			if(!S3Exists( 
 				bucketName:bucketName,  objectName:objectName, 
-				accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST));
+				accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST))) {
+				S3Write( 
+					value:"Susi Sorglos",
+					bucketName:bucketName,  objectName:objectName, 
+					accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST));
+			}
+			// existing bucket 
+			assertTrue(
+				S3Exists( 
+					bucketName:bucketName,  
+					accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST))
+			);
+			// existing bucket/object
+			assertTrue(
+				S3Exists( 
+					bucketName:bucketName,  objectName:objectName, 
+					accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST))
+			);
+
+			// NOT existing bucket 
+			assertTrue(
+				S3Exists( 
+					bucketName:bucketName&"NOT",  
+					accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST))
+			);
+			// NOT existing bucket/object
+			assertTrue(
+				S3Exists( 
+					bucketName:bucketName&"NOT",  objectName:objectName&"NOT", 
+					accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST))
+			);
+			// NOT existing object
+			assertTrue(
+				S3Exists( 
+					bucketName:bucketName,  objectName:objectName&"NOT", 
+					accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST))
+			);
 		}
-		// existing bucket 
-		assertTrue(
-			S3Exists( 
-				bucketName:bucketName,  
-				accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST))
-		);
-		// existing bucket/object
-		assertTrue(
-			S3Exists( 
-				bucketName:bucketName,  objectName:objectName, 
-				accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST))
-		);
-
-		// NOT existing bucket 
-		assertTrue(
-			S3Exists( 
-				bucketName:bucketName&"NOT",  
-				accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST))
-		);
-		// NOT existing bucket/object
-		assertTrue(
-			S3Exists( 
-				bucketName:bucketName&"NOT",  objectName:objectName&"NOT", 
-				accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST))
-		);
-		// NOT existing object
-		assertTrue(
-			S3Exists( 
-				bucketName:bucketName,  objectName:objectName&"NOT", 
-				accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST))
-		);
+		finally {
+			Util::deleteBucketEL(cred,bucketName);
+		}
 	}
 
 
