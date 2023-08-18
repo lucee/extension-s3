@@ -49,7 +49,6 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 			
 			// move
 			S3Move( 
-				location:region,
 				srcBucketName:srcBucketName,  srcObjectName:srcObjectName, trgBucketName:trgBucketName, trgObjectName:trgObjectName, 
 				accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST));
 			
