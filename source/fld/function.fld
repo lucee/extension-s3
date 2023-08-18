@@ -409,6 +409,58 @@
 		</return>
 	</function>
 
+	<!-- S3DeleteBucket -->
+	<function>
+		<name>S3DeleteBucket</name>
+		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.S3DeleteBucket</class>
+		<description>deletes a bucket</description>
+		<argument>
+			<name>bucketName</name>
+			<alias>bucket</alias>
+			<type>string</type>
+			<required>Yes</required>
+			<description>Name of the bucket to list objects from.</description>
+	    </argument>
+		<argument>
+			<name>force</name>
+			<alias>bucket</alias>
+			<type>boolean</type>
+			<required>No</required>
+			<value>true</value>
+			<description>Also delete bucket if it has content.</description>
+	    </argument>
+		<argument>
+			<name>accessKeyId</name>
+			<alias>accessKey</alias>
+			<type>string</type>
+			<required>No</required>
+			<description>S3 accessKeyId, if not defined it checks the system property/environment variable for [lucee.s3.accesskeyid].</description>
+	    </argument>
+		<argument>
+			<name>secretAccessKey</name>
+			<alias>secretkey</alias>
+			<type>string</type>
+			<required>No</required>
+			<description>S3 secretAccessKey, if not defined it checks the system property/environment variable for [lucee.s3.secretaccesskey].</description>
+	    </argument>
+		<argument>
+			<name>host</name>
+			<alias>provider,server</alias>
+			<type>string</type>
+			<required>No</required>
+			<description>the provider to connect, if not set Amazon AWS is used.</description>
+	    </argument>
+		<argument>
+			<name>timeout</name>
+			<type>number</type>
+			<required>No</required>
+			<default>10000</default>
+			<description>timeout for this execution</description>
+	    </argument>
+		<return>
+			<type>query</type>
+		</return>
+	</function>
 
 	<!-- S3ListBucket -->
 	<function>
