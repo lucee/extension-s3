@@ -2,7 +2,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 	function run( testResults , testBox ) {
 		describe( title="Test suite for S3Copy()", body=function() {
 			it(title="check region with blackbaze",skip=Util::isBackBlazeNotSupported(), body = function( currentSpec ) {
-				testit(Util::getBackBlazeCredentials(),"us-east-5");
+				testit(Util::getBackBlazeCredentials(),"us-east-005");
 			});	
 
 			it(title="check region with amazon",skip=Util::isAWSNotSupported(), body = function( currentSpec ) {
@@ -10,7 +10,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 			});	
 
 			it(title="check region with wasabi",skip=Util::isWasabiNotSupported(), body = function( currentSpec ) {
-				testit(Util::getWasabiCredentials(),"us-east-1");
+				testit(Util::getWasabiCredentials(),"eu-central-1");
 			});		
 
 			it(title="check region with google",skip=Util::isGoogleNotSupported(), body = function( currentSpec ) {

@@ -77,6 +77,7 @@ component  {
 	}
 	public static boolean function isGoogleNotSupported() {
 		res= getGoogleCredentials();
+		return true; // disbled because current account is invalid
 		return isNull(res) || len(res)==0;
 	}
 	public static struct function getGoogleCredentials() {
