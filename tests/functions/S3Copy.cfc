@@ -10,7 +10,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 			});	
 
 			it(title="check region with wasabi",skip=Util::isWasabiNotSupported(), body = function( currentSpec ) {
-				testit(Util::getWasabiCredentials(),"eu-central-1");
+				testit(Util::getWasabiCredentials(),"us-east-1");
 			});		
 
 			it(title="check region with google",skip=Util::isGoogleNotSupported(), body = function( currentSpec ) {
