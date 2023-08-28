@@ -2225,7 +2225,7 @@ public class AmazonS3Client implements AmazonS3 {
 	}
 
 	private void invalidateAmazonS3(IllegalStateException ise) throws AmazonS3Exception {
-		if (log != null) log.error("S3", ise);
+		if (log != null) log.log(Log.LEVEL_WARN, "S3", ise);
 		try {
 			client = create();
 		}
