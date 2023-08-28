@@ -24,10 +24,11 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 	private function testit(cred) {
 		try {
 			// create variables
+			var id=createUniqueID();
 			var srcBucketName=cred.PREFIX&"src-move";
 			var trgBucketName=cred.PREFIX&"trg-move";
-			var srcObjectName="src/test.txt";
-			var trgObjectName="trg/test.txt";
+			var srcObjectName="src/test#id#.txt";
+			var trgObjectName="trg/test#id#.txt";
 			
 
 			// create source bucket
