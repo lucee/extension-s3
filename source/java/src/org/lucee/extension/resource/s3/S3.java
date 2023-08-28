@@ -127,7 +127,8 @@ public class S3 {
 	 * @param log
 	 * @throws S3Exception
 	 */
-	public S3(S3Properties props, long cacheTimeout, long liveTimeout, String defaultRegion, boolean cacheRegions, Log log) {
+	public S3(S3Properties props, long cacheTimeout, long liveTimeout, boolean cacheRegions, Log log) {
+		regions.put("US", RegionFactory.US_EAST_1);
 		this.host = props.getHost();
 		this.secretAccessKey = props.getSecretAccessKey();
 		this.accessKeyId = props.getAccessKeyId();
@@ -135,21 +136,20 @@ public class S3 {
 		this.liveTimeout = liveTimeout;
 		this.customCredentials = props.getCustomCredentials();
 		this.customHost = props.getCustomHost();
-		if (Util.isEmpty(defaultRegion, true)) defaultRegion = toString(RegionFactory.US_EAST_2);
+		if (Util.isEmpty(props.getDefaultLocation(), true)) defaultRegion = toString(RegionFactory.US_EAST_2);
 		else {
 			try {
-				defaultRegion = toString(RegionFactory.getInstance(defaultRegion));
+				defaultRegion = toString(RegionFactory.getInstance(props.getDefaultLocation()));
 			}
 			catch (S3Exception e) {
 				defaultRegion = toString(RegionFactory.US_EAST_2);
 			}
 		}
+
 		if (cacheRegions) {
 			new CacheRegions().start();
 		}
 		this.log = log;
-
-		regions.put("US", RegionFactory.US_EAST_1);
 
 	}
 

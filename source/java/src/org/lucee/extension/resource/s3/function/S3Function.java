@@ -72,6 +72,11 @@ public abstract class S3Function extends BIF {
 						s3props.setCustomHost(true);
 					}
 					else s3props.setCustomHost(false);
+
+					if (props.getDefaultLocation() != null) {
+						s3props.setDefaultLocation(props.getDefaultLocation());
+					}
+
 					return s3props;
 				}
 			}
