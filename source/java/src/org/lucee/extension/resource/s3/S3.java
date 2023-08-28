@@ -136,13 +136,12 @@ public class S3 {
 		this.liveTimeout = liveTimeout;
 		this.customCredentials = props.getCustomCredentials();
 		this.customHost = props.getCustomHost();
-		if (Util.isEmpty(props.getDefaultLocation(), true)) defaultRegion = toString(RegionFactory.US_EAST_2);
-		else {
+		if (!Util.isEmpty(props.getDefaultLocation(), true)) {
 			try {
 				defaultRegion = toString(RegionFactory.getInstance(props.getDefaultLocation()));
 			}
 			catch (S3Exception e) {
-				defaultRegion = toString(RegionFactory.US_EAST_2);
+				defaultRegion = props.getDefaultLocation();
 			}
 		}
 
