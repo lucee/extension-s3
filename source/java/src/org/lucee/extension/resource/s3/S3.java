@@ -1255,17 +1255,18 @@ public class S3 {
 
 		flushExists(srcBucketName, srcObjectName);
 		flushExists(trgBucketName, trgObjectName);
-		AmazonS3Client client = getAmazonS3(null, null);
-		// AmazonS3Client client = getAmazonS3(srcBucketName, null);
 
-		boolean doesExistBefore = client.doesBucketExistV2(trgBucketName);
+		AmazonS3Client srcClient = getAmazonS3(srcBucketName, null);
+		AmazonS3Client trgClient = getAmazonS3(null, targetRegion);
+
+		// AmazonS3Client client = getAmazonS3(srcBucketName, null);
 
 		try {
 			CopyObjectRequest cor = new CopyObjectRequest(srcBucketName, srcObjectName, trgBucketName, trgObjectName);
 
 			if (acl != null) setACL(cor, acl);
 			try {
-				client.copyObject(cor);
+				trgClient.copyObject(cor);
 			}
 			catch (AmazonServiceException se) {
 				// could be an Pseudo folder
@@ -1276,11 +1277,11 @@ public class S3 {
 					}
 					throw toS3Exception(se);
 				}
-				else if (se.getErrorCode().equals("NoSuchBucket") && !client.doesBucketExistV2(trgBucketName)) {
+				else if (se.getErrorCode().equals("NoSuchBucket") && !srcClient.doesBucketExistV2(trgBucketName)) {
 					boolean customACL = true;
 
 					if (acl == null) {
-						acl = client.getBucketAcl(srcBucketName);
+						acl = srcClient.getBucketAcl(srcBucketName);
 						customACL = acl == null;
 					}
 					CreateBucketRequest cbr = new CreateBucketRequest(trgBucketName);
@@ -1310,16 +1311,16 @@ public class S3 {
 					}
 				}
 				else {
-					throw new S3Exception(se.getErrorCode() + ";after:" + client.doesBucketExistV2(trgBucketName) + ";before:" + doesExistBefore + ";could not copy ["
-							+ srcBucketName + "/" + srcObjectName + "] to [" + trgBucketName + "/" + trgObjectName + "]  ", se);
+					throw new S3Exception("could not copy [" + srcBucketName + "/" + srcObjectName + "] to [" + trgBucketName + "/" + trgObjectName + "]  ", se);
 				}
 			}
 		}
 		catch (AmazonServiceException se) {
-			throw new S3Exception(se.getErrorCode() + ";could not copy [" + srcBucketName + "/" + srcObjectName + "] to [" + trgBucketName + "/" + trgObjectName + "]  ", se);
+			throw new S3Exception("could not copy [" + srcBucketName + "/" + srcObjectName + "] to [" + trgBucketName + "/" + trgObjectName + "]  ", se);
 		}
 		finally {
-			client.release();
+			srcClient.release();
+			trgClient.release();
 		}
 	}
 
