@@ -1252,6 +1252,7 @@ public class S3 {
 		srcObjectName = improveObjectName(srcObjectName, false);
 		trgBucketName = improveBucketName(trgBucketName);
 		trgObjectName = improveObjectName(trgObjectName, false);
+
 		flushExists(srcBucketName, srcObjectName);
 		flushExists(trgBucketName, trgObjectName);
 		AmazonS3Client client = getAmazonS3(srcBucketName, null);
@@ -1292,7 +1293,6 @@ public class S3 {
 							clientTarget.createBucket(cbr);
 						}
 						catch (AmazonS3Exception e) {
-							// releaseEL(clientTarget);
 							if (customACL) throw e;
 							cbr = new CreateBucketRequest(trgBucketName);
 							clientTarget.createBucket(cbr);
@@ -1305,11 +1305,14 @@ public class S3 {
 						clientSource.release();
 					}
 				}
-				else throw toS3Exception(se);
+				else {
+					throw new S3Exception(se.getErrorCode() + ";could not copy [" + srcBucketName + "/" + srcObjectName + "] to [" + trgBucketName + "/" + trgObjectName + "]  ",
+							se);
+				}
 			}
 		}
 		catch (AmazonServiceException se) {
-			throw toS3Exception(se);
+			throw new S3Exception(se.getErrorCode() + ";could not copy [" + srcBucketName + "/" + srcObjectName + "] to [" + trgBucketName + "/" + trgObjectName + "]  ", se);
 		}
 		finally {
 			client.release();
