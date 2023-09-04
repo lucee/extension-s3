@@ -10,9 +10,6 @@ component  {
 		catch(e) {
 			// Backblaze will fail, because it no allows to delete newely created buckets
 		}
-		finally {
-
-		}
 	}
 
 
