@@ -1282,7 +1282,7 @@ public class S3 {
 					if (acl != null) setACL(cbr, acl);
 
 					// if no target region is defined, we create the bucket with the same region as the source
-					if (Util.isEmpty(targetRegion)) {
+					if (Util.isEmpty(targetRegion, true)) {
 						targetRegion = getBucketRegion(srcBucketName, true).toString();
 					}
 					AmazonS3Client clientTarget = getAmazonS3(trgBucketName, targetRegion);

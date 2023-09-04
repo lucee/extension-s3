@@ -28,6 +28,8 @@ import java.util.List;
 import org.lucee.extension.resource.ResourceSupport;
 import org.lucee.extension.resource.s3.info.S3Info;
 
+import com.amazonaws.services.s3.model.CannedAccessControlList;
+
 import lucee.commons.io.res.Resource;
 import lucee.commons.io.res.ResourceProvider;
 import lucee.loader.engine.CFMLEngine;
@@ -528,7 +530,7 @@ public final class S3Resource extends ResourceSupport {
 			S3Resource t = (S3Resource) to;
 			// whe have the same container
 			if (f.s3.getAccessKeyId().equals(t.s3.getAccessKeyId()) && f.s3.getSecretAccessKey().equals(t.s3.getSecretAccessKey())) {
-				s3.copyObject(f.bucketName, f.objectName, t.bucketName, t.objectName, null, null);
+				s3.copyObject(f.bucketName, f.objectName, t.bucketName, t.objectName, toACL(t.acl), t.location);
 				return;
 			}
 
@@ -544,7 +546,7 @@ public final class S3Resource extends ResourceSupport {
 			S3Resource s3Trg = (S3Resource) trg;
 			// we have the same container
 			if (s3Trg.s3.getAccessKeyId().equals(s3Src.s3.getAccessKeyId()) && s3Trg.s3.getSecretAccessKey().equals(s3Src.s3.getSecretAccessKey())) {
-				s3.moveObject(s3Src.bucketName, s3Src.objectName, s3Trg.bucketName, s3Trg.objectName, null, null);
+				s3.moveObject(s3Src.bucketName, s3Src.objectName, s3Trg.bucketName, s3Trg.objectName, toACL(s3Trg.acl), s3Trg.location);
 				return;
 			}
 		}
@@ -552,5 +554,13 @@ public final class S3Resource extends ResourceSupport {
 		if (!trg.exists()) trg.createFile(false);
 		Util.copy(src, trg);
 		src.remove(false);
+	}
+
+	private CannedAccessControlList toACL(Object oACL) throws S3Exception {
+		if (oACL == null) return null;
+		String sACL = CFMLEngineFactory.getInstance().getCastUtil().toString(oACL, null);
+		if (Util.isEmpty(sACL, true)) return null;
+
+		return S3.toACL(sACL.trim());
 	}
 }
