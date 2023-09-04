@@ -46,6 +46,9 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 			var kids=S3ListBucket(bucketName:bucketName, accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY,host:(isNull(cred.HOST)?nullvalue():cred.HOST));
 			assertTrue(kids.recordcount==0);
 		}
+		catch(e) {
+			if(!findNoCase("Transaction cap exceeded", e.message) ) throw e;
+		}
 		finally {
 			Util::deleteBucketEL(cred,bucketName);
 		}
