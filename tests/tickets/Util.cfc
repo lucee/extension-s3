@@ -31,19 +31,9 @@ component  {
 	}
 	
 	public static boolean function isBackBlazeNotSupported() {
-		if(!isNull(server.isBackBlazeNotSupported)) return server.isBackBlazeNotSupported;
+		return true;// temp disabled becuae account reached cap
 		var cred= getBackBlazeCredentials();
 		if(isNull(cred) || len(cred)==0) return true;
-		try {
-			S3Exists(bucketName:"test-is-supported", accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST));
-		}
-		catch(e) {
-			if(findNoCase("increase your cap", e.message)) {
-				server.isBackBlazeNotSupported=true;
-				return true;
-			}
-		}
-		server.isBackBlazeNotSupported=false;
 		return false;
 	}
 
