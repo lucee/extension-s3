@@ -1272,7 +1272,7 @@ public class S3 {
 					}
 					throw toS3Exception(se);
 				}
-				else if (se.getErrorCode().equals("NoSuchBucket") && !client.doesBucketExistV2(trgBucketName)) {
+				else if (se.getErrorCode().equals("NoSuchBucket") || !client.doesBucketExistV2(trgBucketName)) {
 					boolean customACL = true;
 
 					if (acl == null) {
