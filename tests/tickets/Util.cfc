@@ -31,9 +31,21 @@ component  {
 	}
 	
 	public static boolean function isBackBlazeNotSupported() {
-		res= getBackBlazeCredentials();
-		return isNull(res) || len(res)==0;
+		if(!isNull(server.isBackBlazeNotSupported)) return server.isBackBlazeNotSupported;
+		var cred= getBackBlazeCredentials();
+		if(isNull(cred) || len(cred)==0) return true;
+		try {
+			S3Exists(bucketName:"test-is-supported", accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST));
+		}
+		catch(e) {
+			if(findNoCase("increase your cap", e.message)) {
+				server.isBackBlazeNotSupported=true;
+				return true;
+			}
+		}
+		return false;
 	}
+
 	public static struct function getBackBlazeCredentials() {
 		var ACCESS_KEY_ID=server.system.environment.S3_BACKBLAZE_ACCESS_KEY_ID?:nullValue();
 		if(isNull(ACCESS_KEY_ID) || isEmpty(ACCESS_KEY_ID)) return {};
