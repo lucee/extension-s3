@@ -1256,6 +1256,9 @@ public class S3 {
 		flushExists(srcBucketName, srcObjectName);
 		flushExists(trgBucketName, trgObjectName);
 		AmazonS3Client client = getAmazonS3(srcBucketName, null);
+
+		boolean doesExistBefore = client.doesBucketExistV2(trgBucketName);
+
 		try {
 			CopyObjectRequest cor = new CopyObjectRequest(srcBucketName, srcObjectName, trgBucketName, trgObjectName);
 
@@ -1272,7 +1275,13 @@ public class S3 {
 					}
 					throw toS3Exception(se);
 				}
-				else if (se.getErrorCode().equals("NoSuchBucket") || !client.doesBucketExistV2(trgBucketName)) {
+
+				boolean noBucket = se.getErrorCode().equals("NoSuchBucket") || !client.doesBucketExistV2(trgBucketName);
+				if (!noBucket) {
+					S3BucketWrapper tmp = get(trgBucketName);
+					if (tmp == null || !tmp.exists()) noBucket = true;
+				}
+				if (noBucket) {
 					boolean customACL = true;
 
 					if (acl == null) {
@@ -1306,8 +1315,8 @@ public class S3 {
 					}
 				}
 				else {
-					throw new S3Exception(se.getErrorCode() + ";" + client.doesBucketExistV2(trgBucketName) + "could not copy [" + srcBucketName + "/" + srcObjectName + "] to ["
-							+ trgBucketName + "/" + trgObjectName + "]  ", se);
+					throw new S3Exception(se.getErrorCode() + ";after:" + client.doesBucketExistV2(trgBucketName) + ";before:" + doesExistBefore + ";could not copy ["
+							+ srcBucketName + "/" + srcObjectName + "] to [" + trgBucketName + "/" + trgObjectName + "]  ", se);
 				}
 			}
 		}
