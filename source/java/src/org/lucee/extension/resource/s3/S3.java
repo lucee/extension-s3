@@ -204,12 +204,11 @@ public class S3 {
 					if (expectedRegion != null && !expectedRegion.equalsIgnoreCase(defaultRegion)) {
 						client = getAmazonS3(null, expectedRegion);
 						b = client.createBucket(cbr);
+						return b;
 					}
 				}
-				else {
-					if (!Util.isEmpty(targetRegion)) throw new S3Exception("could not create bucket [" + bucketName + "] with defined region [" + targetRegion + "]", ase);
-					throw new S3Exception("could not create bucket [" + bucketName + "] with region [" + region + "]", ase);
-				}
+				if (!Util.isEmpty(targetRegion)) throw new S3Exception("could not create bucket [" + bucketName + "] with defined region [" + targetRegion + "]", ase);
+				throw new S3Exception("could not create bucket [" + bucketName + "] with region [" + region + "]", ase);
 			}
 			finally {
 				client.release();
