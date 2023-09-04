@@ -139,7 +139,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 
 	private string function getTestBucketUrl(required credentials) localmode=true {
 		local.s3Details=arguments.credentials;
-		var bucketName = server.getTestService("s3").bucket_prefix & lcase("4635-#lcase(hash(CreateGUID()))#");
+		var bucketName = server.getTestService("s3").bucket_prefix & lcase("#lcase(CreateUUID())#");
 		return "s3://#s3Details.ACCESS_KEY_ID#:#s3Details.SECRET_KEY#@#(s3Details.HOST?:"")#/#bucketName#";
 	}
 	

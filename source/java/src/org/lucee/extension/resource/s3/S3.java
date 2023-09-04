@@ -200,10 +200,16 @@ public class S3 {
 				// TODO better way to handle this situation
 				// The authorization header is malformed; the region 'us-east-1' is wrong; expecting 'us-east-2'
 				if (Util.isEmpty(targetRegion) && "AuthorizationHeaderMalformed".equals(ase.getErrorCode()) && ase.getErrorMessage().indexOf("is wrong; expecting") != -1) {
-					region = extractExpectedRegion(ase.getErrorMessage(), ase);
-					b = client.createBucket(cbr);
+					String expectedRegion = extractExpectedRegion(ase.getErrorMessage(), ase);
+					if (expectedRegion != null && !expectedRegion.equalsIgnoreCase(defaultRegion)) {
+						client = getAmazonS3(null, expectedRegion);
+						b = client.createBucket(cbr);
+					}
 				}
-				else throw ase;
+				else {
+					if (!Util.isEmpty(targetRegion)) throw new S3Exception("could not create bucket [" + bucketName + "] with defined region [" + targetRegion + "]", ase);
+					throw new S3Exception("could not create bucket [" + bucketName + "] with region [" + region + "]", ase);
+				}
 			}
 			finally {
 				client.release();
