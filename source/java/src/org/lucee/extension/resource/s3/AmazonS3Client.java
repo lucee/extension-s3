@@ -94,6 +94,18 @@ public class AmazonS3Client implements AmazonS3 {
 		return builder.build();
 	}
 
+	public boolean isBackBlaze() {
+		return host != null && host.toLowerCase().indexOf(S3.BACKBLAZE.toLowerCase()) != -1;
+	}
+
+	public boolean isWasabi() {
+		return host != null && host.toLowerCase().indexOf(S3.WASABI.toLowerCase()) != -1;
+	}
+
+	public boolean isGoogle() {
+		return host != null && host.toLowerCase().indexOf(S3.GOOGLE.toLowerCase()) != -1;
+	}
+
 	private boolean isExpired() {
 		return (liveTimeout + System.currentTimeMillis()) < created;
 	}

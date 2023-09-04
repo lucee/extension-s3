@@ -67,15 +67,15 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 			
 			// Blackbaze
 				it(title="Copying dir to a new s3 bucket, valid region name [us-east-1]", skip=Util::isBackBlazeNotSupported(), body=function( currentSpec ) {
-					copyToBucket(getCredentials("BackBlaze"), "us-east-1", "us-east-1" );
+					copyToBucket(getCredentials("BackBlaze"), "us-east-1", "" );
 				});
 	
 				it(title="Copying dir to a new s3 bucket, valid region name [eu-west-1]", skip=Util::isBackBlazeNotSupported(), body=function( currentSpec ) {
-					copyToBucket(getCredentials("BackBlaze"), "eu-west-1", "eu-west-1" );
+					copyToBucket(getCredentials("BackBlaze"), "eu-west-1", "" );
 				});
 	
 				it(title="Copying dir to a new s3 bucket, valid region name [eu-west-1]", skip=Util::isBackBlazeNotSupported(), body=function( currentSpec ) {
-					copyToBucket(getCredentials("BackBlaze"), "eu-west-1", "eu-central-1" ); // fails, can't current copy between regions LDEV-4639
+					copyToBucket(getCredentials("BackBlaze"), "eu-west-1", "" ); // fails, can't current copy between regions LDEV-4639
 				});
 	
 				it(title="Copying dir to a new s3 bucket, invalid region name [down-under]", skip=Util::isBackBlazeNotSupported(), body=function( currentSpec ){
@@ -144,10 +144,12 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 	}
 	
 	private function getCredentials(required string provider) localmode=true {
-		if("BackBlaze"==arguments.provider) return Util::getBackBlazeCredentials();
-		else if("AWS"==arguments.provider) return Util::getAWSCredentials();
-		else if("Wasabi"==arguments.provider) return Util::getWasabiCredentials();
-		else if("Google"==arguments.provider) return Util::getGoogleCredentials();
+		if("BackBlaze"==arguments.provider) local.credentials = Util::getBackBlazeCredentials();
+		else if("AWS"==arguments.provider) local.credentials = Util::getAWSCredentials();
+		else if("Wasabi"==arguments.provider) local.credentials = Util::getWasabiCredentials();
+		else if("Google"==arguments.provider) local.credentials = Util::getGoogleCredentials();
+		local.credentials.provider=arguments.provider;
+		return local.credentials;
 	}
 
 }

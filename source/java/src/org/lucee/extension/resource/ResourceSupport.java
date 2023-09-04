@@ -27,7 +27,6 @@ import lucee.commons.io.res.Resource;
 import lucee.commons.io.res.filter.ResourceFilter;
 import lucee.commons.io.res.filter.ResourceNameFilter;
 import lucee.loader.engine.CFMLEngine;
-import lucee.loader.util.Util;
 
 /**
  * Helper class to build resources
