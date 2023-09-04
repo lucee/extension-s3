@@ -56,9 +56,9 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 			}
 		} finally {
 			// BlazeBucket does not like to delete buckets
-			deleteBucketEL(credentials,srcDir);
-			deleteBucketEL(credentials,bucket);
-			if ( !isEmpty( renameBucket )) deleteBucketEL(renameBucket,srcDir);
+			Util::deleteBucketEL(credentials,srcDir);
+			Util::deleteBucketEL(credentials,bucket);
+			if ( !isEmpty( renameBucket )) Util::deleteBucketEL(renameBucket,srcDir);
 		}
 	}
 
