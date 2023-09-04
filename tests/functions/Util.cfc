@@ -46,6 +46,7 @@ component  {
 				return true;
 			}
 		}
+		server.isBackBlazeNotSupported=false;
 		return false;
 	}
 
