@@ -143,13 +143,11 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 		return "s3://#s3Details.ACCESS_KEY_ID#:#s3Details.SECRET_KEY#@#(s3Details.HOST?:"")#/#bucketName#";
 	}
 	
-	private string function getCredentials(required string provider) localmode=true {
+	private function getCredentials(required string provider) localmode=true {
 		if("BackBlaze"==arguments.provider) return Util::getBackBlazeCredentials();
 		else if("AWS"==arguments.provider) return Util::getAWSCredentials();
 		else if("Wasabi"==arguments.provider) return Util::getWasabiCredentials();
 		else if("Google"==arguments.provider) return Util::getGoogleCredentials();
-		
-		return "s3://#s3Details.ACCESS_KEY_ID#:#s3Details.SECRET_KEY#@#(s3Details.HOST?:"")#/#bucketName#";
 	}
 
 }
