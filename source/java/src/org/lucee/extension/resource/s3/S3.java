@@ -1306,8 +1306,8 @@ public class S3 {
 					}
 				}
 				else {
-					throw new S3Exception(se.getErrorCode() + ";could not copy [" + srcBucketName + "/" + srcObjectName + "] to [" + trgBucketName + "/" + trgObjectName + "]  ",
-							se);
+					throw new S3Exception(se.getErrorCode() + ";" + client.doesBucketExistV2(trgBucketName) + "could not copy [" + srcBucketName + "/" + srcObjectName + "] to ["
+							+ trgBucketName + "/" + trgObjectName + "]  ", se);
 				}
 			}
 		}
