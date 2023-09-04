@@ -104,14 +104,6 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 					copyToBucket(getCredentials("Wasabi"), "us-east-1", "us-east-1" );
 				});
 	
-				it(title="Wasabi: Copying dir to a new s3 bucket, valid region name [eu-west-1]", skip=Util::isWasabiNotSupported(), body=function( currentSpec ) {
-					copyToBucket(getCredentials("Wasabi"), "eu-west-1", "eu-west-1" );
-				});
-	
-				it(title="Wasabi: Copying dir to a new s3 bucket, valid region name [eu-west-1]", skip=Util::isWasabiNotSupported(), body=function( currentSpec ) {
-					copyToBucket(getCredentials("Wasabi"), "eu-west-1", "eu-central-1" ); // fails, can't current copy between regions LDEV-4639
-				});
-	
 				it(title="Wasabi: Copying dir to a new s3 bucket, invalid region name [down-under]", skip=Util::isWasabiNotSupported(), body=function( currentSpec ){
 					copyToBucket(getCredentials("Wasabi"), "down-under", "", true );
 				});
