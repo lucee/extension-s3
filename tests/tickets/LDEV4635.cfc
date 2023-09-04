@@ -8,7 +8,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 		return listFirst( s3Version, "." ) ;
 	};
 
-	private function copyToBucket( required string bucket, required string storelocation, required string renameLocation, boolean invalid=false ){
+	private function copyToBucket( required credentials, required string storelocation, required string renameLocation, boolean invalid=false ){
+		arguments.bucket=getTestBucketUrl(credentials);
 		try {
 			var renameBucket = "";
 			var srcDir = getTempDirectory() & createUniqueID() & "/";
@@ -38,7 +39,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 				// now try rename to a bucket in a different region 
 				// fails between regions https://luceeserver.atlassian.net/browse/LDEV-4639
 				if ( len( renameLocation ) ) {
-					renameBucket = getTestBucketUrl();
+					renameBucket = getTestBucketUrl(credentials);
 					try {
 						directory action="rename" directory="#arguments.bucket#" newDirectory="#renameBucket#" storelocation="#arguments.renameLocation#";
 					} catch (e){
@@ -54,12 +55,10 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 
 			}
 		} finally {
-			if ( directoryExists( srcDir ) )
-				directoryDelete( srcDir, true );
-			if ( directoryExists( bucket ) )
-				directoryDelete( bucket, true );
-			if ( !isEmpty( renameBucket ) and directoryExists( renameBucket ) )
-				directoryDelete( renameBucket, true );
+			// BlazeBucket does not like to delete buckets
+			deleteBucketEL(credentials,srcDir);
+			deleteBucketEL(credentials,bucket);
+			if ( !isEmpty( renameBucket )) deleteBucketEL(renameBucket,srcDir);
 		}
 	}
 
@@ -68,84 +67,88 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 			
 			// Blackbaze
 				it(title="Copying dir to a new s3 bucket, valid region name [us-east-1]", skip=Util::isBackBlazeNotSupported(), body=function( currentSpec ) {
-					copyToBucket( getTestBucketUrl("BackBlaze"), "us-east-1", "us-east-1" );
+					copyToBucket(getCredentials("BackBlaze"), "us-east-1", "us-east-1" );
 				});
 	
 				it(title="Copying dir to a new s3 bucket, valid region name [eu-west-1]", skip=Util::isBackBlazeNotSupported(), body=function( currentSpec ) {
-					copyToBucket( getTestBucketUrl("BackBlaze"), "eu-west-1", "eu-west-1" );
+					copyToBucket(getCredentials("BackBlaze"), "eu-west-1", "eu-west-1" );
 				});
 	
 				it(title="Copying dir to a new s3 bucket, valid region name [eu-west-1]", skip=Util::isBackBlazeNotSupported(), body=function( currentSpec ) {
-					copyToBucket( getTestBucketUrl("BackBlaze"), "eu-west-1", "eu-central-1" ); // fails, can't current copy between regions LDEV-4639
+					copyToBucket(getCredentials("BackBlaze"), "eu-west-1", "eu-central-1" ); // fails, can't current copy between regions LDEV-4639
 				});
 	
 				it(title="Copying dir to a new s3 bucket, invalid region name [down-under]", skip=Util::isBackBlazeNotSupported(), body=function( currentSpec ){
-					copyToBucket( getTestBucketUrl("BackBlaze"), "down-under", "", true );
+					copyToBucket(getCredentials("BackBlaze"), "down-under", "", true );
 				});
 			
 			// AWS
 				it(title="Copying dir to a new s3 bucket, valid region name [us-east-1]", skip=Util::isAWSNotSupported(), body=function( currentSpec ) {
-					copyToBucket( getTestBucketUrl("AWS"), "us-east-1", "us-east-1" );
+					copyToBucket(getCredentials("AWS"), "us-east-1", "us-east-1" );
 				});
 	
 				it(title="Copying dir to a new s3 bucket, valid region name [eu-west-1]", skip=Util::isAWSNotSupported(), body=function( currentSpec ) {
-					copyToBucket( getTestBucketUrl("AWS"), "eu-west-1", "eu-west-1" );
+					copyToBucket(getCredentials("AWS"), "eu-west-1", "eu-west-1" );
 				});
 	
 				it(title="Copying dir to a new s3 bucket, valid region name [eu-west-1]", skip=Util::isAWSNotSupported(), body=function( currentSpec ) {
-					copyToBucket( getTestBucketUrl("AWS"), "eu-west-1", "eu-central-1" ); // fails, can't current copy between regions LDEV-4639
+					copyToBucket(getCredentials("AWS"), "eu-west-1", "eu-central-1" ); // fails, can't current copy between regions LDEV-4639
 				});
 	
 				it(title="Copying dir to a new s3 bucket, invalid region name [down-under]", skip=Util::isAWSNotSupported(), body=function( currentSpec ){
-					copyToBucket( getTestBucketUrl("AWS"), "down-under", "", true );
+					copyToBucket(getCredentials("AWS"), "down-under", "", true );
 				});
 			
 			// Wasabi
 				it(title="Copying dir to a new s3 bucket, valid region name [us-east-1]", skip=Util::getWasabiCredentials(), body=function( currentSpec ) {
-					copyToBucket( getTestBucketUrl("Wasabi"), "us-east-1", "us-east-1" );
+					copyToBucket(getCredentials("Wasabi"), "us-east-1", "us-east-1" );
 				});
 	
 				it(title="Copying dir to a new s3 bucket, valid region name [eu-west-1]", skip=Util::getWasabiCredentials(), body=function( currentSpec ) {
-					copyToBucket( getTestBucketUrl("Wasabi"), "eu-west-1", "eu-west-1" );
+					copyToBucket(getCredentials("Wasabi"), "eu-west-1", "eu-west-1" );
 				});
 	
 				it(title="Copying dir to a new s3 bucket, valid region name [eu-west-1]", skip=Util::getWasabiCredentials(), body=function( currentSpec ) {
-					copyToBucket( getTestBucketUrl("Wasabi"), "eu-west-1", "eu-central-1" ); // fails, can't current copy between regions LDEV-4639
+					copyToBucket(getCredentials("Wasabi"), "eu-west-1", "eu-central-1" ); // fails, can't current copy between regions LDEV-4639
 				});
 	
 				it(title="Copying dir to a new s3 bucket, invalid region name [down-under]", skip=Util::getWasabiCredentials(), body=function( currentSpec ){
-					copyToBucket( getTestBucketUrl("Wasabi"), "down-under", "", true );
+					copyToBucket(getCredentials("Wasabi"), "down-under", "", true );
 				});
 			
 			// Google
 				it(title="Copying dir to a new s3 bucket, valid region name [us-east-1]", skip=Util::isGoogleNotSupported(), body=function( currentSpec ) {
-					copyToBucket( getTestBucketUrl("Google"), "us-east-1", "us-east-1" );
+					copyToBucket(getCredentials("Google"), "us-east-1", "us-east-1" );
 				});
 	
 				it(title="Copying dir to a new s3 bucket, valid region name [eu-west-1]", skip=Util::isGoogleNotSupported(), body=function( currentSpec ) {
-					copyToBucket( getTestBucketUrl("Google"), "eu-west-1", "eu-west-1" );
+					copyToBucket(getCredentials("Google"), "eu-west-1", "eu-west-1" );
 				});
 	
 				it(title="Copying dir to a new s3 bucket, valid region name [eu-west-1]", skip=Util::isGoogleNotSupported(), body=function( currentSpec ) {
-					copyToBucket( getTestBucketUrl("Google"), "eu-west-1", "eu-central-1" ); // fails, can't current copy between regions LDEV-4639
+					copyToBucket(getCredentials("Google"), "eu-west-1", "eu-central-1" ); // fails, can't current copy between regions LDEV-4639
 				});
 	
 				it(title="Copying dir to a new s3 bucket, invalid region name [down-under]", skip=Util::isGoogleNotSupported(), body=function( currentSpec ){
-					copyToBucket( getTestBucketUrl("Google"), "down-under", "", true );
+					copyToBucket(getCredentials("Google"), "down-under", "", true );
 				});
 
 
 		});
 	}
 
-	private string function getTestBucketUrl(required string provider) localmode=true {
-		if("BackBlaze"==arguments.provider) local.s3Details=Util::getBackBlazeCredentials();
-		else if("AWS"==arguments.provider) local.s3Details=Util::getAWSCredentials();
-		else if("Wasabi"==arguments.provider) local.s3Details=Util::getWasabiCredentials();
-		else if("Google"==arguments.provider) local.s3Details=Util::getGoogleCredentials();
-		
+	private string function getTestBucketUrl(required credentials) localmode=true {
+		local.s3Details=arguments.credentials;
 		var bucketName = server.getTestService("s3").bucket_prefix & lcase("4635-#lcase(hash(CreateGUID()))#");
-
+		return "s3://#s3Details.ACCESS_KEY_ID#:#s3Details.SECRET_KEY#@#(s3Details.HOST?:"")#/#bucketName#";
+	}
+	
+	private string function getCredentials(required string provider) localmode=true {
+		if("BackBlaze"==arguments.provider) return Util::getBackBlazeCredentials();
+		else if("AWS"==arguments.provider) return Util::getAWSCredentials();
+		else if("Wasabi"==arguments.provider) return Util::getWasabiCredentials();
+		else if("Google"==arguments.provider) return Util::getGoogleCredentials();
+		
 		return "s3://#s3Details.ACCESS_KEY_ID#:#s3Details.SECRET_KEY#@#(s3Details.HOST?:"")#/#bucketName#";
 	}
 
