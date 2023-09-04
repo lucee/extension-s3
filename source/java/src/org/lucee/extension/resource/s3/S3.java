@@ -1255,7 +1255,8 @@ public class S3 {
 
 		flushExists(srcBucketName, srcObjectName);
 		flushExists(trgBucketName, trgObjectName);
-		AmazonS3Client client = getAmazonS3(srcBucketName, null);
+		AmazonS3Client client = getAmazonS3(null, null);
+		// AmazonS3Client client = getAmazonS3(srcBucketName, null);
 
 		boolean doesExistBefore = client.doesBucketExistV2(trgBucketName);
 
@@ -1275,13 +1276,7 @@ public class S3 {
 					}
 					throw toS3Exception(se);
 				}
-
-				boolean noBucket = se.getErrorCode().equals("NoSuchBucket") || !client.doesBucketExistV2(trgBucketName);
-				if (!noBucket) {
-					S3BucketWrapper tmp = get(trgBucketName);
-					if (tmp == null || !tmp.exists()) noBucket = true;
-				}
-				if (noBucket) {
+				else if (se.getErrorCode().equals("NoSuchBucket") && !client.doesBucketExistV2(trgBucketName)) {
 					boolean customACL = true;
 
 					if (acl == null) {
@@ -2057,7 +2052,7 @@ public class S3 {
 
 		Region region = toRegion(bucketName, strRegion);
 
-		return AmazonS3Client.get(accessKeyId, secretAccessKey, host, bucketName, region, liveTimeout, log);
+		return AmazonS3Client.get(accessKeyId, secretAccessKey, host, region, liveTimeout, log);
 	}
 
 	public Region getBucketRegion(String bucketName, boolean loadIfNecessary) throws S3Exception {

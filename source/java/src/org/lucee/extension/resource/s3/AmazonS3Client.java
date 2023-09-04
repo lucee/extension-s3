@@ -36,7 +36,6 @@ public class AmazonS3Client implements AmazonS3 {
 	private static Map<String, AmazonS3Client> pool = new ConcurrentHashMap<String, AmazonS3Client>();
 
 	// private S3 s3;
-	private String bucketName;
 	private org.lucee.extension.resource.s3.region.RegionFactory.Region region;
 
 	private AmazonS3 client;
@@ -50,22 +49,21 @@ public class AmazonS3Client implements AmazonS3 {
 
 	private long liveTimeout;
 
-	public static AmazonS3Client get(String accessKeyId, String secretAccessKey, String host, String bucketName, org.lucee.extension.resource.s3.region.RegionFactory.Region region,
-			long liveTimeout, Log log) throws S3Exception {
+	public static AmazonS3Client get(String accessKeyId, String secretAccessKey, String host, org.lucee.extension.resource.s3.region.RegionFactory.Region region, long liveTimeout,
+			Log log) throws S3Exception {
 		String key = accessKeyId + ":" + secretAccessKey + ":" + host + ":" + (region == null ? "default-region" : S3.toString(region));
 		AmazonS3Client client = pool.get(key);
 		if (client == null || client.isExpired()) {
-			pool.put(key, client = new AmazonS3Client(accessKeyId, secretAccessKey, host, bucketName, region, key, liveTimeout, log));
+			pool.put(key, client = new AmazonS3Client(accessKeyId, secretAccessKey, host, region, key, liveTimeout, log));
 		}
 		return client;
 	}
 
-	private AmazonS3Client(String accessKeyId, String secretAccessKey, String host, String bucketName, org.lucee.extension.resource.s3.region.RegionFactory.Region region,
-			String key, long liveTimeout, Log log) throws S3Exception {
+	private AmazonS3Client(String accessKeyId, String secretAccessKey, String host, org.lucee.extension.resource.s3.region.RegionFactory.Region region, String key,
+			long liveTimeout, Log log) throws S3Exception {
 		this.accessKeyId = accessKeyId;
 		this.secretAccessKey = secretAccessKey;
 		this.host = host;
-		this.bucketName = bucketName;
 		this.region = region;
 		this.log = log;
 		this.created = System.currentTimeMillis();
