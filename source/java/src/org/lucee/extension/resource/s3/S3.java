@@ -1303,7 +1303,7 @@ public class S3 {
 							clientTarget.createBucket(cbr);
 						}
 
-						clientSource.copyObject(cor);
+						trgClient.copyObject(cor);
 					}
 					finally {
 						clientTarget.release();
