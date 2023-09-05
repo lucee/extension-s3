@@ -25,8 +25,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 		try {
 			// create variables
 			var id=createUniqueID();
-			var srcBucketName=cred.PREFIX&"src-move";
-			var trgBucketName=cred.PREFIX&"trg-move";
+			var srcBucketName=cred.PREFIX&"src-move"&listFirst(replace(server.lucee.version,".","","all"),"-");
+			var trgBucketName=cred.PREFIX&"trg-move"&listFirst(replace(server.lucee.version,".","","all"),"-");
 			var srcObjectName="src/test#id#.txt";
 			var trgObjectName="trg/test#id#.txt";
 
