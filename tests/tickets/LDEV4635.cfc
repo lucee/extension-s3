@@ -9,9 +9,11 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 	};
 
 	private function copyToBucket( required credentials, required string storelocation, required string renameLocation="", boolean invalid=false ){
-		arguments.bucket=getTestBucketUrl(credentials);
+		local.bucketName=createRandomBucketName();
+		arguments.bucket=createBucketUrl(credentials,bucketName);
 		try {
 			var renameBucket = "";
+			var renameBucketName = "";
 			var srcDir = getTempDirectory() & createUniqueID() & "/";
 			expect( directoryExists( arguments.bucket ) ).toBeFalse(); // exists creates a false positive
 
@@ -39,7 +41,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 				// now try rename to a bucket in a different region 
 				// fails between regions https://luceeserver.atlassian.net/browse/LDEV-4639
 				if ( len( renameLocation ) ) {
-					renameBucket = getTestBucketUrl(credentials);
+					local.renameBucketName=createRandomBucketName();
+					local.renameBucket = createBucketUrl(credentials,renameBucketName);
 					try {
 						directory action="rename" directory="#arguments.bucket#" newDirectory="#renameBucket#" storelocation="#arguments.renameLocation#";
 					} catch (e){
@@ -56,9 +59,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 			}
 		} finally {
 			// BlazeBucket does not like to delete buckets
-			Util::deleteBucketEL(credentials,srcDir);
-			Util::deleteBucketEL(credentials,bucket);
-			if ( !isEmpty( renameBucket )) Util::deleteBucketEL(renameBucket,srcDir);
+			Util::deleteBucketEL(credentials,bucketName);
+			if ( !isEmpty( renameBucketName )) Util::deleteBucketEL(credentials,renameBucketName);
 		}
 	}
 
@@ -129,10 +131,11 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 		});
 	}
 
-	private string function getTestBucketUrl(required credentials) localmode=true {
-		local.s3Details=arguments.credentials;
-		var bucketName = server.getTestService("s3").bucket_prefix & lcase("#lcase(CreateUUID())#");
-		return "s3://#s3Details.ACCESS_KEY_ID#:#s3Details.SECRET_KEY#@#(s3Details.HOST?:"")#/#bucketName#";
+	private string function createRandomBucketName() localmode=true {
+		return server.getTestService("s3").bucket_prefix & lcase(CreateUUID());
+	}
+	private string function createBucketUrl(required credentials, required bucketName) localmode=true {
+		return "s3://#arguments.credentials.ACCESS_KEY_ID#:#arguments.credentials.SECRET_KEY#@#(arguments.credentials.HOST?:"")#/#arguments.bucketName#";
 	}
 	
 	private function getCredentials(required string provider) localmode=true {
