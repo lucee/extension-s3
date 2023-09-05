@@ -1,15 +1,25 @@
 component  {
 	
-	static function deleteBucketEL(cred,bucketName) {
+	static function deleteBucketEL(cred,bucketName,objectName) {
 		try {
 			if(S3Exists( 
-				bucketName:bucketName,  objectName:objectName, 
+				bucketName:bucketName,  objectName:objectName?:nullValue(), 
 				accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST)))
-				S3DeleteBucket(bucketName:bucketName,force:true, accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY,host:(isNull(cred.HOST)?nullvalue():cred.HOST));
+				S3Delete(bucketName:bucketName,objectName:objectName?:nullValue(),force:true, accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY,host:(isNull(cred.HOST)?nullvalue():cred.HOST));
 		}
 		catch(e) {
 			// Backblaze will fail, because it no allows to delete newely created buckets
 		}
+		finally {
+
+		}
+	}
+
+	static function deleteIfExists(cred,bucketName,objectName) {
+		if(S3Exists( 
+			bucketName:bucketName,  objectName:objectName?:nullValue(), 
+			accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST)))
+			S3Delete(bucketName:bucketName,objectName:objectName?:nullValue(),force:true, accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY,host:(isNull(cred.HOST)?nullvalue():cred.HOST));
 	}
 
 

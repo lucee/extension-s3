@@ -29,7 +29,9 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 			var trgBucketName=cred.PREFIX&"trg-move";
 			var srcObjectName="src/test#id#.txt";
 			var trgObjectName="trg/test#id#.txt";
-			
+
+			Util::deleteIfExists(cred,srcBucketName,srcObjectName);
+			Util::deleteIfExists(cred,trgBucketName,trgObjectName);
 
 			// create source bucket
 			if(!S3Exists( 

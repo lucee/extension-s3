@@ -28,6 +28,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 			var objectName="sub/test.txt";
 			
 
+			Util::deleteIfExists(cred,bucketName,objectName);
+
 			// create source bucket
 			if(!S3Exists( 
 				bucketName:bucketName,  objectName:objectName, 

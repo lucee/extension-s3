@@ -29,6 +29,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 			var srcObjectName="src/test.txt";
 			var trgObjectName="trg/test.txt";
 			
+			Util::deleteIfExists(cred,srcBucketName,srcObjectName);
+			Util::deleteIfExists(cred,trgBucketName,trgObjectName);
 
 			// create source bucket
 			if(!S3Exists( 
