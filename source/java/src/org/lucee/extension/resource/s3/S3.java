@@ -1049,47 +1049,14 @@ public class S3 {
 		AmazonS3Client client = getAmazonS3(bucketName, null);
 		try {
 			if (force) {
-				ObjectListing objects = client.listObjects(bucketName);
-				/* Recursively delete all the objects inside given bucket */
-				if (objects != null && objects.getObjectSummaries() != null) {
-					while (true) {
-						for (S3ObjectSummary summary: objects.getObjectSummaries()) {
-							fixBackBlazeBug(summary, bucketName);
-							client.deleteObject(bucketName, summary.getKey());
-						}
-
-						if (objects.isTruncated()) {
-							objects = client.listNextBatchOfObjects(objects);
-						}
-						else {
-							break;
-						}
-					}
-				}
-
-				/* Get list of versions in a given bucket */
-				VersionListing versions = client.listVersions(new ListVersionsRequest().withBucketName(bucketName));
-
-				/* Recursively delete all the versions inside given bucket */
-				if (versions != null && versions.getVersionSummaries() != null) {
-					while (true) {
-						for (S3VersionSummary summary: versions.getVersionSummaries()) {
-							client.deleteObject(bucketName, summary.getKey());
-						}
-
-						if (versions.isTruncated()) {
-							versions = client.listNextBatchOfVersions(versions);
-						}
-						else {
-							break;
-						}
-					}
-				}
-
+				clear(bucketName, 0);
+				client.deleteBucket(bucketName);
+			}
+			else {
+				client.deleteBucket(bucketName);
+				flushExists(bucketName, true);
 			}
 
-			client.deleteBucket(bucketName);
-			flushExists(bucketName, true);
 		}
 		catch (AmazonServiceException se) {
 			throw toS3Exception(se);
