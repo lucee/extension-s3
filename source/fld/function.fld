@@ -959,4 +959,14 @@
 			<type>string</type>
 		</return>
 	</function>
+		<!-- S3GetApplicationSettings -->
+	<function>
+		<name>S3GetApplicationSettings</name>
+		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.S3GetApplicationSettings</class>
+		<description>return the current application settings for S3.</description>
+		<status>hidden</status>
+		<return>
+			<type>struct</type>
+		</return>
+	</function>
 </func-lib>

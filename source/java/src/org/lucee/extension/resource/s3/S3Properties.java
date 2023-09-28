@@ -13,6 +13,7 @@ import lucee.runtime.Component;
 import lucee.runtime.PageContext;
 import lucee.runtime.ext.function.BIF;
 import lucee.runtime.listener.ApplicationContext;
+import lucee.runtime.net.s3.Properties;
 import lucee.runtime.type.Collection;
 import lucee.runtime.type.Collection.Key;
 import lucee.runtime.type.Struct;
@@ -133,6 +134,12 @@ public class S3Properties {
 
 		CFMLEngine eng = CFMLEngineFactory.getInstance();
 		Struct result = eng.getCreationUtil().createStruct();
+
+		// s3
+		Properties props = ac.getS3();
+		if (props != null) {
+			result.setEL("s3", props.toStruct());
+		}
 
 		// modern
 		if (eng.getClassUtil().isInstaneOf("lucee.runtime.listener.ModernApplicationContext", ac.getClass())) {
