@@ -18,9 +18,35 @@ public class S3GeneratePresignedURL extends S3Function {
 
 	private static final long serialVersionUID = 1L;
 
-	public static String call(PageContext pc, String bucketNameOrPath, String objectName, DateTime expireDate, String accessKeyId, String secretAccessKey, String host,
-			double timeout) throws PageException {
+	@Override
+	public Object invoke(PageContext pc, Object[] args) throws PageException {
+
 		CFMLEngine eng = CFMLEngineFactory.getInstance();
+		Cast cast = eng.getCastUtil();
+
+		if (args.length < 1 || args.length < 16) throw eng.getExceptionUtil().createFunctionException(pc, "S3GeneratePresignedURL", 1, 16, args.length);
+		String tmp;
+
+		// required
+		String bucketNameOrPath = cast.toString(args[0]);
+
+		// optional
+		String objectName = args.length > 1 && args[1] != null ? cast.toString(args[1]) : null;
+		DateTime expireDate = args.length > 2 && args[2] != null ? cast.toDateTime(args[2], pc.getTimeZone()) : null;
+		String httpMethod = args.length > 3 && args[3] != null ? cast.toString(args[3]) : null;
+		String sseAlgorithm = args.length > 4 && args[4] != null ? cast.toString(args[4]) : null;
+		String sseCustomerKey = args.length > 5 && args[5] != null ? cast.toString(args[5]) : null;
+		String checksum = args.length > 6 && args[6] != null ? cast.toString(args[6]) : null;
+		String contentType = args.length > 7 && args[7] != null ? cast.toString(args[7]) : null;
+		String contentDisposition = args.length > 8 && args[8] != null ? cast.toString(args[8]) : null;
+		String contentEncoding = args.length > 9 && args[9] != null ? cast.toString(args[9]) : null;
+		String versionId = args.length > 10 && args[10] != null ? cast.toString(args[10]) : null;
+		Boolean zeroByteContent = args.length > 11 && !isEmpty(args[11]) ? cast.toBoolean(args[11]) : null;
+		String accessKeyId = args.length > 12 && args[12] != null ? cast.toString(args[12]) : null;
+		String secretAccessKey = args.length > 13 && args[13] != null ? cast.toString(args[13]) : null;
+		String host = args.length > 14 && args[14] != null ? cast.toString(args[14]) : null;
+		double timeout = args.length > 15 && !isEmpty(args[15]) ? cast.toDoubleValue(args[15]) : null;
+
 		// for backward compatibility, when host was not existing
 		if (eng.getDecisionUtil().isNumber(host)) {
 			timeout = eng.getCastUtil().toDoubleValue(host);
@@ -40,44 +66,17 @@ public class S3GeneratePresignedURL extends S3Function {
 				if (objectName != null && objectName.endsWith("/")) objectName = objectName.substring(0, objectName.length() - 1);
 			}
 
-			return s3.generatePresignedURL(bucketNameOrPath, objectName, expireDate).toExternalForm();
+			return s3.generatePresignedURL(bucketNameOrPath, objectName, expireDate, httpMethod, sseAlgorithm, sseCustomerKey, checksum, contentType, contentDisposition,
+					contentEncoding, versionId, zeroByteContent).toExternalForm();
+
 		}
 		catch (Exception e) {
 			throw eng.getCastUtil().toPageException(e);
 		}
 	}
 
-	@Override
-	public Object invoke(PageContext pc, Object[] args) throws PageException {
-		CFMLEngine engine = CFMLEngineFactory.getInstance();
-		Cast cast = engine.getCastUtil();
-
-		if (args.length == 7) {
-			return call(pc, cast.toString(args[0]), cast.toString(args[1]), args[2] == null ? null : cast.toDateTime(args[2], pc.getTimeZone()), cast.toString(args[3]),
-					cast.toString(args[4]), cast.toString(args[5]), cast.toDoubleValue(args[6]));
-		}
-		if (args.length == 6) {
-			return call(pc, cast.toString(args[0]), cast.toString(args[1]), args[2] == null ? null : cast.toDateTime(args[2], pc.getTimeZone()), cast.toString(args[3]),
-					cast.toString(args[4]), cast.toString(args[5]), 0);
-		}
-		if (args.length == 5) {
-			return call(pc, cast.toString(args[0]), cast.toString(args[1]), args[2] == null ? null : cast.toDateTime(args[2], pc.getTimeZone()), cast.toString(args[3]),
-					cast.toString(args[4]), null, 0);
-		}
-		if (args.length == 4) {
-			return call(pc, cast.toString(args[0]), cast.toString(args[1]), args[2] == null ? null : cast.toDateTime(args[2], pc.getTimeZone()), cast.toString(args[3]), null, null,
-					0);
-		}
-		if (args.length == 3) {
-			return call(pc, cast.toString(args[0]), cast.toString(args[1]), args[2] == null ? null : cast.toDateTime(args[2], pc.getTimeZone()), null, null, null, 0);
-		}
-		if (args.length == 2) {
-			return call(pc, cast.toString(args[0]), cast.toString(args[1]), null, null, null, null, 0);
-		}
-		if (args.length == 1) {
-			return call(pc, cast.toString(args[0]), null, null, null, null, null, 0);
-		}
-
-		throw engine.getExceptionUtil().createFunctionException(pc, "S3GeneratePresignedURL", 1, 7, args.length);
+	private boolean isEmpty(Object object) {
+		if (object instanceof CharSequence) Util.isEmpty(object.toString(), true);
+		return object == null;
 	}
 }

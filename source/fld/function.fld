@@ -850,6 +850,69 @@
 			<description>Date time when the URL should expire.</description>
 	    </argument>
 		<argument>
+			<name>httpMethod</name>
+			<alias>method</alias>
+			<type>string</type>
+			<required>No</required>
+			<description>The desired HTTP method (e.g., GET, PUT). Defaults to GET.</description>
+	    </argument>
+		<argument>
+			<name>sseAlgorithm</name>
+			<alias>algorithm</alias>
+			<type>string</type>
+			<required>No</required>
+			<description>The desired server-side encryption algorithm, valid values are AES256 or KMS.</description>
+	    </argument>
+		<argument>
+			<name>sseCustomerKey</name>
+			<alias>customerKey</alias>
+			<type>string</type>
+			<required>No</required>
+			<description>The server-side encryption customer-provided key.</description>
+	    </argument>
+		<argument>
+			<name>checksum</name>
+			<alias>contentMd5</alias>
+			<type>string</type>
+			<required>No</required>
+			<description>The base64 encoded MD5 checksum of the object's content.</description>
+	    </argument>
+		<argument>
+			<name>type</name>
+			<alias>contentType</alias>
+			<type>string</type>
+			<required>No</required>
+			<description>The MIME type of the object (e.g., "text/plain").</description>
+	    </argument>
+		<argument>
+			<name>disposition</name>
+			<alias>contentDisposition</alias>
+			<type>string</type>
+			<required>No</required>
+			<description>Specifies presentational information for the object, like "attachment; filename=\"filename.pdf\"".</description>
+	    </argument>
+		<argument>
+			<name>encoding</name>
+			<alias>contentEncoding</alias>
+			<type>string</type>
+			<required>No</required>
+			<description>Specifies content encodings applied to the object, like gzip.</description>
+	    </argument>
+		<argument>
+			<name>version</name>
+			<alias>versionId</alias>
+			<type>string</type>
+			<required>No</required>
+			<description>The version ID of the object if versioning is enabled.</description>
+	    </argument>
+		<argument>
+			<name>zeroByte</name>
+			<alias>zeroByteContent</alias>
+			<type>boolean</type>
+			<required>No</required>
+			<description>A flag to specify if the object has zero-byte content.</description>
+	    </argument>
+		<argument>
 			<name>accessKeyId</name>
 			<alias>accessKey</alias>
 			<type>string</type>

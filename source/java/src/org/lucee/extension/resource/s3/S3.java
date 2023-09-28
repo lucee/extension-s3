@@ -52,9 +52,12 @@ import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.Owner;
 import com.amazonaws.services.s3.model.PartETag;
 import com.amazonaws.services.s3.model.PutObjectRequest;
+import com.amazonaws.services.s3.model.ResponseHeaderOverrides;
 import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.amazonaws.services.s3.model.S3VersionSummary;
+import com.amazonaws.services.s3.model.SSEAlgorithm;
+import com.amazonaws.services.s3.model.SSECustomerKey;
 import com.amazonaws.services.s3.model.UploadPartRequest;
 import com.amazonaws.services.s3.model.UploadPartResult;
 import com.amazonaws.services.s3.model.VersionListing;
@@ -390,19 +393,128 @@ public class S3 {
 		return null;
 	}
 
-	public URL generatePresignedURL(String bucketName, String objectName, Date expireDate) throws S3Exception {
+	/**
+	 * Generates a pre-signed URL for Amazon S3 operations with various custom parameters.
+	 * 
+	 * @param bucketName The name of the S3 bucket.
+	 * @param objectName The key of the S3 object.
+	 * @param expireDate The expiration date for the pre-signed URL.
+	 * @param httpMethod The desired HTTP method (e.g., GET, PUT). Defaults to GET.
+	 * @param sseAlgorithm The desired server-side encryption algorithm, valid values are AES256 or KMS.
+	 * @param sseCustomerKey The server-side encryption customer-provided key.
+	 * @param checksum The base64 encoded MD5 checksum of the object's content.
+	 * @param contentType The MIME type of the object (e.g., "text/plain").
+	 * @param contentDisposition Specifies presentational information for the object, like "attachment;
+	 *            filename=\"filename.pdf\"".
+	 * @param contentEncoding Specifies content encodings applied to the object, like gzip.
+	 * @param versionId The version ID of the object if versioning is enabled.
+	 * @param zeroByteContent A flag to specify if the object has zero-byte content.
+	 * @param responseHeaders Struct of response headers.
+	 * 
+	 * @return The generated pre-signed URL.
+	 * 
+	 * @throws S3Exception If there's an issue generating the pre-signed URL or invalid input
+	 *             parameters.
+	 */
+	public URL generatePresignedURL(String bucketName, String objectName, Date expireDate, String httpMethod, String sseAlgorithm, String sseCustomerKey, String checksum,
+			String contentType, String contentDisposition, String contentEncoding, String versionId, Boolean zeroByteContent) throws S3Exception {
 		bucketName = improveBucketName(bucketName);
 		objectName = improveObjectName(objectName);
 
-		AmazonS3Client client = getAmazonS3(bucketName, null);
-		try {
+		// http method
+		HttpMethod method;
+		if (Util.isEmpty(httpMethod, true)) method = HttpMethod.GET;
+		else {
+			String tmp = httpMethod.trim().toUpperCase();
+			if ("DELETE".equals(tmp)) method = HttpMethod.DELETE;
+			else if ("GET".equals(tmp)) method = HttpMethod.GET;
+			else if ("HEAD".equals(tmp)) method = HttpMethod.HEAD;
+			else if ("PATCH".equals(tmp)) method = HttpMethod.PATCH;
+			else if ("POST".equals(tmp)) method = HttpMethod.POST;
+			else if ("PUT".equals(tmp)) method = HttpMethod.PUT;
+			else throw new S3Exception("invalid http method defintion [" + httpMethod + "], valid values are [DELETE, GET, HEAD, PATCH, POST, PUT]");
+		}
 
-			GeneratePresignedUrlRequest generatePresignedUrlRequest = new GeneratePresignedUrlRequest(bucketName, objectName).withMethod(HttpMethod.GET);
+		// sse algorithm
+		SSEAlgorithm algorithm = null;
+		if (!Util.isEmpty(sseAlgorithm, true)) {
+			String tmp = sseAlgorithm.trim().toUpperCase();
+			if ("AES256".equals(tmp)) algorithm = SSEAlgorithm.AES256;
+			else if ("KMS".equals(tmp)) algorithm = SSEAlgorithm.KMS;
+			else throw new S3Exception("invalid SSE Algorithm defintion [" + sseAlgorithm + "], valid values are [AES256,KMS]");
+		}
+
+		ResponseHeaderOverrides headers = null;
+		SSECustomerKey key;
+		// sse key
+		if (Util.isEmpty(sseCustomerKey, true)) key = null;
+		else key = new SSECustomerKey(sseCustomerKey.trim());
+
+		// checksum
+		if (Util.isEmpty(checksum, true)) checksum = null;
+		else checksum = checksum.trim();
+
+		// content disposition
+		if (!Util.isEmpty(contentDisposition, true)) {
+			if (headers == null) headers = new ResponseHeaderOverrides();
+			headers.setContentDisposition(contentDisposition.trim()); // example input: attachment; filename=\"filename.pdf\"
+		}
+
+		// content encoding
+		if (!Util.isEmpty(contentEncoding, true)) {
+			if (headers == null) headers = new ResponseHeaderOverrides();
+			headers.setContentEncoding(contentEncoding.trim()); // example input: gzip
+		}
+
+		// content type
+		if (Util.isEmpty(contentType, true)) contentType = null;
+		else {
+			if (headers != null) {
+				headers.setContentType(contentType.trim());
+				contentType = null; // not necessary to set this separatly anymore
+			}
+			else contentType = contentType.trim();
+		}
+
+		// version id
+		if (Util.isEmpty(versionId, true)) versionId = null;
+		else versionId = versionId.trim();
+
+		// . in bucket?
+		boolean isDotInBucket = bucketName.indexOf('.') != -1;
+
+		AmazonS3Client client = getAmazonS3(bucketName, null, isDotInBucket);
+		try {
+			GeneratePresignedUrlRequest generatePresignedUrlRequest = new GeneratePresignedUrlRequest(bucketName, objectName).withMethod(method);
+			if (versionId != null) {
+				generatePresignedUrlRequest.withVersionId(versionId);
+			}
+			if (contentType != null) {
+				generatePresignedUrlRequest.withContentType(contentType);
+			}
+			if (checksum != null) {
+				generatePresignedUrlRequest.withContentMd5(checksum);
+			}
+			if (zeroByteContent != null) {
+				generatePresignedUrlRequest.withZeroByteContent(zeroByteContent);
+			}
+
+			if (headers != null) {
+				generatePresignedUrlRequest.withResponseHeaders(headers);
+			}
+
+			if (algorithm != null) {
+				generatePresignedUrlRequest.withSSEAlgorithm(algorithm);
+				if (key != null) {
+					generatePresignedUrlRequest.withSSECustomerKey(key);
+				}
+			}
 
 			if (expireDate != null) {
 				if (expireDate.getTime() < System.currentTimeMillis()) throw new S3Exception("the optional expire date must be un the future");
 				generatePresignedUrlRequest.withExpiration(expireDate);
 			}
+
 			return client.generatePresignedUrl(generatePresignedUrlRequest);
 		}
 		catch (AmazonServiceException ase) {
@@ -2024,12 +2136,16 @@ public class S3 {
 		}
 	}
 
-	private AmazonS3Client getAmazonS3(String bucketName, String strRegion) throws S3Exception {
+	private AmazonS3Client getAmazonS3(String bucketName, String strRegion) throws S3Exception { // TODO remove
+		return getAmazonS3(bucketName, strRegion, false);
+	}
+
+	private AmazonS3Client getAmazonS3(String bucketName, String strRegion, boolean pathStyleAccess) throws S3Exception {
 		if (Util.isEmpty(accessKeyId) || Util.isEmpty(secretAccessKey)) throw new S3Exception("Could not found an accessKeyId/secretAccessKey");
 
 		Region region = toRegion(bucketName, strRegion);
 
-		return AmazonS3Client.get(accessKeyId, secretAccessKey, host, region, liveTimeout, log);
+		return AmazonS3Client.get(accessKeyId, secretAccessKey, host, region, liveTimeout, pathStyleAccess, log);
 	}
 
 	public Region getBucketRegion(String bucketName, boolean loadIfNecessary) throws S3Exception {
