@@ -1,14 +1,26 @@
 package org.lucee.extension.resource.s3;
 
+import java.lang.reflect.Method;
+import java.util.Iterator;
+
+import lucee.commons.io.log.Log;
 import lucee.loader.engine.CFMLEngine;
 import lucee.loader.engine.CFMLEngineFactory;
 import lucee.loader.util.Util;
+import lucee.runtime.Component;
 import lucee.runtime.PageContext;
 import lucee.runtime.ext.function.BIF;
+import lucee.runtime.listener.ApplicationContext;
+import lucee.runtime.type.Collection;
+import lucee.runtime.type.Collection.Key;
 import lucee.runtime.type.Struct;
+import lucee.runtime.type.UDF;
 import lucee.runtime.type.dt.TimeSpan;
 
 public class S3Properties {
+
+	private static Method getComponent;
+	private static Method toComponentSpecificAccess;
 
 	private static BIF bif;
 	private String host = S3.DEFAULT_HOST;
@@ -113,17 +125,39 @@ public class S3Properties {
 		return this.acl;
 	}
 
-	public static Struct getApplicationData(PageContext pc) throws RuntimeException {
+	public static Struct getApplicationData(PageContext pc) {
+		ApplicationContext ac = pc.getApplicationContext();
+
 		CFMLEngine eng = CFMLEngineFactory.getInstance();
-		try {
-			if (bif == null || bif.getClass().getClassLoader() != pc.getClass().getClassLoader()) {
-				bif = eng.getClassUtil().loadBIF(pc, "lucee.runtime.functions.system.GetApplicationSettings");
+		Struct result = eng.getCreationUtil().createStruct();
+		if (eng.getClassUtil().isInstaneOf("lucee.runtime.listener.ModernApplicationContext", ac.getClass())) {
+			try {
+				if (getComponent == null || ac.getClass() != getComponent.getDeclaringClass()) {
+					getComponent = ac.getClass().getMethod("getComponent", new Class[] {});
+				}
+				Component cfc = (Component) getComponent.invoke(ac, new Object[] {});
+
+				Class<?> clazz = eng.getClassUtil().loadClass("lucee.runtime.ComponentSpecificAccess");
+				if (toComponentSpecificAccess == null || ac.getClass() != toComponentSpecificAccess.getDeclaringClass()) {
+					toComponentSpecificAccess = clazz.getMethod("toComponentSpecificAccess", new Class[] { int.class, Component.class });
+				}
+				Component cw = (Component) toComponentSpecificAccess.invoke(null, new Object[] { Component.ACCESS_PRIVATE, cfc });
+				Iterator<Key> it = cw.keyIterator();
+				Collection.Key key;
+				Object value;
+				while (it.hasNext()) {
+					key = it.next();
+					value = cw.get(key);
+					if (!(value instanceof UDF)) result.setEL(key, value);
+				}
 			}
-			return (Struct) bif.invoke(pc, new Object[] { Boolean.TRUE });
+			catch (Exception e) {
+				Log log = pc.getConfig().getLog("application");
+				if (log != null) log.error("S3", e);
+			}
+
 		}
-		catch (Exception e) {
-			throw eng.getCastUtil().toPageRuntimeException(e);
-		}
+		return result;
 	}
 
 	public static S3Properties load(PageContext pc, Struct appData, String key) throws RuntimeException {
