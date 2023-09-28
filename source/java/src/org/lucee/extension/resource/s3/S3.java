@@ -75,6 +75,7 @@ import lucee.runtime.type.Query;
 import lucee.runtime.type.Struct;
 import lucee.runtime.util.Cast;
 import lucee.runtime.util.Creation;
+import lucee.runtime.util.Strings;
 
 public class S3 {
 	private static final short CHECK_EXISTS = 1;
@@ -409,7 +410,8 @@ public class S3 {
 	 * @param contentEncoding Specifies content encodings applied to the object, like gzip.
 	 * @param versionId The version ID of the object if versioning is enabled.
 	 * @param zeroByteContent A flag to specify if the object has zero-byte content.
-	 * @param responseHeaders Struct of response headers.
+	 * @param customResponseHeaders Struct of custom response headers for custom metadata prefixed with
+	 *            "x-amz-meta-" (prefix is optional).
 	 * 
 	 * @return The generated pre-signed URL.
 	 * 
@@ -417,7 +419,7 @@ public class S3 {
 	 *             parameters.
 	 */
 	public URL generatePresignedURL(String bucketName, String objectName, Date expireDate, String httpMethod, String sseAlgorithm, String sseCustomerKey, String checksum,
-			String contentType, String contentDisposition, String contentEncoding, String versionId, Boolean zeroByteContent) throws S3Exception {
+			String contentType, String contentDisposition, String contentEncoding, String versionId, Boolean zeroByteContent, Struct customResponseHeaders) throws S3Exception {
 		bucketName = improveBucketName(bucketName);
 		objectName = improveObjectName(objectName);
 
@@ -515,7 +517,25 @@ public class S3 {
 				generatePresignedUrlRequest.withExpiration(expireDate);
 			}
 
+			if (customResponseHeaders != null && !customResponseHeaders.isEmpty()) {
+				Iterator<Entry<Key, Object>> it = customResponseHeaders.entryIterator();
+				Entry<Key, Object> e;
+				String name;
+				CFMLEngine eng = CFMLEngineFactory.getInstance();
+				Strings util = CFMLEngineFactory.getInstance().getStringUtil();
+				Cast caster = eng.getCastUtil();
+				while (it.hasNext()) {
+					e = it.next();
+					name = e.getKey().getString();
+					if (!util.startsWithIgnoreCase(name, "x-amz-meta-")) name = "x-amz-meta-" + name;
+					generatePresignedUrlRequest.addRequestParameter(name, caster.toString(e.getValue()));
+				}
+			}
+
 			return client.generatePresignedUrl(generatePresignedUrlRequest);
+		}
+		catch (PageException pe) {
+			throw toS3Exception(pe);
 		}
 		catch (AmazonServiceException ase) {
 			throw toS3Exception(ase);

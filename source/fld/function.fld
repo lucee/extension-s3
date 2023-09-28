@@ -913,6 +913,13 @@
 			<description>A flag to specify if the object has zero-byte content.</description>
 	    </argument>
 		<argument>
+			<name>responseHeaders</name>
+			<alias>customResponseHeaders</alias>
+			<type>struct</type>
+			<required>No</required>
+			<description>Struct of custom response headers for custom metadata prefixed with "x-amz-meta-" (prefix is optional, function will add it if missed).</description>
+	    </argument>
+		<argument>
 			<name>accessKeyId</name>
 			<alias>accessKey</alias>
 			<type>string</type>

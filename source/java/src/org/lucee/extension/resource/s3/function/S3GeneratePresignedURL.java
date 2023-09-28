@@ -11,6 +11,7 @@ import lucee.loader.engine.CFMLEngineFactory;
 import lucee.loader.util.Util;
 import lucee.runtime.PageContext;
 import lucee.runtime.exp.PageException;
+import lucee.runtime.type.Struct;
 import lucee.runtime.type.dt.DateTime;
 import lucee.runtime.util.Cast;
 
@@ -24,7 +25,7 @@ public class S3GeneratePresignedURL extends S3Function {
 		CFMLEngine eng = CFMLEngineFactory.getInstance();
 		Cast cast = eng.getCastUtil();
 
-		if (args.length < 1 || args.length < 16) throw eng.getExceptionUtil().createFunctionException(pc, "S3GeneratePresignedURL", 1, 16, args.length);
+		if (args.length < 1 || args.length < 17) throw eng.getExceptionUtil().createFunctionException(pc, "S3GeneratePresignedURL", 1, 17, args.length);
 		String tmp;
 
 		// required
@@ -42,10 +43,11 @@ public class S3GeneratePresignedURL extends S3Function {
 		String contentEncoding = args.length > 9 && args[9] != null ? cast.toString(args[9]) : null;
 		String versionId = args.length > 10 && args[10] != null ? cast.toString(args[10]) : null;
 		Boolean zeroByteContent = args.length > 11 && !isEmpty(args[11]) ? cast.toBoolean(args[11]) : null;
-		String accessKeyId = args.length > 12 && args[12] != null ? cast.toString(args[12]) : null;
-		String secretAccessKey = args.length > 13 && args[13] != null ? cast.toString(args[13]) : null;
-		String host = args.length > 14 && args[14] != null ? cast.toString(args[14]) : null;
-		double timeout = args.length > 15 && !isEmpty(args[15]) ? cast.toDoubleValue(args[15]) : null;
+		Struct customResponseHeaders = args.length > 12 && !isEmpty(args[12]) ? cast.toStruct(args[12]) : null;
+		String accessKeyId = args.length > 13 && args[13] != null ? cast.toString(args[13]) : null;
+		String secretAccessKey = args.length > 14 && args[14] != null ? cast.toString(args[14]) : null;
+		String host = args.length > 15 && args[15] != null ? cast.toString(args[15]) : null;
+		double timeout = args.length > 16 && !isEmpty(args[16]) ? cast.toDoubleValue(args[16]) : null;
 
 		// for backward compatibility, when host was not existing
 		if (eng.getDecisionUtil().isNumber(host)) {
@@ -67,7 +69,7 @@ public class S3GeneratePresignedURL extends S3Function {
 			}
 
 			return s3.generatePresignedURL(bucketNameOrPath, objectName, expireDate, httpMethod, sseAlgorithm, sseCustomerKey, checksum, contentType, contentDisposition,
-					contentEncoding, versionId, zeroByteContent).toExternalForm();
+					contentEncoding, versionId, zeroByteContent, customResponseHeaders).toExternalForm();
 
 		}
 		catch (Exception e) {
