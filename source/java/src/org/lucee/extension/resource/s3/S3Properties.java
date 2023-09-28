@@ -2,6 +2,8 @@ package org.lucee.extension.resource.s3;
 
 import java.lang.reflect.Method;
 import java.util.Iterator;
+import java.util.Map;
+import java.util.Map.Entry;
 
 import lucee.commons.io.log.Log;
 import lucee.loader.engine.CFMLEngine;
@@ -23,6 +25,7 @@ public class S3Properties {
 	private static Method toComponentSpecificAccess;
 
 	private static BIF bif;
+	private static Method getCustomAttributes;
 	private String host = S3.DEFAULT_HOST;
 	private String bucket = null;
 	private String secretAccessKey;
@@ -130,6 +133,8 @@ public class S3Properties {
 
 		CFMLEngine eng = CFMLEngineFactory.getInstance();
 		Struct result = eng.getCreationUtil().createStruct();
+
+		// modern
 		if (eng.getClassUtil().isInstaneOf("lucee.runtime.listener.ModernApplicationContext", ac.getClass())) {
 			try {
 				if (getComponent == null || ac.getClass() != getComponent.getDeclaringClass()) {
@@ -157,6 +162,32 @@ public class S3Properties {
 			}
 
 		}
+		// classic
+		else if (eng.getClassUtil().isInstaneOf("lucee.runtime.listener.ClassicApplicationContext", ac.getClass())) {
+			try {
+				if (getCustomAttributes == null || ac.getClass() != getCustomAttributes.getDeclaringClass()) {
+					getCustomAttributes = ac.getClass().getMethod("getCustomAttributes", new Class[] {});
+				}
+				Map<Key, Object> attrs = (Map<Key, Object>) getCustomAttributes.invoke(null, new Object[] {});
+				if (attrs != null) {
+					Iterator<Entry<Key, Object>> it = attrs.entrySet().iterator();
+					Entry<Key, Object> e;
+					Collection.Key key;
+					Object value;
+					while (it.hasNext()) {
+						e = it.next();
+						key = e.getKey();
+						value = e.getValue();
+						if (!(value instanceof UDF)) result.setEL(key, value);
+					}
+				}
+			}
+			catch (Exception e) {
+				Log log = pc.getConfig().getLog("application");
+				if (log != null) log.error("S3", e);
+			}
+		}
+
 		return result;
 	}
 
