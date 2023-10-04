@@ -152,8 +152,9 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 			application action="update" s3={
 				accessKeyId: cred.ACCESS_KEY_ID,
 				awsSecretKey: cred.SECRET_KEY,
-				host:isNull(cred.HOST)?nullValue(): cred.HOST
+				host:isNull(cred.HOST)?nullValue(): cred.HOST,
 			};
+			cred.PREFIXVersion=cred.PREFIX&""&replace(server.lucee.version,".","","all");
 			return true;
 		}
 		return false;
@@ -161,52 +162,52 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 
 	private function testStoreAddACLBucketStore(cred) localMode=true {
 		try{
-			testStoreACL(cred,"#cred.PREFIX#addaclbuckets","",true,true,false);
+			testStoreACL(cred,"#cred.PREFIXVersion#addaclbuckets","",true,true,false);
 		}
 		finally {
-			Util::deleteBucketEL(cred,"#cred.PREFIX#addaclbuckets");
+			Util::deleteBucketEL(cred,"#cred.PREFIXVersion#addaclbuckets");
 		}
 	}
 	private function testStoreAddACLBucketS3(cred) localMode=true {
 		try{
-			testStoreACL(cred,"#cred.PREFIX#addaclbucketss3","",true,true,true);
+			testStoreACL(cred,"#cred.PREFIXVersion#addaclbucketss3","",true,true,true);
 		}
 		finally {
-			Util::deleteBucketEL(cred,"s3://#cred.PREFIX#addaclbucketss3");
+			Util::deleteBucketEL(cred,"s3://#cred.PREFIXVersion#addaclbucketss3");
 		}
 	}
 
 	private function testStoreSetACLBucketStore(cred) localMode=true {
 		try{
-			testStoreACL(cred,"#cred.PREFIX#setaclbuckets","",true,false,false);
+			testStoreACL(cred,"#cred.PREFIXVersion#setaclbuckets","",true,false,false);
 		}
 		finally {
-			Util::deleteBucketEL(cred,"s3://#cred.PREFIX#setaclbuckets");
+			Util::deleteBucketEL(cred,"s3://#cred.PREFIXVersion#setaclbuckets");
 		}
 	}
 	private function testStoreSetACLBucketS3(cred) localMode=true {
 		try{
-			testStoreACL(cred,"#cred.PREFIX#setaclbuckets3","",true,false,true);
+			testStoreACL(cred,"#cred.PREFIXVersion#setaclbuckets3","",true,false,true);
 		}
 		finally {
-			Util::deleteBucketEL(cred,"s3://#cred.PREFIX#setaclbuckets3");
+			Util::deleteBucketEL(cred,"s3://#cred.PREFIXVersion#setaclbuckets3");
 		}
 	}
 
 	private function testStoreAddACLObjectStore(cred) localMode=true {
 		try{
-			testStoreACL(cred,"#cred.PREFIX#addaclobjs","sub12234",false,true,false);
+			testStoreACL(cred,"#cred.PREFIXVersion#addaclobjs","sub12234",false,true,false);
 		}
 		finally {
-			Util::deleteBucketEL(cred,"s3://#cred.PREFIX#addaclobjs");
+			Util::deleteBucketEL(cred,"s3://#cred.PREFIXVersion#addaclobjs");
 		}
 	}
 	private function testStoreAddACLObjectS3(cred) localMode=true {
 		try{
-			testStoreACL(cred,"#cred.PREFIX#addaclobjs3","sub12234",false,true,true);
+			testStoreACL(cred,"#cred.PREFIXVersion#addaclobjs3","sub12234",false,true,true);
 		}
 		finally {
-			Util::deleteBucketEL(cred,"s3://#cred.PREFIX#addaclobjs3");
+			Util::deleteBucketEL(cred,"s3://#cred.PREFIXVersion#addaclobjs3");
 		}
 	}
 
