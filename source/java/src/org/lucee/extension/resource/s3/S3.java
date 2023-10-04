@@ -2073,46 +2073,39 @@ public class S3 {
 	}
 
 	public Array getAccessControlList(String bucketName, String objectName) throws S3Exception {
-		AccessControlList acl = getACL(bucketName, objectName);
+		AccessControlList acl = getACL(null, bucketName, objectName);
 		return AccessControlListUtil.toArray(acl.getGrantsAsList());
 	}
 
-	private AccessControlList getACL(String bucketName, String objectName) throws S3Exception {
+	private AccessControlList getACL(AmazonS3Client client, String bucketName, String objectName) throws S3Exception {
 		bucketName = improveBucketName(bucketName);
 		objectName = improveObjectName(objectName);
-
 		String key = toKey(bucketName, objectName);
-
 		ValidUntilElement<AccessControlList> vuacl = accessControlLists.get(key);
 		if (vuacl != null && vuacl.validUntil > System.currentTimeMillis()) return vuacl.element;
+		boolean externalClient = true;
+		if (client == null) {
+			client = getAmazonS3(bucketName, null);
+			externalClient = false;
+		}
 
-		AmazonS3Client client = getAmazonS3(bucketName, null);
 		try {
 			if (Util.isEmpty(objectName)) return client.getBucketAcl(bucketName);
 			return client.getObjectAcl(bucketName, objectName);
 		}
 		catch (AmazonServiceException se) {
+			if (se.getErrorCode().equals("NoSuchKey")) { // we know at this point objectname is not empty, so we do not have to check that
+				try {
+					return client.getObjectAcl(bucketName, oppositeObjectName(objectName));
+				}
+				catch (AmazonServiceException ise) {
+					throw toS3Exception(ise);
+				}
+			}
 			throw toS3Exception(se);
 		}
 		finally {
-			client.release();
-		}
-	}
-
-	private AccessControlList getACL(AmazonS3 s, String bucketName, String objectName) throws S3Exception {
-		bucketName = improveBucketName(bucketName);
-		objectName = improveObjectName(objectName);
-
-		String key = toKey(bucketName, objectName);
-		ValidUntilElement<AccessControlList> vuacl = accessControlLists.get(key);
-		if (vuacl != null && vuacl.validUntil > System.currentTimeMillis()) return vuacl.element;
-
-		try {
-			if (Util.isEmpty(objectName)) return s.getBucketAcl(bucketName);
-			return s.getObjectAcl(bucketName, objectName);
-		}
-		catch (AmazonServiceException se) {
-			throw toS3Exception(se);
+			if (!externalClient) client.release();
 		}
 	}
 
@@ -2415,6 +2408,11 @@ public class S3 {
 		}
 		else if (objectName.endsWith("/")) objectName = objectName.substring(0, objectName.length() - 1);
 		return objectName;
+	}
+
+	private static String oppositeObjectName(String objectName) {
+		if (objectName.endsWith("/")) return improveObjectName(objectName, false);
+		return improveObjectName(objectName, true);
 	}
 
 	public static String improveLocation(String location) {
