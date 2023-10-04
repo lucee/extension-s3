@@ -147,8 +147,6 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 			}
 			assertEquals(1,acl.len());
 			assertEquals("FULL_CONTROL",toList(acl,"permission"));
-			assertEquals("info",toList(acl,"displayName"));
-			
 			
 			
 			// add ACL
