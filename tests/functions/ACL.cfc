@@ -256,8 +256,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 
 				// test output
 				if(useS3Function) {
-					if(isEmpty(arguments.objectName)) S3SetACL(arguments.bucketName,"",arr);
-					else S3SetACL(arguments.bucketName,arguments.objectName,arr);
+					var acl=S3GetACL(arguments.bucketName,isEmpty(arguments.objectName)?"":arguments.objectName);
 				}
 				else {
 					var acl=StoreGetACL(dir);
