@@ -212,7 +212,8 @@ public class S3 {
 					}
 				}
 				if (!Util.isEmpty(targetRegion)) throw new S3Exception("could not create bucket [" + bucketName + "] with defined region [" + targetRegion + "]", ase);
-				throw new S3Exception("could not create bucket [" + bucketName + "] with region [" + region + "]", ase);
+				if (!Util.isEmpty(region)) throw new S3Exception("could not create bucket [" + bucketName + "] with region [" + region + "]", ase);
+				throw new S3Exception("could not create bucket [" + bucketName + "]", ase);
 			}
 			finally {
 				client.release();

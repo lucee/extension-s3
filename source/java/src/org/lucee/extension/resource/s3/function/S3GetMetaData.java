@@ -35,7 +35,7 @@ public class S3GetMetaData extends S3Function {
 	public Object invoke(PageContext pc, Object[] args) throws PageException {
 		CFMLEngine eng = CFMLEngineFactory.getInstance();
 		Cast cast = eng.getCastUtil();
-		if (args.length > 6 || args.length < 3) throw eng.getExceptionUtil().createFunctionException(pc, "S3GetMetaData", 3, 6, args.length);
+		if (args.length > 6 || args.length < 2) throw eng.getExceptionUtil().createFunctionException(pc, "S3GetMetaData", 1, 6, args.length);
 
 		// required
 		String bucketName = cast.toString(args[0]);
