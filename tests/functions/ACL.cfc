@@ -22,10 +22,6 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 	function run( testResults , testBox ) {
 		describe( title="Test suite for ACL funcions", body=function() {
 			
-			/*it(title="check with google",skip=Util::isGoogleNotSupported(), body = function( currentSpec ) {
-				testit(Util::getGoogleCredentials());
-			});*/
-			
 		// AWS
 			/*it(title="check with amazon add acl for bucket store style",skip=Util::isAWSNotSupported(), body = function( currentSpec ) {
 				var cred=Util::getAWSCredentials();
@@ -96,6 +92,43 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 
 			it(title="check with Blackbaze add acl for object s3 style",skip=Util::isBackBlazeNotSupported(), body = function( currentSpec ) {
 				var cred=Util::getBackBlazeCredentials();
+				if(!setup(cred)) return;
+				testStoreAddACLObjectS3(cred);
+			});	
+		
+		// Google
+			it(title="check with Google add acl for bucket store style",skip=Util::isGoogleNotSupported(), body = function( currentSpec ) {
+				var cred=Util::getGoogleCredentials();
+				if(!setup(cred)) return;
+				testStoreAddACLBucketStore(cred);
+			});	
+
+			it(title="check with Google add acl for bucket s3 style",skip=Util::isGoogleNotSupported(), body = function( currentSpec ) {
+				var cred=Util::getGoogleCredentials();
+				if(!setup(cred)) return;
+				testStoreAddACLBucketS3(cred);
+			});	
+
+			it(title="check with Google set acl for bucket store style",skip=Util::isGoogleNotSupported(), body = function( currentSpec ) {
+				var cred=Util::getGoogleCredentials();
+				if(!setup(cred)) return;
+				testStoreSetACLBucketStore(cred);
+			});	
+			
+			it(title="check with Google set acl for bucket s3 style",skip=Util::isGoogleNotSupported(), body = function( currentSpec ) {
+				var cred=Util::getGoogleCredentials();
+				if(!setup(cred)) return;
+				testStoreSetACLBucketS3(cred);
+			});	
+
+			it(title="check with Google add acl for object store style",skip=Util::isGoogleNotSupported(), body = function( currentSpec ) {
+				var cred=Util::getGoogleCredentials();
+				if(!setup(cred)) return;
+				testStoreAddACLObjectStore(cred);
+			});	
+
+			it(title="check with Google add acl for object s3 style",skip=Util::isGoogleNotSupported(), body = function( currentSpec ) {
+				var cred=Util::getGoogleCredentials();
 				if(!setup(cred)) return;
 				testStoreAddACLObjectS3(cred);
 			});	
