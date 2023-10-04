@@ -16,32 +16,40 @@
  * License along with this library.  If not, see <http://www.gnu.org/licenses/>.
  * 
  ---><cfscript>
-component extends="org.lucee.cfml.test.LuceeTestCase"	{
-	
-	//public function beforeTests(){}
-	
-	//public function afterTests(){}
+component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
+	function run( testResults , testBox ) {
+		describe( title="Test suite for S3 Metadata", body=function() {
+			it(title="check with blackbaze",skip=Util::isBackBlazeNotSupported(), body = function( currentSpec ) {
+				testit(Util::getBackBlazeCredentials());
+			});	
 
+			it(title="check with amazon",skip=Util::isAWSNotSupported(), body = function( currentSpec ) {
+				testit(Util::getAWSCredentials());
+			});	
 
-	private struct function getCredencials() {
-		return server.getTestService("s3");
+			it(title="check with wasabi",skip=Util::isWasabiNotSupported(), body = function( currentSpec ) {
+				testit(Util::getWasabiCredentials());
+			});		
+
+			it(title="check with google",skip=Util::isGoogleNotSupported(), body = function( currentSpec ) {
+				testit(Util::getGoogleCredentials());
+			});			
+	
+		});
 	}
 	  
-	public function setUp(){
-		var s3=getCredencials();
+	private function setUp(s3){
 		if(!isNull(s3.accessKeyId)) {
 			application action="update" s3={
 				accessKeyId: s3.ACCESS_KEY_ID,
-				awsSecretKey: s3.SECRET_KEY
-			}; 
-			variables.s3Supported=true;
+				awsSecretKey: s3.SECRET_KEY,
+				host:isNull(s3.HOST)?nullValue(): s3.HOST
+			};
 		}
-		else 
-			variables.s3Supported=false;
 	}
 
-	public function testStoreMetadata() localMode=true {
-		if(!variables.s3Supported) return;
+	private function testit(cred) localMode=true {
+		setUp(cred);
 		var bucketName="#server.getTestService("s3").bucket_prefix#metadata-#listFirst(replace(server.lucee.version,".","","all"),"-")#";
 		var objectName="object";
 		var dir="s3://#bucketName#/#objectName#/";

@@ -177,7 +177,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 			application action="update" s3={
 				accessKeyId: cred.ACCESS_KEY_ID,
 				awsSecretKey: cred.SECRET_KEY,
-				host:isNull(cred.HOST)?nullValue(): cred.HOST,
+				host:isNull(cred.HOST)?nullValue(): cred.HOST
 			};
 			cred.PREFIXVersion=cred.PREFIX&""&listFirst(replace(server.lucee.version,".","","all"),"-");
 			return true;
