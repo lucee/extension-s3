@@ -21,15 +21,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 	
 	function run( testResults , testBox ) {
 		describe( title="Test suite for ACL funcions", body=function() {
-			/*it(title="check region with blackbaze",skip=Util::isBackBlazeNotSupported(), body = function( currentSpec ) {
-				testit(Util::getBackBlazeCredentials());
-			});	*/
-
-
-			/*it(title="check with wasabi",skip=Util::isWasabiNotSupported(), body = function( currentSpec ) {
-				testit(Util::getWasabiCredentials());
-			});*/		
-
+			
 			/*it(title="check with google",skip=Util::isGoogleNotSupported(), body = function( currentSpec ) {
 				testit(Util::getGoogleCredentials());
 			});*/
@@ -154,7 +146,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 				awsSecretKey: cred.SECRET_KEY,
 				host:isNull(cred.HOST)?nullValue(): cred.HOST,
 			};
-			cred.PREFIXVersion=cred.PREFIX&""&replace(server.lucee.version,".","","all");
+			cred.PREFIXVersion=cred.PREFIX&""&listFirst(replace(server.lucee.version,".","","all"),"-");
 			return true;
 		}
 		return false;
