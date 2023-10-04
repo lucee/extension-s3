@@ -2059,6 +2059,10 @@ public class S3 {
 					return;
 				}
 				catch (AmazonServiceException ise) {
+					S3Info src = get(bucketName, objectName);
+					if (src.isVirtual()) {
+						throw new S3Exception("Cannot set Access Control List to a virtual folder", se);
+					}
 					throw toS3Exception(ise);
 				}
 			}
@@ -2104,6 +2108,11 @@ public class S3 {
 					return;
 				}
 				catch (AmazonServiceException ise) {
+					S3Info src = get(bucketName, objectName);
+					if (src.isVirtual()) {
+						throw new S3Exception("Cannot set Access Control List to a virtual folder", se);
+					}
+
 					throw toS3Exception(ise);
 				}
 			}
