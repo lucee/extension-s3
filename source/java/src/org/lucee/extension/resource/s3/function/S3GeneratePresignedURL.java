@@ -77,8 +77,4 @@ public class S3GeneratePresignedURL extends S3Function {
 		}
 	}
 
-	private boolean isEmpty(Object object) {
-		if (object instanceof CharSequence) Util.isEmpty(object.toString(), true);
-		return object == null;
-	}
 }

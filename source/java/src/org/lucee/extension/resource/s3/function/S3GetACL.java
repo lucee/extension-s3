@@ -27,15 +27,15 @@ import lucee.runtime.PageContext;
 import lucee.runtime.exp.PageException;
 import lucee.runtime.util.Cast;
 
-public class S3GetMetaData extends S3Function {
+public class S3GetACL extends S3Function {
 
-	private static final long serialVersionUID = -8327655852209393793L;
+	private static final long serialVersionUID = 444601125918704206L;
 
 	@Override
 	public Object invoke(PageContext pc, Object[] args) throws PageException {
 		CFMLEngine eng = CFMLEngineFactory.getInstance();
 		Cast cast = eng.getCastUtil();
-		if (args.length > 6 || args.length < 3) throw eng.getExceptionUtil().createFunctionException(pc, "S3GetMetaData", 3, 6, args.length);
+		if (args.length > 6 || args.length < 3) throw eng.getExceptionUtil().createFunctionException(pc, "S3GetACL", 3, 6, args.length);
 
 		// required
 		String bucketName = cast.toString(args[0]);
@@ -51,7 +51,7 @@ public class S3GetMetaData extends S3Function {
 		try {
 			// create S3 Instance
 			S3 s3 = S3ResourceProvider.getS3(toS3Properties(pc, accessKeyId, secretAccessKey, host), toTimeout(timeout));
-			return s3.getMetaData(bucketName, objectName);
+			return s3.getAccessControlList(bucketName, objectName);
 		}
 		catch (Exception e) {
 			throw eng.getCastUtil().toPageException(e);

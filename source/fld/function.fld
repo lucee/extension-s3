@@ -15,7 +15,7 @@
 	<function>
 		<name>StoreAddACL</name>
 		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.StoreAddACL</class>
-		<description>Adds ACL to existing ACL for object or bucket.</description>
+		<description>Adds ACL to existing ACL for object or bucket. This function performs the same action as "S3AddACL". However, instead of providing the endpoint as a bucket/object definition, you supply it as a virtual filesystem path.</description>
 		<argument>
 			<name>url</name>
 			<type>string</type>
@@ -33,11 +33,71 @@
 			<type>void</type>
 		</return>
 	</function>
+
+	<!-- S3AddACL -->
+	<function>
+		<name>S3AddACL</name>
+		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.S3AddACL</class>
+		<description>Adds ACL to existing ACL for object or bucket. This function performs the same action as "StoreAddACL". However, instead of providing the endpoint as a virtual filesystem path, you supply it as a bucket/object definition.</description>
+		<argument>
+			<name>bucketName</name>
+			<alias>bucket</alias>
+			<type>string</type>
+			<required>Yes</required>
+			<description>Name of the bucket of your object to read</description>
+	    </argument>
+		<argument>
+			<name>objectName</name>
+			<alias>object,path</alias>
+			<type>string</type>
+			<required>No</required>
+			<default></default>
+			<description>Name of the object (path) within the bucket of your object to read</description>
+	    </argument>
+		<argument>
+			<name>aclObject</name>
+			<alias>acl</alias>
+			<type>object</type>
+			<required>Yes</required>
+			<description>an array of struct where each struct represents an ACL grant</description>
+	    </argument>
+		<argument>
+			<name>accessKeyId</name>
+			<alias>accessKey</alias>
+			<type>string</type>
+			<required>No</required>
+			<description>S3 accessKeyId, if not defined it checks the system property/environment variable for [lucee.s3.accesskeyid].</description>
+	    </argument>
+		<argument>
+			<name>secretAccessKey</name>
+			<alias>secretkey</alias>
+			<type>string</type>
+			<required>No</required>
+			<description>S3 secretAccessKey, if not defined it checks the system property/environment variable for [lucee.s3.secretaccesskey].</description>
+	    </argument>
+		<argument>
+			<name>host</name>
+			<alias>provider,server</alias>
+			<type>string</type>
+			<required>No</required>
+			<description>the provider to connect, if not set Amazon AWS is used.</description>
+	    </argument>
+		<argument>
+			<name>timeout</name>
+			<type>number</type>
+			<required>No</required>
+			<default>10000</default>
+			<description>timeout for this execution</description>
+	    </argument>
+		<return>
+			<type>void</type>
+		</return>
+	</function>
 	<!-- StoreGetACL -->
 	<function>
 		<name>StoreGetACL</name>
 		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.StoreGetACL</class>
-		<description>returns an array of struct where each struct represents an ACL grant</description>
+		<description>Returns an array of structures, with each structure representing an ACL (Access Control List) grant. This function performs the same action as "S3GetACL". However, instead of providing the endpoint as a bucket/object definition, you supply it as a virtual filesystem path.</description>
 		<argument>
 			<name>url</name>
 			<type>string</type>
@@ -48,11 +108,64 @@
 			<type>Object</type>
 		</return>
 	</function>
+
+	<!-- S3GetACL -->
+	<function>
+		<name>S3GetACL</name>
+		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.S3GetACL</class>
+		<description>Returns an array of structures, with each structure representing an ACL (Access Control List) grant. This function performs the same action as "StoreGetACL". However, instead of providing the endpoint as a virtual filesystem path, you supply it as a bucket/object definition.</description>
+		<argument>
+			<name>bucketName</name>
+			<alias>bucket</alias>
+			<type>string</type>
+			<required>Yes</required>
+			<description>Name of the bucket of your object to read</description>
+	    </argument>
+		<argument>
+			<name>objectName</name>
+			<alias>object,path</alias>
+			<type>string</type>
+			<required>No</required>
+			<default></default>
+			<description>Name of the object (path) within the bucket of your object to read</description>
+	    </argument>
+		<argument>
+			<name>accessKeyId</name>
+			<alias>accessKey</alias>
+			<type>string</type>
+			<required>No</required>
+			<description>S3 accessKeyId, if not defined it checks the system property/environment variable for [lucee.s3.accesskeyid].</description>
+	    </argument>
+		<argument>
+			<name>secretAccessKey</name>
+			<alias>secretkey</alias>
+			<type>string</type>
+			<required>No</required>
+			<description>S3 secretAccessKey, if not defined it checks the system property/environment variable for [lucee.s3.secretaccesskey].</description>
+	    </argument>
+		<argument>
+			<name>host</name>
+			<alias>provider,server</alias>
+			<type>string</type>
+			<required>No</required>
+			<description>the provider to connect, if not set Amazon AWS is used.</description>
+	    </argument>
+		<argument>
+			<name>timeout</name>
+			<type>number</type>
+			<required>No</required>
+			<default>10000</default>
+			<description>timeout for this execution</description>
+	    </argument>
+		<return>
+			<type>object</type>
+		</return>
+	</function>
 	<!-- StoreSetACL -->
 	<function>
 		<name>StoreSetACL</name>
 		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.StoreSetACL</class>
-		<description>Sets the ACL for object or bucket.</description>
+		<description>Sets the ACL for object or bucket. This function performs the same action as "S3SetACL". However, instead of providing the endpoint as a bucket/object definition, you supply it as a virtual filesystem path.</description>
 		<argument>
 			<name>url</name>
 			<type>string</type>
@@ -65,6 +178,66 @@
 			<type>object</type>
 			<required>Yes</required>
 			<description>an array of struct where each struct represents an ACL grant</description>
+	    </argument>
+		<return>
+			<type>void</type>
+		</return>
+	</function>
+
+	<!-- S3SetACL -->
+	<function>
+		<name>S3SetACL</name>
+		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.S3SetACL</class>
+		<description>Sets ACL to existing ACL for object or bucket. This function performs the same action as "StoreSetACL". However, instead of providing the endpoint as a virtual filesystem path, you supply it as a bucket/object definition.</description>
+		<argument>
+			<name>bucketName</name>
+			<alias>bucket</alias>
+			<type>string</type>
+			<required>Yes</required>
+			<description>Name of the bucket of your object to read</description>
+	    </argument>
+		<argument>
+			<name>objectName</name>
+			<alias>object,path</alias>
+			<type>string</type>
+			<required>No</required>
+			<default></default>
+			<description>Name of the object (path) within the bucket of your object to read</description>
+	    </argument>
+		<argument>
+			<name>aclObject</name>
+			<alias>acl</alias>
+			<type>object</type>
+			<required>Yes</required>
+			<description>an array of struct where each struct represents an ACL grant</description>
+	    </argument>
+		<argument>
+			<name>accessKeyId</name>
+			<alias>accessKey</alias>
+			<type>string</type>
+			<required>No</required>
+			<description>S3 accessKeyId, if not defined it checks the system property/environment variable for [lucee.s3.accesskeyid].</description>
+	    </argument>
+		<argument>
+			<name>secretAccessKey</name>
+			<alias>secretkey</alias>
+			<type>string</type>
+			<required>No</required>
+			<description>S3 secretAccessKey, if not defined it checks the system property/environment variable for [lucee.s3.secretaccesskey].</description>
+	    </argument>
+		<argument>
+			<name>host</name>
+			<alias>provider,server</alias>
+			<type>string</type>
+			<required>No</required>
+			<description>the provider to connect, if not set Amazon AWS is used.</description>
+	    </argument>
+		<argument>
+			<name>timeout</name>
+			<type>number</type>
+			<required>No</required>
+			<default>10000</default>
+			<description>timeout for this execution</description>
 	    </argument>
 		<return>
 			<type>void</type>
@@ -77,7 +250,7 @@
 		<name>StoreGetMetaData</name>
 		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.StoreGetMetaData</class>
         <introduced>5.0.0.000</introduced>
-        <description>Returns the metadata related to the object or bucket.</description>
+        <description>Returns the metadata related to the object or bucket. This function performs the same action as "S3GetMetaData". However, instead of providing the endpoint as a bucket/object definition, you supply it as a virtual filesystem path.</description>
 		<argument>
 			<name>url</name>
 			<type>string</type>
@@ -88,12 +261,66 @@
 			<type>struct</type>
 		</return>
 	</function>
+
+	<!-- S3GetMetaData -->
+	<function>
+		<name>S3GetMetaData</name>
+		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.S3GetMetaData</class>
+		<description>Returns the metadata related to the object or bucket. This function performs the same action as "StoreGetMetaData". However, instead of providing the endpoint as a virtual filesystem path, you supply it as a bucket/object definition.</description>
+		<argument>
+			<name>bucketName</name>
+			<alias>bucket</alias>
+			<type>string</type>
+			<required>Yes</required>
+			<description>Name of the bucket of your object to read</description>
+	    </argument>
+		<argument>
+			<name>objectName</name>
+			<alias>object,path</alias>
+			<type>string</type>
+			<required>No</required>
+			<default></default>
+			<description>Name of the object (path) within the bucket of your object to read</description>
+	    </argument>
+		<argument>
+			<name>accessKeyId</name>
+			<alias>accessKey</alias>
+			<type>string</type>
+			<required>No</required>
+			<description>S3 accessKeyId, if not defined it checks the system property/environment variable for [lucee.s3.accesskeyid].</description>
+	    </argument>
+		<argument>
+			<name>secretAccessKey</name>
+			<alias>secretkey</alias>
+			<type>string</type>
+			<required>No</required>
+			<description>S3 secretAccessKey, if not defined it checks the system property/environment variable for [lucee.s3.secretaccesskey].</description>
+	    </argument>
+		<argument>
+			<name>host</name>
+			<alias>provider,server</alias>
+			<type>string</type>
+			<required>No</required>
+			<description>the provider to connect, if not set Amazon AWS is used.</description>
+	    </argument>
+		<argument>
+			<name>timeout</name>
+			<type>number</type>
+			<required>No</required>
+			<default>10000</default>
+			<description>timeout for this execution</description>
+	    </argument>
+		<return>
+			<type>struct</type>
+		</return>
+	</function>
+
 	<!-- StoreSetMetaData -->
 	<function>
 		<name>StoreSetMetaData</name>
 		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.StoreSetMetaData</class>
         <introduced>5.0.0.000</introduced>
-		<description>Sets the metadata on bucket or object.</description>
+		<description>Sets the metadata on bucket or object. This function performs the same action as "S3SetMetaData". However, instead of providing the endpoint as a bucket/object definition, you supply it as a virtual filesystem path.</description>
 		<argument>
 			<name>url</name>
 			<type>string</type>
@@ -105,6 +332,65 @@
 			<type>struct</type>
 			<required>Yes</required>
 			<description></description>
+	    </argument>
+		<return>
+			<type>void</type>
+		</return>
+	</function>
+
+	<!-- S3SetMetaData -->
+	<function>
+		<name>S3SetMetaData</name>
+		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.S3SetMetaData</class>
+		<description>Sets the metadata on bucket or object. This function performs the same action as "StoreSetMetaData". However, instead of providing the endpoint as a virtual filesystem path, you supply it as a bucket/object definition.</description>
+		<argument>
+			<name>bucketName</name>
+			<alias>bucket</alias>
+			<type>string</type>
+			<required>Yes</required>
+			<description>Name of the bucket of your object to read</description>
+	    </argument>
+		<argument>
+			<name>objectName</name>
+			<alias>object,path</alias>
+			<type>string</type>
+			<required>No</required>
+			<default></default>
+			<description>Name of the object (path) within the bucket of your object to read</description>
+	    </argument>
+		<argument>
+			<name>metadata</name>
+			<type>struct</type>
+			<required>Yes</required>
+			<description></description>
+	    </argument>
+		<argument>
+			<name>accessKeyId</name>
+			<alias>accessKey</alias>
+			<type>string</type>
+			<required>No</required>
+			<description>S3 accessKeyId, if not defined it checks the system property/environment variable for [lucee.s3.accesskeyid].</description>
+	    </argument>
+		<argument>
+			<name>secretAccessKey</name>
+			<alias>secretkey</alias>
+			<type>string</type>
+			<required>No</required>
+			<description>S3 secretAccessKey, if not defined it checks the system property/environment variable for [lucee.s3.secretaccesskey].</description>
+	    </argument>
+		<argument>
+			<name>host</name>
+			<alias>provider,server</alias>
+			<type>string</type>
+			<required>No</required>
+			<description>the provider to connect, if not set Amazon AWS is used.</description>
+	    </argument>
+		<argument>
+			<name>timeout</name>
+			<type>number</type>
+			<required>No</required>
+			<default>10000</default>
+			<description>timeout for this execution</description>
 	    </argument>
 		<return>
 			<type>void</type>
@@ -162,57 +448,7 @@
 			<type>boolean</type>
 		</return>
 	</function>
-	<!-- S3GetMetadata -->
-	<function>
-		<name>S3GetMetadata</name>
-		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.S3GetMetadata</class>
-		<description>Reads the metadata from an object from S3 as a struct.</description>
-		<argument>
-			<name>bucketName</name>
-			<alias>bucket</alias>
-			<type>string</type>
-			<required>Yes</required>
-			<description>Name of the bucket of your object to read</description>
-	    </argument>
-		<argument>
-			<name>objectName</name>
-			<alias>object,path</alias>
-			<type>string</type>
-			<required>Yes</required>
-			<description>Name of the object (path) within the bucket of your object to read</description>
-	    </argument>
-		<argument>
-			<name>accessKeyId</name>
-			<alias>accessKey</alias>
-			<type>string</type>
-			<required>No</required>
-			<description>S3 accessKeyId, if not defined it checks the system property/environment variable for [lucee.s3.accesskeyid].</description>
-	    </argument>
-		<argument>
-			<name>secretAccessKey</name>
-			<alias>secretkey</alias>
-			<type>string</type>
-			<required>No</required>
-			<description>S3 secretAccessKey, if not defined it checks the system property/environment variable for [lucee.s3.secretaccesskey].</description>
-	    </argument>
-		<argument>
-			<name>host</name>
-			<alias>provider,server</alias>
-			<type>string</type>
-			<required>No</required>
-			<description>the provider to connect, if not set Amazon AWS is used.</description>
-	    </argument>
-		<argument>
-			<name>timeout</name>
-			<type>number</type>
-			<required>No</required>
-			<default>10000</default>
-			<description>timeout for this execution</description>
-	    </argument>
-		<return>
-			<type>struct</type>
-		</return>
-	</function>
+	
 	<!-- S3Read -->
 	<function>
 		<name>S3Read</name>

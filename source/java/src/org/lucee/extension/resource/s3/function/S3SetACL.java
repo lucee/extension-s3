@@ -27,31 +27,33 @@ import lucee.runtime.PageContext;
 import lucee.runtime.exp.PageException;
 import lucee.runtime.util.Cast;
 
-public class S3GetMetaData extends S3Function {
+public class S3SetACL extends S3Function {
 
-	private static final long serialVersionUID = -8327655852209393793L;
+	private static final long serialVersionUID = 2563277872319106080L;
 
 	@Override
 	public Object invoke(PageContext pc, Object[] args) throws PageException {
 		CFMLEngine eng = CFMLEngineFactory.getInstance();
 		Cast cast = eng.getCastUtil();
-		if (args.length > 6 || args.length < 3) throw eng.getExceptionUtil().createFunctionException(pc, "S3GetMetaData", 3, 6, args.length);
+		if (args.length > 7 || args.length < 3) throw eng.getExceptionUtil().createFunctionException(pc, "S3SetACL", 3, 7, args.length);
 
 		// required
 		String bucketName = cast.toString(args[0]);
 		String objectName = cast.toString(args[1]);
+		String objACL = cast.toString(args[2]);
 		if (isEmpty(objectName)) objectName = null;
 
 		// optional
-		String accessKeyId = args.length > 2 && args[2] != null ? cast.toString(args[2]) : null;
-		String secretAccessKey = args.length > 3 && args[3] != null ? cast.toString(args[3]) : null;
-		String host = args.length > 4 && args[4] != null ? cast.toString(args[4]) : null;
-		double timeout = args.length > 5 && !isEmpty(args[5]) ? cast.toDoubleValue(args[5]) : null;
+		String accessKeyId = args.length > 3 && args[3] != null ? cast.toString(args[3]) : null;
+		String secretAccessKey = args.length > 4 && args[4] != null ? cast.toString(args[4]) : null;
+		String host = args.length > 5 && args[5] != null ? cast.toString(args[5]) : null;
+		double timeout = args.length > 6 && !isEmpty(args[6]) ? cast.toDoubleValue(args[6]) : null;
 
 		try {
 			// create S3 Instance
 			S3 s3 = S3ResourceProvider.getS3(toS3Properties(pc, accessKeyId, secretAccessKey, host), toTimeout(timeout));
-			return s3.getMetaData(bucketName, objectName);
+			s3.setAccessControlList(bucketName, objectName, objACL);
+			return null;
 		}
 		catch (Exception e) {
 			throw eng.getCastUtil().toPageException(e);

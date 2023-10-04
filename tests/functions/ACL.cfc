@@ -50,50 +50,88 @@ component extends="org.lucee.cfml.test.LuceeTestCase"	{
 			};
 		}
 
-		testStoreAddACLBucket(cred);
-		testStoreSetACLBucket(cred);
-		testStoreAddACLObject(cred);
+		testStoreAddACLBucketStore(cred);
+		testStoreAddACLBucketS3(cred);
+		testStoreSetACLBucketStore(cred);
+		testStoreSetACLBucketS3(cred);
+		testStoreAddACLObjectStore(cred);
+		testStoreAddACLObjectS3(cred);
 	}
 
-	private function testStoreAddACLBucket(cred) localMode=true {
+	private function testStoreAddACLBucketStore(cred) localMode=true {
 		try{
-			testStoreACL("s3://lucee-testsuite-addaclbucket",true,true);
+			testStoreACL("#cred.PREFIX#-addaclbucket-store","",true,true,false);
 		}
 		finally {
-			directoryDelete("s3://lucee-testsuite-addaclbucket",true);
+			directoryDelete("s3://#cred.PREFIX#-addaclbucket-store",true);
 		}
 	}
-
-
-	private function testStoreSetACLBucket(cred) localMode=true {
+	private function testStoreAddACLBucketS3(cred) localMode=true {
 		try{
-			testStoreACL("s3://lucee-testsuite-setaclbucket2",true,false);
+			testStoreACL("#cred.PREFIX#-addaclbucket-s3","",true,true,true);
 		}
 		finally {
-			directoryDelete("s3://lucee-testsuite-setaclbucket2",true);
+			directoryDelete("s3://#cred.PREFIX#-addaclbucket-s3",true);
 		}
 	}
 
-	private function testStoreAddACLObject(cred) localMode=true {
+	private function testStoreSetACLBucketStore(cred) localMode=true {
 		try{
-			testStoreACL("s3://lucee-testsuite-addaclobject/sub12234",false,true);
+			testStoreACL("#cred.PREFIX#-setaclbucket-store","",true,false,false);
 		}
 		finally {
-			directoryDelete("s3://lucee-testsuite-addaclobject",true);
+			directoryDelete("s3://#cred.PREFIX#-setaclbucket-store",true);
 		}
 	}
-
-	private function testStoreSetACLObject(cred) localMode=true {
+	private function testStoreSetACLBucketS3(cred) localMode=true {
 		try{
-			testStoreACL("s3://lucee-testsuite-setaclobject2/sub12234",false,false);
+			testStoreACL("#cred.PREFIX#-setaclbucket-s3","",true,false,true);
 		}
 		finally {
-			directoryDelete("s3://lucee-testsuite-setaclobject2",true);
+			directoryDelete("s3://#cred.PREFIX#-setaclbucket-s3",true);
 		}
 	}
 
-	private function testStoreACL(required dir, required boolean bucket, required boolean add) localMode=true {
-		    start=getTickCount();
+	private function testStoreAddACLObjectStore(cred) localMode=true {
+		try{
+			testStoreACL("#cred.PREFIX#-addaclobj-store","sub12234",false,true,false);
+		}
+		finally {
+			directoryDelete("s3://#cred.PREFIX#-addaclobj-store",true);
+		}
+	}
+	private function testStoreAddACLObjectS3(cred) localMode=true {
+		try{
+			testStoreACL("#cred.PREFIX#-addaclobj-s3","sub12234",false,true,true);
+		}
+		finally {
+			directoryDelete("s3://#cred.PREFIX#-addaclobj-s3",true);
+		}
+	}
+
+	private function testStoreSetACLObjectStore(cred) localMode=true {
+		try{
+			testStoreACL("#cred.PREFIX#-setaclobj-store","sub12234",false,false);
+		}
+		finally {
+			directoryDelete("s3://#cred.PREFIX#-setaclobj-store",true);
+		}
+	}
+	private function testStoreSetACLObjectS3(cred) localMode=true {
+		try{
+			testStoreACL("#cred.PREFIX#-setaclobj-s3","sub12234",false,false);
+		}
+		finally {
+			directoryDelete("s3://#cred.PREFIX#-setaclobj-s3",true);
+		}
+	}
+
+	private function testStoreACL(required string bucketName,required string objectName="", required boolean bucket, required boolean add, boolean useS3Function=false) localMode=true {
+		// set path
+		var dir="s3://#arguments.bucketName#";    
+		if(!isEmpty(arguments.objectName)) dir&="/"&arguments.objectName;
+		
+		start=getTickCount();
 		    
 		    if(DirectoryExists(dir)) directoryDelete(dir,true);
 
@@ -101,36 +139,64 @@ component extends="org.lucee.cfml.test.LuceeTestCase"	{
 			directoryCreate(dir);
 		    
 		    // check inital data
-			var acl=StoreGetACL(dir);
+			if(useS3Function) {
+				var acl=isEmpty(arguments.objectName)?S3GetACL(arguments.bucketName):S3GetACL(arguments.bucketName,arguments.objectName);
+			}
+			else {
+				var acl=StoreGetACL(dir);
+			}
 			assertEquals(1,acl.len());
 			assertEquals("FULL_CONTROL",toList(acl,"permission"));
 			assertEquals("info",toList(acl,"displayName"));
-			//var id=acl[1].id;
+			
+			
 			
 			// add ACL
 			if(add) {
 			    arr=[{'group':"authenticated",'permission':"WRITE"}];
-			    StoreAddACL(dir,arr); 
+			    if(useS3Function) {
+					if(isEmpty(arguments.objectName)) S3AddACL(arguments.bucketName,"",arr);
+					else S3AddACL(arguments.bucketName,arguments.objectName,arr);
+				}
+				else {
+					StoreAddACL(dir,arr); 
+				}
 
-			    // test output
-			    var acl=StoreGetACL(dir);
-			    
+			    if(useS3Function) {
+			    	var acl=isEmpty(arguments.objectName)?S3GetACL(arguments.bucketName):S3GetACL(arguments.bucketName,arguments.objectName);
+				}
+				else {
+					var acl=StoreGetACL(dir);
+				}
+				// test result
 				assertEquals(2,acl.len());
 				assertEquals("FULL_CONTROL,WRITE",toList(acl,"permission"));
 				assertEquals("authenticated",toList(acl,"group"));
-				
 			}
 			// set ACL 
 			else {
 				arr=[{'group':"authenticated",'permission':"WRITE"}];
-			    StoreSetACL(dir,arr); 
+			    
+				if(useS3Function) {
+					if(isEmpty(arguments.objectName)) S3SetACL(arguments.bucketName,"",arr);
+					else S3SetACL(arguments.bucketName,arguments.objectName,arr);
+				}
+				else {
+					StoreSetACL(dir,arr); 
+				}
 
 				// test output
-			    var acl=StoreGetACL(dir);
+				if(useS3Function) {
+					if(isEmpty(arguments.objectName)) S3SetACL(arguments.bucketName,"",arr);
+					else S3SetACL(arguments.bucketName,arguments.objectName,arr);
+				}
+				else {
+					var acl=StoreGetACL(dir);
+				}
 			    
-					assertEquals(1,acl.len());
-					assertEquals("WRITE",toList(acl,"permission"));
-					assertEquals("authenticated",toList(acl,"group"));
+				assertEquals(1,acl.len());
+				assertEquals("WRITE",toList(acl,"permission"));
+				assertEquals("authenticated",toList(acl,"group"));
 			}
 	}
 
