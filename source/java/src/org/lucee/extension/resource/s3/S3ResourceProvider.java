@@ -154,6 +154,8 @@ public final class S3ResourceProvider implements ResourceProvider {
 			if (Util.isEmpty(defaultLocation, true)) defaultLocation = S3Util.getSystemPropOrEnvVar("lucee.s3.defaultLocation", null);
 			if (Util.isEmpty(defaultLocation, true)) defaultLocation = S3Util.getSystemPropOrEnvVar("lucee.s3.region", null);
 
+			defaultLocation = S3Util.extractLocationFromHostIfNecessary(defaultLocation, host);
+
 			bucket = S3Util.getSystemPropOrEnvVar("lucee.s3.bucket", null);
 			if (Util.isEmpty(bucket, true)) bucket = S3Util.getSystemPropOrEnvVar("lucee.s3.bucketname", null);
 
@@ -182,6 +184,9 @@ public final class S3ResourceProvider implements ResourceProvider {
 				}
 				if (!Util.isEmpty(prop.getDefaultLocation())) defaultLocation = prop.getDefaultLocation();
 				if (prop.getACL() != null) defaultACL = prop.getACL();
+
+				defaultLocation = S3Util.extractLocationFromHostIfNecessary(defaultLocation, host);
+
 			}
 		}
 		if (defaultACL != null) properties.setACL(defaultACL);
@@ -228,6 +233,7 @@ public final class S3ResourceProvider implements ResourceProvider {
 					secretAccessKey = prop.getSecretAccessKey();
 					defaultLocation = prop.getDefaultLocation();
 					defaultACL = prop.getACL();
+					defaultLocation = S3Util.extractLocationFromHostIfNecessary(defaultLocation, host);
 
 				}
 			}

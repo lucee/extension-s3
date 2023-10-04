@@ -53,10 +53,17 @@ public class AmazonS3Client implements AmazonS3 {
 
 	public static AmazonS3Client get(String accessKeyId, String secretAccessKey, String host, org.lucee.extension.resource.s3.region.RegionFactory.Region region, long liveTimeout,
 			boolean pathStyleAccess, Log log) throws S3Exception {
+
 		String key = accessKeyId + ":" + secretAccessKey + ":" + host + ":" + (region == null ? "default-region" : S3.toString(region)) + ":" + pathStyleAccess;
 		AmazonS3Client client = pool.get(key);
 		if (client == null || client.isExpired()) {
-			pool.put(key, client = new AmazonS3Client(accessKeyId, secretAccessKey, host, region, key, liveTimeout, pathStyleAccess, log));
+			synchronized (pool) {
+				client = pool.get(key);
+				if (client == null || client.isExpired()) {
+					pool.put(key, client = new AmazonS3Client(accessKeyId, secretAccessKey, host, region, key, liveTimeout, pathStyleAccess, log));
+				}
+			}
+
 		}
 		return client;
 	}

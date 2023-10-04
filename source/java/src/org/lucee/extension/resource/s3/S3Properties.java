@@ -67,6 +67,7 @@ public class S3Properties {
 	}
 
 	public String getDefaultLocation() {
+		if (defaultLocation == null) this.defaultLocation = S3Util.extractLocationFromHostIfNecessary(this.defaultLocation, this.host);
 		return defaultLocation;
 	}
 
@@ -112,9 +113,8 @@ public class S3Properties {
 
 	@Override
 	public String toString() {
-		return new StringBuilder().append("host:").append(host).append(";").append("accessKeyId:").append(accessKeyId).append(";").append("secretAccessKey:")
-				.append(secretAccessKey).append(";").append("custom:").append(hasCustomCredentials).append(";acl:").append(acl).append(";location:").append(this.defaultLocation)
-				.append(";").toString();
+		return new StringBuilder().append("host:").append(getHost()).append(";").append("accessKeyId:").append(accessKeyId).append(";").append("secretAccessKey:")
+				.append(secretAccessKey).append(";acl:").append(acl).append(";location:").append(getDefaultLocation()).append(";").toString();
 	}
 
 	public void setACL(Object acl) {
@@ -247,6 +247,7 @@ public class S3Properties {
 	private static S3Properties toS3(String accessKeyId, String awsSecretKey, String defaultLocation, String host, String bucket, String acl, TimeSpan cache) throws S3Exception {
 
 		S3Properties s3 = new S3Properties();
+		defaultLocation = S3Util.extractLocationFromHostIfNecessary(defaultLocation, host);
 
 		if (!Util.isEmpty(accessKeyId)) s3.setAccessKeyId(accessKeyId);
 		if (!Util.isEmpty(awsSecretKey)) s3.setSecretAccessKey(awsSecretKey);

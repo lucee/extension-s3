@@ -152,12 +152,12 @@ public class S3 {
 				defaultRegion = props.getDefaultLocation();
 			}
 		}
+		defaultRegion = S3Util.extractLocationFromHostIfNecessary(defaultRegion, host);
 
 		if (cacheRegions) {
 			new CacheRegions().start();
 		}
 		this.log = log;
-
 	}
 
 	public String getHost() {
@@ -2209,7 +2209,7 @@ public class S3 {
 		else if (!Util.isEmpty(bucketName)) {
 			return getBucketRegion(bucketName, true);
 		}
-		return null;
+		return Util.isEmpty(defaultRegion, true) ? null : RegionFactory.getInstance(defaultRegion);
 	}
 
 	public static String toString(Region region) {

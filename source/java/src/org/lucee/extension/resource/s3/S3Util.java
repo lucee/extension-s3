@@ -19,4 +19,19 @@ public class S3Util {
 
 		return defaultValue;
 	}
+
+	public static String extractLocationFromHostIfNecessary(String location, String host) {
+		if (!Util.isEmpty(location, true)) return location.trim();
+		if (!Util.isEmpty(host, true) && host.startsWith("s3.")) {
+			for (String p: S3.PROVIDERS) {
+				host = host.trim();
+				if (host.endsWith(p)) {
+					if (host.length() - p.length() < 3) continue;
+					return host.substring(3, host.length() - p.length());
+				}
+			}
+		}
+
+		return null;
+	}
 }
