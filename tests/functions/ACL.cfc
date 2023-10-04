@@ -25,9 +25,6 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 				testit(Util::getBackBlazeCredentials());
 			});	*/
 
-			/*it(title="check with amazon",skip=Util::isAWSNotSupported(), body = function( currentSpec ) {
-				testit(Util::getAWSCredentials());
-			});*/	
 
 			/*it(title="check with wasabi",skip=Util::isWasabiNotSupported(), body = function( currentSpec ) {
 				testit(Util::getWasabiCredentials());
@@ -73,6 +70,43 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 				if(!setup(cred)) return;
 				testStoreAddACLObjectS3(cred);
 			});	*/
+		
+		// Blackbaze
+			it(title="check with Blackbaze add acl for bucket store style",skip=Util::isBackBlazeNotSupported(), body = function( currentSpec ) {
+				var cred=Util::getBackBlazeCredentials();
+				if(!setup(cred)) return;
+				testStoreAddACLBucketStore(cred);
+			});	
+
+			it(title="check with Blackbaze add acl for bucket s3 style",skip=Util::isBackBlazeNotSupported(), body = function( currentSpec ) {
+				var cred=Util::getBackBlazeCredentials();
+				if(!setup(cred)) return;
+				testStoreAddACLBucketS3(cred);
+			});	
+
+			it(title="check with Blackbaze set acl for bucket store style",skip=Util::isBackBlazeNotSupported(), body = function( currentSpec ) {
+				var cred=Util::getBackBlazeCredentials();
+				if(!setup(cred)) return;
+				testStoreSetACLBucketStore(cred);
+			});	
+			
+			it(title="check with Blackbaze set acl for bucket s3 style",skip=Util::isBackBlazeNotSupported(), body = function( currentSpec ) {
+				var cred=Util::getBackBlazeCredentials();
+				if(!setup(cred)) return;
+				testStoreSetACLBucketS3(cred);
+			});	
+
+			it(title="check with Blackbaze add acl for object store style",skip=Util::isBackBlazeNotSupported(), body = function( currentSpec ) {
+				var cred=Util::getBackBlazeCredentials();
+				if(!setup(cred)) return;
+				testStoreAddACLObjectStore(cred);
+			});	
+
+			it(title="check with Blackbaze add acl for object s3 style",skip=Util::isBackBlazeNotSupported(), body = function( currentSpec ) {
+				var cred=Util::getBackBlazeCredentials();
+				if(!setup(cred)) return;
+				testStoreAddACLObjectS3(cred);
+			});	
 
 		// WASABI
 			it(title="check with Wasabi add acl for bucket store style",skip=Util::isWasabiNotSupported(), body = function( currentSpec ) {
