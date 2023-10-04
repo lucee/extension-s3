@@ -45,7 +45,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 		if(!isNull(cred.ACCESS_KEY_ID)) {
 			application action="update" s3={
 				accessKeyId: cred.ACCESS_KEY_ID,
-				awsSecretKey: cred.SECRET_KEY
+				awsSecretKey: cred.SECRET_KEY,
 				host:isNull(cred.HOST)?nullValue(): cred.HOST
 			};
 		}
