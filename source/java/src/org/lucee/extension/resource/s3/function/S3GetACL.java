@@ -39,10 +39,9 @@ public class S3GetACL extends S3Function {
 
 		// required
 		String bucketName = cast.toString(args[0]);
-		String objectName = cast.toString(args[1]);
-		if (isEmpty(objectName)) objectName = null;
 
 		// optional
+		String objectName = args.length > 1 && !isEmpty(args[1]) ? cast.toString(args[1]) : null;
 		String accessKeyId = args.length > 2 && args[2] != null ? cast.toString(args[2]) : null;
 		String secretAccessKey = args.length > 3 && args[3] != null ? cast.toString(args[3]) : null;
 		String host = args.length > 4 && args[4] != null ? cast.toString(args[4]) : null;

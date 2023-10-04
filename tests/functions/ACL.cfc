@@ -169,7 +169,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 		    
 		    // check inital data
 			if(useS3Function) {
-				var acl=isEmpty(arguments.objectName)?S3GetACL(arguments.bucketName):S3GetACL(arguments.bucketName,arguments.objectName);
+				var acl=S3GetACL(arguments.bucketName,isEmpty(arguments.objectName)?"":arguments.objectName);
 			}
 			else {
 				var acl=StoreGetACL(dir);
@@ -190,7 +190,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 				}
 
 			    if(useS3Function) {
-			    	var acl=isEmpty(arguments.objectName)?S3GetACL(arguments.bucketName):S3GetACL(arguments.bucketName,arguments.objectName);
+					var acl=S3GetACL(arguments.bucketName,isEmpty(arguments.objectName)?"":arguments.objectName);
 				}
 				else {
 					var acl=StoreGetACL(dir);
