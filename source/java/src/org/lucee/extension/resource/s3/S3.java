@@ -1960,26 +1960,31 @@ public class S3 {
 
 		if (!Util.isEmpty(objectName)) {
 			AmazonS3Client client = getAmazonS3(bucketName, null);
+			S3BucketWrapper bw = get(bucketName);
+			if (bw == null) throw new S3Exception("there is no bucket [" + bucketName + "]");
 			try {
-				S3BucketWrapper bw = get(bucketName);
-				if (bw == null) throw new S3Exception("there is no bucket [" + bucketName + "]");
-				// Bucket b = bw.getBucket();
 				CopyObjectRequest request = new CopyObjectRequest(bucketName, objectName, bucketName, objectName).withNewObjectMetadata(metadataCopy);
-
 				client.copyObject(request);
-
 				flushExists(bucketName, objectName);
 			}
 			catch (AmazonServiceException se) {
-				// could be an Pseudo folder
-				if (se.getErrorCode().equals("NoSuchKey")) {
-					S3Info src = get(bucketName, objectName);
-					if (src.isVirtual()) {
-						throw new S3Exception("Cannot set meta data to a virtual folder", se);
+				if (se.getErrorCode().equals("NoSuchKey")) { // we know at this point objectname is not empty, so we do not have to check that
+					try {
+						String on = oppositeObjectName(objectName);
+						CopyObjectRequest request = new CopyObjectRequest(bucketName, on, bucketName, on).withNewObjectMetadata(metadataCopy);
+						client.copyObject(request);
+						flushExists(bucketName, on);
+						return;
 					}
-					throw toS3Exception(se);
+					catch (AmazonServiceException ise) {
+						S3Info src = get(bucketName, objectName);
+						if (src.isVirtual()) {
+							throw new S3Exception("Cannot set meta data to a virtual folder", se);
+						}
+						throw toS3Exception(ise);
+					}
 				}
-
+				throw toS3Exception(se);
 			}
 			finally {
 				client.release();
