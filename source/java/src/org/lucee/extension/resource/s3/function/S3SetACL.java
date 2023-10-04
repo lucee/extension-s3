@@ -40,7 +40,7 @@ public class S3SetACL extends S3Function {
 		// required
 		String bucketName = cast.toString(args[0]);
 		String objectName = cast.toString(args[1]);
-		String objACL = cast.toString(args[2]);
+		Object objACL = args[2];
 		if (isEmpty(objectName)) objectName = null;
 
 		// optional
