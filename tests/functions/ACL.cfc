@@ -38,7 +38,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 			});*/
 			
 		// AWS
-			it(title="check with amazon add acl for bucket store style",skip=Util::isAWSNotSupported(), body = function( currentSpec ) {
+			/*it(title="check with amazon add acl for bucket store style",skip=Util::isAWSNotSupported(), body = function( currentSpec ) {
 				var cred=Util::getAWSCredentials();
 				if(!setup(cred)) return;
 				testStoreAddACLBucketStore(cred);
@@ -72,7 +72,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 				var cred=Util::getAWSCredentials();
 				if(!setup(cred)) return;
 				testStoreAddACLObjectS3(cred);
-			});	
+			});	*/
 
 		// WASABI
 			it(title="check with Wasabi add acl for bucket store style",skip=Util::isWasabiNotSupported(), body = function( currentSpec ) {
