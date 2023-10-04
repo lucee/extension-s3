@@ -457,7 +457,7 @@ public final class S3Resource extends ResourceSupport {
 
 	public void setAccessControlList(Object objAcl) {
 		try {
-			s3.setAccessControlList(bucketName, getObjectName(), objAcl);
+			s3.setAccessControlList(null, bucketName, getObjectName(), objAcl);
 		}
 		catch (Exception e) {
 			throw engine.getCastUtil().toPageRuntimeException(e);

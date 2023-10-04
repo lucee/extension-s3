@@ -32,7 +32,6 @@ import org.lucee.extension.resource.s3.util.XMLUtil;
 
 import com.amazonaws.AmazonServiceException;
 import com.amazonaws.HttpMethod;
-import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.AccessControlList;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
 import com.amazonaws.services.s3.model.Bucket;
@@ -1710,7 +1709,7 @@ public class S3 {
 				CompleteMultipartUploadRequest compRequest = new CompleteMultipartUploadRequest(bucketName, objectName, initResponse.getUploadId(), partETags);
 				client.completeMultipartUpload(compRequest);
 				if (acl != null) {
-					setACL(client, bucketName, objectName, acl);
+					setAccessControlList(client, bucketName, objectName, acl);
 				}
 
 			}
@@ -2022,18 +2021,26 @@ public class S3 {
 	}
 
 	public void addAccessControlList(String bucketName, String objectName, Object objACL) throws S3Exception, PageException {
-
 		AmazonS3Client client = getAmazonS3(bucketName, null);
-		try {
-			bucketName = improveBucketName(bucketName);
-			objectName = improveObjectName(objectName);
 
-			AccessControlList acl = getACL(client, bucketName, objectName);
-			acl.grantAllPermissions(AccessControlListUtil.toGrantAndPermissions(objACL));
+		bucketName = improveBucketName(bucketName);
+		objectName = improveObjectName(objectName);
+		AccessControlList acl = getACL(client, bucketName, objectName);
+		acl.grantAllPermissions(AccessControlListUtil.toGrantAndPermissions(objACL));
+		try {
 			client.setObjectAcl(bucketName, objectName, acl);
 			// is it necessary to set it for bucket as well?
 		}
 		catch (AmazonServiceException se) {
+			if (se.getErrorCode().equals("NoSuchKey")) { // we know at this point objectname is not empty, so we do not have to check that
+				try {
+					client.setObjectAcl(bucketName, oppositeObjectName(objectName), acl);
+					return;
+				}
+				catch (AmazonServiceException ise) {
+					throw toS3Exception(ise);
+				}
+			}
 			throw toS3Exception(se);
 		}
 		finally {
@@ -2042,17 +2049,22 @@ public class S3 {
 
 	}
 
-	public void setAccessControlList(String bucketName, String objectName, Object objACL) throws S3Exception {
+	public void setAccessControlList(AmazonS3Client client, String bucketName, String objectName, Object objACL) throws S3Exception {
 		bucketName = improveBucketName(bucketName);
 		objectName = improveObjectName(objectName);
-		AmazonS3Client client = getAmazonS3(bucketName, null);
+
+		boolean externalClient = true;
+		if (client == null) {
+			client = getAmazonS3(bucketName, null);
+			externalClient = false;
+		}
+
+		Object newACL = AccessControlListUtil.toAccessControlList(objACL);
+		AccessControlList oldACL = getACL(client, bucketName, objectName);
+		Owner aclOwner = oldACL != null ? oldACL.getOwner() : client.getS3AccountOwner();
+		if (newACL instanceof AccessControlList) ((AccessControlList) newACL).setOwner(aclOwner);
+
 		try {
-
-			Object newACL = AccessControlListUtil.toAccessControlList(objACL);
-			AccessControlList oldACL = getACL(client, bucketName, objectName);
-			Owner aclOwner = oldACL != null ? oldACL.getOwner() : client.getS3AccountOwner();
-			if (newACL instanceof AccessControlList) ((AccessControlList) newACL).setOwner(aclOwner);
-
 			if (!Util.isEmpty(objectName)) {
 				if (newACL instanceof AccessControlList) client.setObjectAcl(bucketName, objectName, (AccessControlList) newACL);
 				else client.setObjectAcl(bucketName, objectName, (CannedAccessControlList) newACL);
@@ -2064,10 +2076,20 @@ public class S3 {
 
 		}
 		catch (AmazonServiceException se) {
+			if (se.getErrorCode().equals("NoSuchKey")) { // we know at this point objectname is not empty, so we do not have to check that
+				try {
+					if (newACL instanceof AccessControlList) client.setObjectAcl(bucketName, oppositeObjectName(objectName), (AccessControlList) newACL);
+					else client.setObjectAcl(bucketName, oppositeObjectName(objectName), (CannedAccessControlList) newACL);
+					return;
+				}
+				catch (AmazonServiceException ise) {
+					throw toS3Exception(ise);
+				}
+			}
 			throw toS3Exception(se);
 		}
 		finally {
-			client.release();
+			if (!externalClient) client.release();
 		}
 
 	}
@@ -2107,30 +2129,6 @@ public class S3 {
 		finally {
 			if (!externalClient) client.release();
 		}
-	}
-
-	public void setACL(AmazonS3 s, String bucketName, String objectName, Object acl) throws S3Exception {
-
-		bucketName = improveBucketName(bucketName);
-		objectName = improveObjectName(objectName);
-		String key = toKey(bucketName, objectName);
-
-		try {
-			if (Util.isEmpty(objectName)) {
-				if (acl instanceof AccessControlList) s.setBucketAcl(bucketName, (AccessControlList) acl);
-				else s.setBucketAcl(bucketName, (CannedAccessControlList) acl);
-			}
-			else {
-				if (acl instanceof AccessControlList) s.setObjectAcl(bucketName, objectName, (AccessControlList) acl);
-				else s.setObjectAcl(bucketName, objectName, (CannedAccessControlList) acl);
-			}
-
-			accessControlLists.remove(key);
-		}
-		catch (AmazonServiceException se) {
-			throw toS3Exception(se);
-		}
-
 	}
 
 	private String toContentType(String mimeType, Charset charset, String defaultValue) {
