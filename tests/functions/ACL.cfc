@@ -21,27 +21,62 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 	
 	function run( testResults , testBox ) {
 		describe( title="Test suite for ACL funcions", body=function() {
-			it(title="check region with blackbaze",skip=Util::isBackBlazeNotSupported(), body = function( currentSpec ) {
-				//testit(Util::getBackBlazeCredentials());
-			});	
+			/*it(title="check region with blackbaze",skip=Util::isBackBlazeNotSupported(), body = function( currentSpec ) {
+				testit(Util::getBackBlazeCredentials());
+			});	*/
 
-			it(title="check with amazon",skip=Util::isAWSNotSupported(), body = function( currentSpec ) {
+			/*it(title="check with amazon",skip=Util::isAWSNotSupported(), body = function( currentSpec ) {
 				testit(Util::getAWSCredentials());
+			});*/	
+
+			/*it(title="check with wasabi",skip=Util::isWasabiNotSupported(), body = function( currentSpec ) {
+				testit(Util::getWasabiCredentials());
+			});*/		
+
+			/*it(title="check with google",skip=Util::isGoogleNotSupported(), body = function( currentSpec ) {
+				testit(Util::getGoogleCredentials());
+			});*/
+			
+		// AWS
+			it(title="check with amazon add acl for bucket store style",skip=Util::isAWSNotSupported(), body = function( currentSpec ) {
+				var cred=Util::getAWSCredentials();
+				setup(cred)
+				testStoreAddACLBucketStore(cred);
+			});	
+	
+			it(title="check with amazon add acl for bucket s3 style",skip=Util::isAWSNotSupported(), body = function( currentSpec ) {
+				var cred=Util::getAWSCredentials();
+				setup(cred)
+				testStoreAddACLBucketS3(cred);
 			});	
 
-			it(title="check with wasabi",skip=Util::isWasabiNotSupported(), body = function( currentSpec ) {
-				//testit(Util::getWasabiCredentials());
-			});		
+			it(title="check with amazon set acl for bucket store style",skip=Util::isAWSNotSupported(), body = function( currentSpec ) {
+				var cred=Util::getAWSCredentials();
+				setup(cred)
+				testStoreSetACLBucketStore(cred);
+			});	
+			
+			it(title="check with amazon set acl for bucket s3 style",skip=Util::isAWSNotSupported(), body = function( currentSpec ) {
+				var cred=Util::getAWSCredentials();
+				setup(cred)
+				testStoreSetACLBucketS3(cred);
+			});	
 
-			it(title="check with google",skip=Util::isGoogleNotSupported(), body = function( currentSpec ) {
-				//testit(Util::getGoogleCredentials());
-			});			
-	
+			it(title="check with amazon add acl for object store style",skip=Util::isAWSNotSupported(), body = function( currentSpec ) {
+				var cred=Util::getAWSCredentials();
+				setup(cred)
+				testStoreAddACLObjectStore(cred);
+			});	
+
+			it(title="check with amazon add acl for object s3 style",skip=Util::isAWSNotSupported(), body = function( currentSpec ) {
+				var cred=Util::getAWSCredentials();
+				setup(cred)
+				testStoreAddACLObjectS3(cred);
+			});	
 		});
 	}
 
-	private function testit(cred) {
-
+	private function setup(cred) {
 		if(!isNull(cred.ACCESS_KEY_ID)) {
 			application action="update" s3={
 				accessKeyId: cred.ACCESS_KEY_ID,
@@ -49,13 +84,6 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 				host:isNull(cred.HOST)?nullValue(): cred.HOST
 			};
 		}
-
-		testStoreAddACLBucketStore(cred);
-		testStoreAddACLBucketS3(cred);
-		testStoreSetACLBucketStore(cred);
-		testStoreSetACLBucketS3(cred);
-		testStoreAddACLObjectStore(cred);
-		testStoreAddACLObjectS3(cred);
 	}
 
 	private function testStoreAddACLBucketStore(cred) localMode=true {
