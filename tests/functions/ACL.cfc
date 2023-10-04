@@ -264,6 +264,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 				}
 			    
 				assertEquals(1,acl.len());
+				if(toList(acl,"permission")!="WRITE")throw serialize(acl);
 				assertEquals("WRITE",toList(acl,"permission"));
 				assertEquals("authenticated",toList(acl,"group"));
 			}
