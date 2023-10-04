@@ -40,37 +40,37 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 		// AWS
 			it(title="check with amazon add acl for bucket store style",skip=Util::isAWSNotSupported(), body = function( currentSpec ) {
 				var cred=Util::getAWSCredentials();
-				setup(cred)
+				if(!setup(cred)) return;
 				testStoreAddACLBucketStore(cred);
 			});	
 	
 			it(title="check with amazon add acl for bucket s3 style",skip=Util::isAWSNotSupported(), body = function( currentSpec ) {
 				var cred=Util::getAWSCredentials();
-				setup(cred)
+				if(!setup(cred)) return;
 				testStoreAddACLBucketS3(cred);
 			});	
 
 			it(title="check with amazon set acl for bucket store style",skip=Util::isAWSNotSupported(), body = function( currentSpec ) {
 				var cred=Util::getAWSCredentials();
-				setup(cred)
+				if(!setup(cred)) return;
 				testStoreSetACLBucketStore(cred);
 			});	
 			
 			it(title="check with amazon set acl for bucket s3 style",skip=Util::isAWSNotSupported(), body = function( currentSpec ) {
 				var cred=Util::getAWSCredentials();
-				setup(cred)
+				if(!setup(cred)) return;
 				testStoreSetACLBucketS3(cred);
 			});	
 
 			it(title="check with amazon add acl for object store style",skip=Util::isAWSNotSupported(), body = function( currentSpec ) {
 				var cred=Util::getAWSCredentials();
-				setup(cred)
+				if(!setup(cred)) return;
 				testStoreAddACLObjectStore(cred);
 			});	
 
 			it(title="check with amazon add acl for object s3 style",skip=Util::isAWSNotSupported(), body = function( currentSpec ) {
 				var cred=Util::getAWSCredentials();
-				setup(cred)
+				if(!setup(cred)) return;
 				testStoreAddACLObjectS3(cred);
 			});	
 		});
@@ -83,7 +83,9 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 				awsSecretKey: cred.SECRET_KEY,
 				host:isNull(cred.HOST)?nullValue(): cred.HOST
 			};
+			return true;
 		}
+		return false;
 	}
 
 	private function testStoreAddACLBucketStore(cred) localMode=true {
