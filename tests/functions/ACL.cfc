@@ -162,7 +162,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 
 		start=getTickCount();
 		    
-		    if(DirectoryExists(dir)) Util::deleteBucketEL(cred,arguments.bucketName);
+		    Util::deleteIfExists(cred,arguments.bucketName,arguments.objectName);
 
 		    assertFalse(DirectoryExists(dir));
 			directoryCreate(dir);
