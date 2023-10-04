@@ -158,14 +158,12 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 		// set path
 		var dir="s3://#arguments.bucketName#";    
 		if(!isEmpty(arguments.objectName)) dir&="/"&arguments.objectName;
-		debug(dir);
-
 		start=getTickCount();
-		    
-		    Util::deleteIfExists(cred,arguments.bucketName,arguments.objectName);
-
-		    assertFalse(S3Exists(arguments.bucketName,arguments.objectName));
-			directoryCreate(dir);
+		Util::deleteIfExists(cred,arguments.bucketName,arguments.objectName);
+		assertFalse(S3Exists( 
+			bucketName:bucketName,  objectName:objectName?:nullValue(), 
+			accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST)));
+		directoryCreate(dir);
 		    
 		    // check inital data
 			if(useS3Function) {
