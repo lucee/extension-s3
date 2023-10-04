@@ -88,7 +88,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 
 	private function testStoreAddACLBucketStore(cred) localMode=true {
 		try{
-			testStoreACL("#cred.PREFIX#addaclbuckets","",true,true,false);
+			testStoreACL(cred,"#cred.PREFIX#addaclbuckets","",true,true,false);
 		}
 		finally {
 			Util::deleteBucketEL(cred,"#cred.PREFIX#addaclbuckets");
@@ -96,7 +96,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 	}
 	private function testStoreAddACLBucketS3(cred) localMode=true {
 		try{
-			testStoreACL("#cred.PREFIX#addaclbucketss3","",true,true,true);
+			testStoreACL(cred,"#cred.PREFIX#addaclbucketss3","",true,true,true);
 		}
 		finally {
 			Util::deleteBucketEL(cred,"s3://#cred.PREFIX#addaclbucketss3");
@@ -105,7 +105,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 
 	private function testStoreSetACLBucketStore(cred) localMode=true {
 		try{
-			testStoreACL("#cred.PREFIX#setaclbuckets","",true,false,false);
+			testStoreACL(cred,"#cred.PREFIX#setaclbuckets","",true,false,false);
 		}
 		finally {
 			Util::deleteBucketEL(cred,"s3://#cred.PREFIX#setaclbuckets");
@@ -113,7 +113,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 	}
 	private function testStoreSetACLBucketS3(cred) localMode=true {
 		try{
-			testStoreACL("#cred.PREFIX#setaclbuckets3","",true,false,true);
+			testStoreACL(cred,"#cred.PREFIX#setaclbuckets3","",true,false,true);
 		}
 		finally {
 			Util::deleteBucketEL(cred,"s3://#cred.PREFIX#setaclbuckets3");
@@ -122,7 +122,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 
 	private function testStoreAddACLObjectStore(cred) localMode=true {
 		try{
-			testStoreACL("#cred.PREFIX#addaclobjs","sub12234",false,true,false);
+			testStoreACL(cred,"#cred.PREFIX#addaclobjs","sub12234",false,true,false);
 		}
 		finally {
 			Util::deleteBucketEL(cred,"s3://#cred.PREFIX#addaclobjs");
@@ -130,7 +130,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 	}
 	private function testStoreAddACLObjectS3(cred) localMode=true {
 		try{
-			testStoreACL("#cred.PREFIX#addaclobjs3","sub12234",false,true,true);
+			testStoreACL(cred,"#cred.PREFIX#addaclobjs3","sub12234",false,true,true);
 		}
 		finally {
 			Util::deleteBucketEL(cred,"s3://#cred.PREFIX#addaclobjs3");
@@ -139,7 +139,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 
 	private function testStoreSetACLObjectStore(cred) localMode=true {
 		try{
-			testStoreACL("#cred.PREFIX#setaclobjs","sub12234",false,false);
+			testStoreACL(cred,"#cred.PREFIX#setaclobjs","sub12234",false,false);
 		}
 		finally {
 			Util::deleteBucketEL(cred,"s3://#cred.PREFIX#setaclobjs");
@@ -147,14 +147,14 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 	}
 	private function testStoreSetACLObjectS3(cred) localMode=true {
 		try{
-			testStoreACL("#cred.PREFIX#setaclobjs3","sub12234",false,false);
+			testStoreACL(cred,"#cred.PREFIX#setaclobjs3","sub12234",false,false);
 		}
 		finally {
 			Util::deleteBucketEL(cred,"s3://#cred.PREFIX#setaclobjs3");
 		}
 	}
 
-	private function testStoreACL(required string bucketName,required string objectName="", required boolean bucket, required boolean add, boolean useS3Function=false) localMode=true {
+	private function testStoreACL(cred,required string bucketName,required string objectName="", required boolean bucket, required boolean add, boolean useS3Function=false) localMode=true {
 		// set path
 		var dir="s3://#arguments.bucketName#";    
 		if(!isEmpty(arguments.objectName)) dir&="/"&arguments.objectName;
