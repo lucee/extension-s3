@@ -45,7 +45,7 @@ public class S3GetMetaData extends S3Function {
 		String accessKeyId = args.length > 2 && args[2] != null ? cast.toString(args[2]) : null;
 		String secretAccessKey = args.length > 3 && args[3] != null ? cast.toString(args[3]) : null;
 		String host = args.length > 4 && args[4] != null ? cast.toString(args[4]) : null;
-		double timeout = args.length > 5 && !isEmpty(args[5]) ? cast.toDoubleValue(args[5]) : null;
+		double timeout = args.length > 5 && !isEmpty(args[5]) ? cast.toDoubleValue(args[5]) : 0;
 
 		try {
 			// create S3 Instance

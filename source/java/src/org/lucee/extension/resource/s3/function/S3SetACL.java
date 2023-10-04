@@ -47,7 +47,7 @@ public class S3SetACL extends S3Function {
 		String accessKeyId = args.length > 3 && args[3] != null ? cast.toString(args[3]) : null;
 		String secretAccessKey = args.length > 4 && args[4] != null ? cast.toString(args[4]) : null;
 		String host = args.length > 5 && args[5] != null ? cast.toString(args[5]) : null;
-		double timeout = args.length > 6 && !isEmpty(args[6]) ? cast.toDoubleValue(args[6]) : null;
+		double timeout = args.length > 6 && !isEmpty(args[6]) ? cast.toDoubleValue(args[6]) : 0;
 
 		try {
 			// create S3 Instance
