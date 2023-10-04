@@ -19,7 +19,6 @@ package org.lucee.extension.resource.s3;
 
 import java.io.IOException;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 import lucee.commons.io.res.Resource;
 import lucee.commons.io.res.ResourceLock;
@@ -42,7 +41,6 @@ public final class S3ResourceProvider implements ResourceProvider {
 	private ResourceLock lock;
 	private String scheme = "s3";
 	private Map arguments;
-	private static Map<String, S3> s3s = new ConcurrentHashMap<String, S3>();
 
 	/**
 	 * initalize ram resource
@@ -75,15 +73,6 @@ public final class S3ResourceProvider implements ResourceProvider {
 		}
 
 		return this;
-	}
-
-	public static S3 getS3(S3Properties props, long cache) {
-		String key = props.toString() + ":" + cache;
-		S3 s3 = s3s.get(key);
-		if (s3 == null) {
-			s3s.put(key, s3 = new S3(props, cache, S3.DEFAULT_LIVE_TIMEOUT, true, CFMLEngineFactory.getInstance().getThreadConfig().getLog("application")));
-		}
-		return s3;
 	}
 
 	private int toIntValue(String str, int defaultValue) {
@@ -121,7 +110,7 @@ public final class S3ResourceProvider implements ResourceProvider {
 		 * props.getCustomHost());
 		 */
 
-		return new S3Resource(engine, getS3(props, cache), props, location.getValue(), this, path);
+		return new S3Resource(engine, S3.getInstance(props, cache), props, location.getValue(), this, path);
 	}
 
 	public static String loadWithNewPattern(S3Properties properties, RefString storage, String path, boolean errorWhenNoCred) {

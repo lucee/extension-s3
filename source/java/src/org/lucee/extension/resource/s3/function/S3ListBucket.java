@@ -23,7 +23,7 @@ public class S3ListBucket extends S3Function {
 			host = null;
 		}
 		try {
-			S3 s3 = S3ResourceProvider.getS3(toS3Properties(pc, accessKeyId, secretAccessKey, host), toTimeout(timeout));
+			S3 s3 = S3.getInstance(toS3Properties(pc, accessKeyId, secretAccessKey, host), toTimeout(timeout));
 			return s3.listObjectsAsQuery(bucketName);
 
 		}

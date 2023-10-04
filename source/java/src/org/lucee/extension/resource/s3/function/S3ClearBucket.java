@@ -1,7 +1,6 @@
 package org.lucee.extension.resource.s3.function;
 
 import org.lucee.extension.resource.s3.S3;
-import org.lucee.extension.resource.s3.S3ResourceProvider;
 
 import lucee.loader.engine.CFMLEngine;
 import lucee.loader.engine.CFMLEngineFactory;
@@ -22,7 +21,7 @@ public class S3ClearBucket extends S3Function {
 			host = null;
 		}
 		try {
-			S3 s3 = S3ResourceProvider.getS3(toS3Properties(pc, accessKeyId, secretAccessKey, host), toTimeout(timeout));
+			S3 s3 = S3.getInstance(toS3Properties(pc, accessKeyId, secretAccessKey, host), toTimeout(timeout));
 			s3.clear(bucketName, maxAge == null ? 0 : maxAge.getMillis());
 		}
 		catch (Exception e) {

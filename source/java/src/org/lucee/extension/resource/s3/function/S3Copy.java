@@ -39,7 +39,7 @@ public class S3Copy extends S3Function {
 
 		try {
 			// create S3 Instance
-			S3 s3 = S3ResourceProvider.getS3(toS3Properties(pc, accessKeyId, secretAccessKey, host), toTimeout(timeout));
+			S3 s3 = S3.getInstance(toS3Properties(pc, accessKeyId, secretAccessKey, host), toTimeout(timeout));
 			s3.copyObject(srcBucketName, srcObjectName, trgBucketName, trgObjectName, acl, location);
 		}
 		catch (Exception e) {

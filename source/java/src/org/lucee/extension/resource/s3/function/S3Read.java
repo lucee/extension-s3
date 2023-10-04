@@ -25,7 +25,7 @@ public class S3Read extends S3Function {
 		}
 		try {
 			// create S3 Instance
-			S3 s3 = S3ResourceProvider.getS3(toS3Properties(pc, accessKeyId, secretAccessKey, host), toTimeout(timeout));
+			S3 s3 = S3.getInstance(toS3Properties(pc, accessKeyId, secretAccessKey, host), toTimeout(timeout));
 			S3Object obj = s3.getData(bucketName, objectName);
 
 			// copy data

@@ -49,7 +49,7 @@ public class S3GetACL extends S3Function {
 
 		try {
 			// create S3 Instance
-			S3 s3 = S3ResourceProvider.getS3(toS3Properties(pc, accessKeyId, secretAccessKey, host), toTimeout(timeout));
+			S3 s3 = S3.getInstance(toS3Properties(pc, accessKeyId, secretAccessKey, host), toTimeout(timeout));
 			return s3.getAccessControlList(bucketName, objectName);
 		}
 		catch (Exception e) {

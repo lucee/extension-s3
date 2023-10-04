@@ -104,6 +104,8 @@ public class S3 {
 	private static final ConcurrentHashMap<String, Object> tokens = new ConcurrentHashMap<String, Object>();
 	private static final int CHECK_INTERVALL = 1000;
 
+	private static Map<String, S3> instances = new ConcurrentHashMap<String, S3>();
+
 	private final String host;
 	private final String secretAccessKey;
 	private final String accessKeyId;
@@ -125,6 +127,20 @@ public class S3 {
 	private final long liveTimeout;
 	private int existCheckIntervall = 0;
 
+	public static S3 getInstance(S3Properties props, long cache) {
+		String key = props.toString() + ":" + cache;
+		S3 s3 = instances.get(key);
+		if (s3 == null) {
+			synchronized (instances) {
+				s3 = instances.get(key);
+				if (s3 == null) {
+					instances.put(key, s3 = new S3(props, cache, S3.DEFAULT_LIVE_TIMEOUT, true, CFMLEngineFactory.getInstance().getThreadConfig().getLog("application")));
+				}
+			}
+		}
+		return s3;
+	}
+
 	/**
 	 * 
 	 * @param props S3 Properties
@@ -134,7 +150,7 @@ public class S3 {
 	 * @param log
 	 * @throws S3Exception
 	 */
-	public S3(S3Properties props, long cacheTimeout, long liveTimeout, boolean cacheRegions, Log log) {
+	private S3(S3Properties props, long cacheTimeout, long liveTimeout, boolean cacheRegions, Log log) {
 		regions.put("US", RegionFactory.US_EAST_1);
 		this.host = props.getHost();
 		this.secretAccessKey = props.getSecretAccessKey();
