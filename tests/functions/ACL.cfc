@@ -88,69 +88,69 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 
 	private function testStoreAddACLBucketStore(cred) localMode=true {
 		try{
-			testStoreACL("#cred.PREFIX#-addaclbucket-store","",true,true,false);
+			testStoreACL("#cred.PREFIX#addaclbuckets","",true,true,false);
 		}
 		finally {
-			directoryDelete("s3://#cred.PREFIX#-addaclbucket-store",true);
+			directoryDelete("s3://#cred.PREFIX#addaclbuckets",true);
 		}
 	}
 	private function testStoreAddACLBucketS3(cred) localMode=true {
 		try{
-			testStoreACL("#cred.PREFIX#-addaclbucket-s3","",true,true,true);
+			testStoreACL("#cred.PREFIX#addaclbucketss3","",true,true,true);
 		}
 		finally {
-			directoryDelete("s3://#cred.PREFIX#-addaclbucket-s3",true);
+			directoryDelete("s3://#cred.PREFIX#addaclbucketss3",true);
 		}
 	}
 
 	private function testStoreSetACLBucketStore(cred) localMode=true {
 		try{
-			testStoreACL("#cred.PREFIX#-setaclbucket-store","",true,false,false);
+			testStoreACL("#cred.PREFIX#setaclbuckets","",true,false,false);
 		}
 		finally {
-			directoryDelete("s3://#cred.PREFIX#-setaclbucket-store",true);
+			directoryDelete("s3://#cred.PREFIX#setaclbuckets",true);
 		}
 	}
 	private function testStoreSetACLBucketS3(cred) localMode=true {
 		try{
-			testStoreACL("#cred.PREFIX#-setaclbucket-s3","",true,false,true);
+			testStoreACL("#cred.PREFIX#setaclbuckets3","",true,false,true);
 		}
 		finally {
-			directoryDelete("s3://#cred.PREFIX#-setaclbucket-s3",true);
+			directoryDelete("s3://#cred.PREFIX#setaclbuckets3",true);
 		}
 	}
 
 	private function testStoreAddACLObjectStore(cred) localMode=true {
 		try{
-			testStoreACL("#cred.PREFIX#-addaclobj-store","sub12234",false,true,false);
+			testStoreACL("#cred.PREFIX#addaclobjs","sub12234",false,true,false);
 		}
 		finally {
-			directoryDelete("s3://#cred.PREFIX#-addaclobj-store",true);
+			directoryDelete("s3://#cred.PREFIX#addaclobjs",true);
 		}
 	}
 	private function testStoreAddACLObjectS3(cred) localMode=true {
 		try{
-			testStoreACL("#cred.PREFIX#-addaclobj-s3","sub12234",false,true,true);
+			testStoreACL("#cred.PREFIX#addaclobjs3","sub12234",false,true,true);
 		}
 		finally {
-			directoryDelete("s3://#cred.PREFIX#-addaclobj-s3",true);
+			directoryDelete("s3://#cred.PREFIX#addaclobjs3",true);
 		}
 	}
 
 	private function testStoreSetACLObjectStore(cred) localMode=true {
 		try{
-			testStoreACL("#cred.PREFIX#-setaclobj-store","sub12234",false,false);
+			testStoreACL("#cred.PREFIX#setaclobjs","sub12234",false,false);
 		}
 		finally {
-			directoryDelete("s3://#cred.PREFIX#-setaclobj-store",true);
+			directoryDelete("s3://#cred.PREFIX#setaclobjs",true);
 		}
 	}
 	private function testStoreSetACLObjectS3(cred) localMode=true {
 		try{
-			testStoreACL("#cred.PREFIX#-setaclobj-s3","sub12234",false,false);
+			testStoreACL("#cred.PREFIX#setaclobjs3","sub12234",false,false);
 		}
 		finally {
-			directoryDelete("s3://#cred.PREFIX#-setaclobj-s3",true);
+			directoryDelete("s3://#cred.PREFIX#setaclobjs3",true);
 		}
 	}
 
@@ -158,7 +158,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 		// set path
 		var dir="s3://#arguments.bucketName#";    
 		if(!isEmpty(arguments.objectName)) dir&="/"&arguments.objectName;
-		
+		debug(dir);
+
 		start=getTickCount();
 		    
 		    if(DirectoryExists(dir)) directoryDelete(dir,true);
