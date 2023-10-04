@@ -164,7 +164,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 		    
 		    Util::deleteIfExists(cred,arguments.bucketName,arguments.objectName);
 
-		    assertFalse(DirectoryExists(dir));
+		    assertFalse(S3Exists(arguments.bucketName,arguments.objectName));
 			directoryCreate(dir);
 		    
 		    // check inital data
