@@ -1,7 +1,6 @@
 <!--- 
  *
  * Copyright (c) 2015, Lucee Assosication Switzerland. All rights reserved.
- * Copyright (c) 2014, the Railo Company LLC. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -43,18 +42,18 @@ component extends="org.lucee.cfml.test.LuceeTestCase"	{
 
 	public function testStoreMetadata() localMode=true {
 		if(!variables.s3Supported) return;
-		
-		var dir="s3://" & server.getTestService("s3").bucket_prefix & "metadata-#lcase(listFirst(replace(server.lucee.version,".","","all"),"-"))#/object/";
+		var bucketName="#server.getTestService("s3").bucket_prefix#metadata-#listFirst(replace(server.lucee.version,".","","all"),"-")#";
+		var objectName="object";
+		var dir="s3://#bucketName#/#objectName#/";
 		if(DirectoryExists(dir)) directoryDelete(dir,true);
 		try {
 			assertFalse(DirectoryExists(dir));
 			directoryCreate(dir);
-
-		
-			var md=storeGetMetaData(dir);
+			
+			var md=s3GetMetaData(bucketName,objectName);
 			var countBefore=structCount(md);
-			storesetMetaData(dir,{"susi":"Susanne"});
-    		var md=storeGetMetaData(dir);
+			s3SetMetaData(bucketName,objectName,{"susi":"Susanne"});
+    		var md=s3GetMetaData(bucketName,objectName);
     		assertEquals(countBefore+1,structCount(md));
 			assertEquals("Susanne",md.susi);
 		}
