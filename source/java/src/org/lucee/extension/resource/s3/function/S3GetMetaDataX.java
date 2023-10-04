@@ -27,7 +27,7 @@ import lucee.runtime.PageContext;
 import lucee.runtime.exp.PageException;
 import lucee.runtime.util.Cast;
 
-public class S3GetMetaData extends S3Function {
+public class S3GetMetaDataX extends S3Function {
 
 	private static final long serialVersionUID = -8327655852209393793L;
 
