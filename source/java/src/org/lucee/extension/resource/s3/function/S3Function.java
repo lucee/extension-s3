@@ -123,8 +123,8 @@ public abstract class S3Function extends BIF {
 	public static S3Resource toS3Resource(PageContext pc, String url, String functionName) throws PageException {
 		Resource res = CFMLEngineFactory.getInstance().getResourceUtil().toResourceNotExisting(pc, url);
 		ResourceProvider provider = res.getResourceProvider();
-		if (!provider.getScheme().equalsIgnoreCase("s3") || !res.exists())
-			throw CFMLEngineFactory.getInstance().getExceptionUtil().createFunctionException(pc, functionName, 1, "url", "file [" + url + "] does not exist.", null);
+		if (!provider.getScheme().equalsIgnoreCase("s3") || !res.exists()) throw CFMLEngineFactory.getInstance().getExceptionUtil().createFunctionException(pc, functionName, 1,
+				"url", "file [" + S3Util.removeSecret(res, url) + "] does not exist.", null);
 
 		return (S3Resource) res;
 	}

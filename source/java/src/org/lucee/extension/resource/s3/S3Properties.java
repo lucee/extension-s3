@@ -113,8 +113,9 @@ public class S3Properties {
 
 	@Override
 	public String toString() {
-		return new StringBuilder().append("host:").append(getHost()).append(";").append("accessKeyId:").append(accessKeyId).append(";").append("secretAccessKey:")
-				.append(secretAccessKey).append(";acl:").append(acl).append(";location:").append(getDefaultLocation()).append(";").toString();
+
+		return new StringBuilder().append("host:").append(getHost()).append(";").append("accessKeyId:").append(getAccessKeyId()).append(";").append("secretAccessKey:")
+				.append(getSecretAccessKey()).append(";acl:").append(getACL()).append(";location:").append(getDefaultLocation()).append(";").toString();
 	}
 
 	public void setACL(Object acl) {

@@ -77,6 +77,10 @@ public final class S3Resource extends ResourceSupport {
 		this.objectName = bo[1];
 	}
 
+	public String removeSecret(String msg) {
+		return S3Util.removeSecret(s3, msg);
+	}
+
 	public static String[] toBO(String path) {
 		CFMLEngine engine = CFMLEngineFactory.getInstance();
 		if (path.equals("/") || engine.getStringUtil().isEmpty(path, true)) {
@@ -174,9 +178,9 @@ public final class S3Resource extends ResourceSupport {
 		String sak = s3.getSecretAccessKey();
 
 		StringBuilder sb = new StringBuilder(provider.getScheme()).append("://");
-		boolean doHost = s3.getCustomHost() && !s3.getHost().equals(S3.DEFAULT_HOST) && s3.getHost().length() > 0;
+		boolean doHost = props.getCustomHost() && !s3.getHost().equals(S3.DEFAULT_HOST) && s3.getHost().length() > 0;
 		boolean hasAt = false;
-		if (s3.getCustomCredentials() && !engine.getStringUtil().isEmpty(aki)) {
+		if (props.getCustomCredentials() && !engine.getStringUtil().isEmpty(aki)) {
 			sb.append(aki);
 			if (!engine.getStringUtil().isEmpty(sak)) {
 				sb.append(":").append(sak);

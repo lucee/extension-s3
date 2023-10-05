@@ -24,8 +24,7 @@ public class S3GeneratePresignedURL extends S3Function {
 
 		CFMLEngine eng = CFMLEngineFactory.getInstance();
 		Cast cast = eng.getCastUtil();
-
-		if (args.length < 1 || args.length < 17) throw eng.getExceptionUtil().createFunctionException(pc, "S3GeneratePresignedURL", 1, 17, args.length);
+		if (args.length < 1 || args.length > 17) throw eng.getExceptionUtil().createFunctionException(pc, "S3GeneratePresignedURL", 1, 17, args.length);
 		String tmp;
 
 		// required
@@ -47,7 +46,7 @@ public class S3GeneratePresignedURL extends S3Function {
 		String accessKeyId = args.length > 13 && args[13] != null ? cast.toString(args[13]) : null;
 		String secretAccessKey = args.length > 14 && args[14] != null ? cast.toString(args[14]) : null;
 		String host = args.length > 15 && args[15] != null ? cast.toString(args[15]) : null;
-		double timeout = args.length > 16 && !isEmpty(args[16]) ? cast.toDoubleValue(args[16]) : null;
+		double timeout = args.length > 16 && !isEmpty(args[16]) ? cast.toDoubleValue(args[16]) : 0;
 
 		// for backward compatibility, when host was not existing
 		if (eng.getDecisionUtil().isNumber(host)) {

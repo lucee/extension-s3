@@ -1,5 +1,7 @@
 package org.lucee.extension.resource.s3;
 
+import lucee.commons.io.res.Resource;
+import lucee.loader.engine.CFMLEngineFactory;
 import lucee.loader.util.Util;
 
 public class S3Util {
@@ -33,5 +35,16 @@ public class S3Util {
 		}
 
 		return null;
+	}
+
+	public static String removeSecret(S3 s3, String msg) {
+		return CFMLEngineFactory.getInstance().getStringUtil().replace(msg, s3.getSecretAccessKey(), "...", false, true);
+	}
+
+	public static String removeSecret(Resource res, String msg) {
+		if (res instanceof S3Resource) {
+			return ((S3Resource) res).removeSecret(msg);
+		}
+		return msg;
 	}
 }

@@ -107,11 +107,14 @@ public class S3 {
 	private static Map<String, S3> instances = new ConcurrentHashMap<String, S3>();
 
 	private final String host;
-	private final String secretAccessKey;
 	private final String accessKeyId;
-	private final boolean customCredentials;
-	private final boolean customHost;
+	private final String secretAccessKey;
+	private String defaultRegion;
+
 	private final long cacheTimeout;
+	private final long liveTimeout;
+
+	private int existCheckIntervall = 0;
 
 	/////////////////////// CACHE ////////////////
 	private ValidUntilMap<S3BucketWrapper> buckets;
@@ -123,18 +126,16 @@ public class S3 {
 	private Map<String, S3Info> exists = new ConcurrentHashMap<String, S3Info>();
 	private Log log;
 
-	private String defaultRegion;
-	private final long liveTimeout;
-	private int existCheckIntervall = 0;
-
 	public static S3 getInstance(S3Properties props, long cache) {
-		String key = props.toString() + ":" + cache;
+		String key = props.getAccessKeyId() + ":" + props.getSecretAccessKey() + ":" + props.getHost() + ":" + props.getDefaultLocation() + ":" + cache;
 		S3 s3 = instances.get(key);
 		if (s3 == null) {
 			synchronized (instances) {
 				s3 = instances.get(key);
 				if (s3 == null) {
-					instances.put(key, s3 = new S3(props, cache, S3.DEFAULT_LIVE_TIMEOUT, true, CFMLEngineFactory.getInstance().getThreadConfig().getLog("application")));
+					// print.ds("new:" + key);
+					instances.put(key, s3 = new S3(props.getAccessKeyId(), props.getSecretAccessKey(), props.getHost(), props.getDefaultLocation(), cache, S3.DEFAULT_LIVE_TIMEOUT,
+							true, CFMLEngineFactory.getInstance().getThreadConfig().getLog("application")));
 				}
 			}
 		}
@@ -150,21 +151,19 @@ public class S3 {
 	 * @param log
 	 * @throws S3Exception
 	 */
-	private S3(S3Properties props, long cacheTimeout, long liveTimeout, boolean cacheRegions, Log log) {
+	private S3(String accessKeyId, String secretAccessKey, String host, String defaultLocation, long cacheTimeout, long liveTimeout, boolean cacheRegions, Log log) {
 		regions.put("US", RegionFactory.US_EAST_1);
-		this.host = props.getHost();
-		this.secretAccessKey = props.getSecretAccessKey();
-		this.accessKeyId = props.getAccessKeyId();
+		this.accessKeyId = accessKeyId;
+		this.secretAccessKey = secretAccessKey;
+		this.host = host;
 		this.cacheTimeout = cacheTimeout;
 		this.liveTimeout = liveTimeout;
-		this.customCredentials = props.getCustomCredentials();
-		this.customHost = props.getCustomHost();
-		if (!Util.isEmpty(props.getDefaultLocation(), true)) {
+		if (!Util.isEmpty(defaultLocation, true)) {
 			try {
-				defaultRegion = toString(RegionFactory.getInstance(props.getDefaultLocation()));
+				defaultRegion = toString(RegionFactory.getInstance(defaultLocation));
 			}
 			catch (S3Exception e) {
-				defaultRegion = props.getDefaultLocation();
+				defaultRegion = defaultLocation;
 			}
 		}
 		defaultRegion = S3Util.extractLocationFromHostIfNecessary(defaultRegion, host);
@@ -2223,7 +2222,7 @@ public class S3 {
 		return r;
 	}
 
-	public Region toRegion(String bucketName, String strRegion) throws S3Exception {
+	private Region toRegion(String bucketName, String strRegion) throws S3Exception {
 		if (!Util.isEmpty(strRegion, true)) {
 			return RegionFactory.getInstance(strRegion);
 		}
@@ -2486,14 +2485,6 @@ public class S3 {
 			Util.closeEL(in, out);
 		}
 		return out.toByteArray();
-	}
-
-	public boolean getCustomCredentials() {
-		return customCredentials;
-	}
-
-	public boolean getCustomHost() {
-		return customHost;
 	}
 
 	public static Object getToken(String key) {
