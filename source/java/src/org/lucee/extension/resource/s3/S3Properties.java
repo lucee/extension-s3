@@ -51,7 +51,12 @@ public class S3Properties {
 	}
 
 	public String getHost() {
+		if (host == null) return S3.DEFAULT_HOST;
 		return host;
+	}
+
+	public String getHostWithoutRegion() {
+		return S3Util.removeLocationFromHostIfNecessary(getHost());
 	}
 
 	public void setSecretAccessKey(String secretAccessKey) {

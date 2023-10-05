@@ -29,6 +29,7 @@ import org.lucee.extension.resource.s3.info.StorageObjectWrapper;
 import org.lucee.extension.resource.s3.region.RegionFactory;
 import org.lucee.extension.resource.s3.region.RegionFactory.Region;
 import org.lucee.extension.resource.s3.util.XMLUtil;
+import org.lucee.extension.resource.s3.util.print;
 
 import com.amazonaws.AmazonServiceException;
 import com.amazonaws.HttpMethod;
@@ -105,6 +106,7 @@ public class S3 {
 	private static final int CHECK_INTERVALL = 1000;
 
 	private static Map<String, S3> instances = new ConcurrentHashMap<String, S3>();
+	private static Map<String, Cache> caches = new ConcurrentHashMap<String, Cache>();
 
 	private final String host;
 	private final String accessKeyId;
@@ -115,27 +117,50 @@ public class S3 {
 	private final long liveTimeout;
 
 	private int existCheckIntervall = 0;
+	private final Cache cache;
 
-	/////////////////////// CACHE ////////////////
-	private ValidUntilMap<S3BucketWrapper> buckets;
-	private Map<String, S3BucketExists> existBuckets;
-	private final Map<String, ValidUntilMap<S3Info>> objects = new ConcurrentHashMap<String, ValidUntilMap<S3Info>>();
-	private Map<String, ValidUntilElement<AccessControlList>> accessControlLists = new ConcurrentHashMap<String, ValidUntilElement<AccessControlList>>();
-	private Map<String, Region> regions = new ConcurrentHashMap<String, Region>();
-	private final Map<String, Region> bucketRegions = new ConcurrentHashMap<String, Region>();
-	private Map<String, S3Info> exists = new ConcurrentHashMap<String, S3Info>();
 	private Log log;
+	/////////////////////// CACHE ////////////////
+
+	private static class Cache {
+
+		public Cache() {
+			regions.put("US", RegionFactory.US_EAST_1);
+		}
+
+		private ValidUntilMap<S3BucketWrapper> buckets;
+		private Map<String, S3BucketExists> existBuckets;
+		private final Map<String, ValidUntilMap<S3Info>> objects = new ConcurrentHashMap<String, ValidUntilMap<S3Info>>();
+		private Map<String, ValidUntilElement<AccessControlList>> accessControlLists = new ConcurrentHashMap<String, ValidUntilElement<AccessControlList>>();
+		private Map<String, Region> regions = new ConcurrentHashMap<String, Region>();
+		private final Map<String, Region> bucketRegions = new ConcurrentHashMap<String, Region>();
+		private Map<String, S3Info> exists = new ConcurrentHashMap<String, S3Info>();
+	}
 
 	public static S3 getInstance(S3Properties props, long cache) {
-		String key = props.getAccessKeyId() + ":" + props.getSecretAccessKey() + ":" + props.getHost() + ":" + props.getDefaultLocation() + ":" + cache;
-		S3 s3 = instances.get(key);
+
+		String keyS3 = props.getAccessKeyId() + ":" + props.getSecretAccessKey() + ":" + props.getHost() + ":" + props.getDefaultLocation() + ":" + cache;
+		S3 s3 = instances.get(keyS3);
 		if (s3 == null) {
 			synchronized (instances) {
-				s3 = instances.get(key);
+				s3 = instances.get(keyS3);
 				if (s3 == null) {
-					// print.ds("new:" + key);
-					instances.put(key, s3 = new S3(props.getAccessKeyId(), props.getSecretAccessKey(), props.getHost(), props.getDefaultLocation(), cache, S3.DEFAULT_LIVE_TIMEOUT,
-							true, CFMLEngineFactory.getInstance().getThreadConfig().getLog("application")));
+					// print.ds("s3:" + key);
+					// same cache for all locations
+					String keyCache = props.getAccessKeyId() + ":" + props.getSecretAccessKey() + ":" + props.getHostWithoutRegion() + ":" + cache;
+					Cache c = caches.get(keyCache);
+					if (c == null) {
+						synchronized (caches) {
+							c = caches.get(keyCache);
+							if (c == null) {
+								print.e("new:c:" + keyCache);
+								caches.put(keyCache, c = new Cache());
+							}
+						}
+					}
+					print.e("new:s3:" + keyS3);
+					instances.put(keyS3, s3 = new S3(c, props.getAccessKeyId(), props.getSecretAccessKey(), props.getHost(), props.getDefaultLocation(), cache,
+							S3.DEFAULT_LIVE_TIMEOUT, true, CFMLEngineFactory.getInstance().getThreadConfig().getLog("application")));
 				}
 			}
 		}
@@ -144,6 +169,7 @@ public class S3 {
 
 	/**
 	 * 
+	 * @param c
 	 * @param props S3 Properties
 	 * @param timeout
 	 * @param defaultRegion region used to create new buckets in case no bucket is defined
@@ -151,8 +177,9 @@ public class S3 {
 	 * @param log
 	 * @throws S3Exception
 	 */
-	private S3(String accessKeyId, String secretAccessKey, String host, String defaultLocation, long cacheTimeout, long liveTimeout, boolean cacheRegions, Log log) {
-		regions.put("US", RegionFactory.US_EAST_1);
+	private S3(Cache cache, String accessKeyId, String secretAccessKey, String host, String defaultLocation, long cacheTimeout, long liveTimeout, boolean cacheRegions, Log log) {
+		this.cache = cache;
+
 		this.accessKeyId = accessKeyId;
 		this.secretAccessKey = secretAccessKey;
 		this.host = host;
@@ -166,7 +193,6 @@ public class S3 {
 				defaultRegion = defaultLocation;
 			}
 		}
-		defaultRegion = S3Util.extractLocationFromHostIfNecessary(defaultRegion, host);
 
 		if (cacheRegions) {
 			new CacheRegions().start();
@@ -234,7 +260,7 @@ public class S3 {
 			}
 
 			if (!Util.isEmpty(region)) {
-				bucketRegions.put(bucketName, RegionFactory.getInstance(region));
+				cache.bucketRegions.put(bucketName, RegionFactory.getInstance(region));
 			}
 			flushExists(bucketName, false);
 			return b;
@@ -603,19 +629,19 @@ public class S3 {
 		AmazonS3Client client = null;
 		try {
 			// no cache for buckets
-			if (cacheTimeout <= 0 || buckets == null || buckets.validUntil < System.currentTimeMillis()) {
+			if (cacheTimeout <= 0 || cache.buckets == null || cache.buckets.validUntil < System.currentTimeMillis()) {
 				client = getAmazonS3(null, null);
 
 				List<Bucket> s3buckets = client.listBuckets();
 				long now = System.currentTimeMillis();
-				buckets = new ValidUntilMap<S3BucketWrapper>(now + cacheTimeout);
+				cache.buckets = new ValidUntilMap<S3BucketWrapper>(now + cacheTimeout);
 				for (Bucket s3b: s3buckets) {
-					buckets.put(s3b.getName(), new S3BucketWrapper(this, s3b, now + cacheTimeout, log));
+					cache.buckets.put(s3b.getName(), new S3BucketWrapper(this, s3b, now + cacheTimeout, log));
 				}
 			}
 
 			List<S3Info> list = new ArrayList<S3Info>();
-			Iterator<S3BucketWrapper> it = buckets.values().iterator();
+			Iterator<S3BucketWrapper> it = cache.buckets.values().iterator();
 			S3Info info;
 			while (it.hasNext()) {
 				info = it.next();
@@ -882,11 +908,11 @@ public class S3 {
 			boolean hasObjName = !Util.isEmpty(objectName);
 
 			// not cached
-			ValidUntilMap<S3Info> _list = cacheTimeout <= 0 || noCache ? null : objects.get(key);
+			ValidUntilMap<S3Info> _list = cacheTimeout <= 0 || noCache ? null : cache.objects.get(key);
 			if (_list == null || _list.validUntil < System.currentTimeMillis()) {
 				long validUntil = System.currentTimeMillis() + cacheTimeout;
 				_list = new ValidUntilMap<S3Info>(validUntil);
-				objects.put(key, _list);
+				cache.objects.put(key, _list);
 
 				// add bucket
 				if (!hasObjName && !onlyChildren) {
@@ -922,13 +948,13 @@ public class S3 {
 								tmp = new StorageObjectWrapper(this, kid, validUntil, log);
 
 								if (!hasObjName || name.equals(nameFile) || name.startsWith(nameDir)) _list.put(kid.getKey(), tmp);
-								exists.put(toKey(bucketName, name), tmp);
-								_flush(exists);
+								cache.exists.put(toKey(bucketName, name), tmp);
+								_flush(cache.exists);
 								int index;
 								while ((index = name.lastIndexOf('/')) != -1) {
 									name = name.substring(0, index);
-									exists.put(toKey(bucketName, name), new ParentObject(this, bucketName, name, validUntil, log));
-									_flush(exists);
+									cache.exists.put(toKey(bucketName, name), new ParentObject(this, bucketName, name, validUntil, log));
+									_flush(cache.exists);
 								}
 							}
 
@@ -1000,26 +1026,26 @@ public class S3 {
 	private boolean existsNotTouchBucketItself(String bucketName) throws S3Exception {
 
 		long now = System.currentTimeMillis();
-		if (existBuckets != null) {
-			S3BucketExists info = existBuckets.get(bucketName);
+		if (cache.existBuckets != null) {
+			S3BucketExists info = cache.existBuckets.get(bucketName);
 			if (info != null) {
 				if (info.validUntil >= now) {
 					return info.exists;
 				}
-				else existBuckets.remove(bucketName);
+				else cache.existBuckets.remove(bucketName);
 			}
 		}
-		else existBuckets = new ConcurrentHashMap<String, S3BucketExists>();
+		else cache.existBuckets = new ConcurrentHashMap<String, S3BucketExists>();
 		AmazonS3Client client = getAmazonS3(bucketName, null);
 		try { // delete the content of the bucket
 				// in case bucket does not exist, it will throw an error
 			client.listObjects(bucketName, "sadasdsadasdasasdasd");
-			existBuckets.put(bucketName, new S3BucketExists(bucketName, now + cacheTimeout, true));
+			cache.existBuckets.put(bucketName, new S3BucketExists(bucketName, now + cacheTimeout, true));
 			return true;
 		}
 		catch (AmazonServiceException se) {
 			if (se.getErrorCode().equals("NoSuchBucket")) {
-				existBuckets.put(bucketName, new S3BucketExists(bucketName, now + cacheTimeout, false));
+				cache.existBuckets.put(bucketName, new S3BucketExists(bucketName, now + cacheTimeout, false));
 				return false;
 			}
 			throw toS3Exception(se);
@@ -1071,7 +1097,7 @@ public class S3 {
 		String nameDir = improveObjectName(objectName, true);
 
 		// cache
-		S3Info info = cacheTimeout <= 0 ? null : exists.get(toKey(bucketName, nameFile));
+		S3Info info = cacheTimeout <= 0 ? null : cache.exists.get(toKey(bucketName, nameFile));
 		if (info != null && info.validUntil() >= System.currentTimeMillis()) {
 			if (info instanceof NotExisting) {
 				return null;
@@ -1104,7 +1130,8 @@ public class S3 {
 
 			/* Recursively delete all the objects inside given bucket */
 			if (objects == null || objects.getObjectSummaries() == null || objects.getObjectSummaries().size() == 0) {
-				exists.put(toKey(bucketName, objectName), new NotExisting(bucketName, objectName, validUntil, log)); // we do not return this, we just store it to cache that it
+				cache.exists.put(toKey(bucketName, objectName), new NotExisting(bucketName, objectName, validUntil, log)); // we do not return this, we just store it to cache that
+																															// it
 				// does
 				return null;
 			}
@@ -1119,22 +1146,22 @@ public class S3 {
 				// direct match
 				targetName = summary.getKey();
 				if (nameFile.equals(targetName) || nameDir.equals(targetName)) {
-					exists.put(toKey(bucketName, nameFile), info = new StorageObjectWrapper(this, stoObj = summary, validUntil, log));
-					_flush(exists);
+					cache.exists.put(toKey(bucketName, nameFile), info = new StorageObjectWrapper(this, stoObj = summary, validUntil, log));
+					_flush(cache.exists);
 				}
 
 				// pseudo directory?
 				// if (info == null) {
 				targetName = summary.getKey();
 				if (nameDir.length() < targetName.length() && targetName.startsWith(nameDir)) {
-					exists.put(toKey(bucketName, nameFile), info = new ParentObject(this, bucketName, nameDir, validUntil, log));
-					_flush(exists);
+					cache.exists.put(toKey(bucketName, nameFile), info = new ParentObject(this, bucketName, nameDir, validUntil, log));
+					_flush(cache.exists);
 				}
 
 				// set the value to exist when not a match
 				if (!(stoObj != null && stoObj.equals(summary))) {
-					exists.put(toKey(bucketName, summary.getKey()), new StorageObjectWrapper(this, summary, validUntil, log));
-					_flush(exists);
+					cache.exists.put(toKey(bucketName, summary.getKey()), new StorageObjectWrapper(this, summary, validUntil, log));
+					_flush(cache.exists);
 				}
 				// set all the parents when not exist
 				// TODO handle that also a file with that name can exist at the same time
@@ -1142,8 +1169,8 @@ public class S3 {
 				int index;
 				while ((index = parent.lastIndexOf('/')) != -1) {
 					parent = parent.substring(0, index);
-					exists.put(toKey(bucketName, parent), new ParentObject(this, bucketName, parent, validUntil, log));
-					_flush(exists);
+					cache.exists.put(toKey(bucketName, parent), new ParentObject(this, bucketName, parent, validUntil, log));
+					_flush(cache.exists);
 				}
 
 			}
@@ -1153,10 +1180,11 @@ public class S3 {
 			 */
 			// }
 			if (info == null) {
-				exists.put(toKey(bucketName, objectName), new NotExisting(bucketName, objectName, validUntil, log) // we do not return this, we just store it to cache that it does
-																													// not exis
+				cache.exists.put(toKey(bucketName, objectName), new NotExisting(bucketName, objectName, validUntil, log) // we do not return this, we just store it to cache that it
+																															// does
+				// not exis
 				);
-				_flush(exists);
+				_flush(cache.exists);
 			}
 			return info;
 		}
@@ -1173,8 +1201,8 @@ public class S3 {
 
 		// buckets cache
 		S3BucketWrapper info = null;
-		if (buckets != null && cacheTimeout > 0) {
-			info = buckets.get(bucketName);
+		if (cache.buckets != null && cacheTimeout > 0) {
+			info = cache.buckets.get(bucketName);
 			if (info != null && info.validUntil() >= System.currentTimeMillis()) return info;
 		}
 
@@ -1476,12 +1504,12 @@ public class S3 {
 	private void flushExists(String bucketName, boolean flushRegionCache) throws S3Exception {
 		bucketName = improveBucketName(bucketName);
 		String prefix = bucketName + ":";
-		buckets = null;
-		_flush(exists, prefix, null);
-		_flush(objects, prefix, null);
-		if (existBuckets != null) existBuckets.remove(bucketName);
+		cache.buckets = null;
+		_flush(cache.exists, prefix, null);
+		_flush(cache.objects, prefix, null);
+		if (cache.existBuckets != null) cache.existBuckets.remove(bucketName);
 		if (flushRegionCache) {
-			bucketRegions.remove(bucketName);
+			cache.bucketRegions.remove(bucketName);
 		}
 	}
 
@@ -1492,8 +1520,8 @@ public class S3 {
 		String exact = bucketName + ":" + nameFile;
 		String prefix = bucketName + ":" + nameDir;
 		String prefix2 = bucketName + ":";
-		_flush(exists, prefix, exact);
-		_flush(objects, prefix2, exact);
+		_flush(cache.exists, prefix, exact);
+		_flush(cache.objects, prefix2, exact);
 	}
 
 	private static void _flush(Map<String, ?> map, String prefix, String exact) {
@@ -2132,7 +2160,7 @@ public class S3 {
 		bucketName = improveBucketName(bucketName);
 		objectName = improveObjectName(objectName);
 		String key = toKey(bucketName, objectName);
-		ValidUntilElement<AccessControlList> vuacl = accessControlLists.get(key);
+		ValidUntilElement<AccessControlList> vuacl = cache.accessControlLists.get(key);
 		if (vuacl != null && vuacl.validUntil > System.currentTimeMillis()) return vuacl.element;
 		boolean externalClient = true;
 		if (client == null) {
@@ -2191,7 +2219,7 @@ public class S3 {
 
 	public Region getBucketRegion(String bucketName, boolean loadIfNecessary) throws S3Exception {
 		bucketName = improveBucketName(bucketName);
-		Region r = bucketRegions.get(bucketName);
+		Region r = cache.bucketRegions.get(bucketName);
 
 		if (r != null) {
 			if (r == RegionFactory.ERROR) return null;
@@ -2202,7 +2230,7 @@ public class S3 {
 			AmazonS3Client client = getAmazonS3(null, null);
 			try {
 				r = RegionFactory.getInstance(client.getBucketLocation(bucketName));
-				bucketRegions.put(bucketName, r);
+				cache.bucketRegions.put(bucketName, r);
 			}
 			catch (AmazonServiceException ase) {
 				if (ase.getErrorCode().equals("NoSuchBucket")) {
@@ -2211,7 +2239,7 @@ public class S3 {
 				if (log != null) log.error("s3", "failed to load region", ase);
 				else ase.printStackTrace();
 				// could be AccessDenied
-				bucketRegions.put(bucketName, RegionFactory.ERROR);
+				cache.bucketRegions.put(bucketName, RegionFactory.ERROR);
 				return null;
 
 			}
@@ -2640,7 +2668,7 @@ public class S3 {
 					try {
 						r = RegionFactory.getInstance(client.getBucketLocation(b.getName()));
 						if (log != null) log.trace("s3", "cache region [" + r.toString() + "] for bucket [" + b.getName() + "]");
-						bucketRegions.put(b.getName(), r);
+						cache.bucketRegions.put(b.getName(), r);
 						// we don't want this to make to much load
 						sleep(100);
 					}

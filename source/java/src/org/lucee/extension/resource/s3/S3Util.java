@@ -33,8 +33,20 @@ public class S3Util {
 				}
 			}
 		}
-
 		return null;
+	}
+
+	public static String removeLocationFromHostIfNecessary(String host) {
+		if (!Util.isEmpty(host, true) && host.startsWith("s3.")) {
+			for (String p: S3.PROVIDERS) {
+				host = host.trim();
+				if (host.endsWith(p)) {
+					if (host.length() - p.length() < 3) continue;
+					return "s3" + p;
+				}
+			}
+		}
+		return host;
 	}
 
 	public static String removeSecret(S3 s3, String msg) {
