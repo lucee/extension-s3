@@ -29,7 +29,6 @@ import org.lucee.extension.resource.s3.info.StorageObjectWrapper;
 import org.lucee.extension.resource.s3.region.RegionFactory;
 import org.lucee.extension.resource.s3.region.RegionFactory.Region;
 import org.lucee.extension.resource.s3.util.XMLUtil;
-import org.lucee.extension.resource.s3.util.print;
 
 import com.amazonaws.AmazonServiceException;
 import com.amazonaws.HttpMethod;
@@ -153,12 +152,10 @@ public class S3 {
 						synchronized (caches) {
 							c = caches.get(keyCache);
 							if (c == null) {
-								print.e("new:c:" + keyCache);
 								caches.put(keyCache, c = new Cache());
 							}
 						}
 					}
-					print.e("new:s3:" + keyS3);
 					instances.put(keyS3, s3 = new S3(c, props.getAccessKeyId(), props.getSecretAccessKey(), props.getHost(), props.getDefaultLocation(), cache,
 							S3.DEFAULT_LIVE_TIMEOUT, true, CFMLEngineFactory.getInstance().getThreadConfig().getLog("application")));
 				}
