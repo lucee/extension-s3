@@ -70,7 +70,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 		var bucketName=cred.PREFIXVersion&"vfs-vs-direct-exists"&getTickCount();
 		var objectName="test.txt";
 		var path="s3://#bucketName#/#objectName#"; 
-		var pathWithCred="s3://#cred.SECRET_KEY#:#cred.SECRET_KEY#@";
+		var pathWithCred="s3://#cred.ACCESS_KEY_ID#:#cred.SECRET_KEY#@";
 		if(!isNull(cred.HOST)) pathWithCred&=cred.HOST;
 		pathWithCred&="/#bucketName#/#objectName#";
 		
@@ -166,7 +166,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 		var bucketName=cred.PREFIXVersion&"vfs-vs-direct-exists"&getTickCount();
 		var objectName="subfolder";
 		var path="s3://#bucketName#/#objectName#"; 
-		var pathWithCred="s3://#cred.SECRET_KEY#:#cred.SECRET_KEY#@";
+		var pathWithCred="s3://#cred.ACCESS_KEY_ID#:#cred.SECRET_KEY#@";
 		if(!isNull(cred.HOST)) pathWithCred&=cred.HOST;
 		pathWithCred&="/#bucketName#/#objectName#";
 		
