@@ -102,6 +102,9 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 			assertTrue(fileExists(pathWithCred),path);
 			// must exists now (VFS approach with implicit credentials)
 			assertTrue(fileExists(path),path);
+			
+			var presignedURL=S3GeneratePresignedURL(path);
+			assertTrue(fileExists(presignedURL),presignedURL);
 
 			////////////////////////////////////////////////////////////////////////
 			// deleteing the file again
@@ -134,6 +137,9 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 			assertTrue(fileExists(pathWithCred));
 			// must exists now (VFS approach with implicit credentials)
 			assertTrue(fileExists(path));
+
+			var presignedURL=S3GeneratePresignedURL(path);
+			assertTrue(fileExists(presignedURL),presignedURL);
 
 			
 			////////////////////////////////////////////////////////////////////////
