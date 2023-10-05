@@ -34,7 +34,21 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 			it(title="check FileExists vs S3Exists with Wasabi",skip=Util::isWasabiNotSupported(), body = function( currentSpec ) {
 				testS3ExistsVsFileExists(Util::getWasabiCredentials());
 			});	
-	
+			
+		// DirectoryExists vs S3Exists
+			it(title="check FileExists vs S3Exists with AWS",skip=Util::isAWSNotSupported(), body = function( currentSpec ) {
+				testS3ExistsVsDirectoryExists(Util::getAWSCredentials());
+			});	
+			it(title="check FileExists vs S3Exists with Blackbaze",skip=Util::isBackBlazeNotSupported(), body = function( currentSpec ) {
+				testS3ExistsVsDirectoryExists(Util::getBackBlazeCredentials());
+			});	
+			it(title="check FileExists vs S3Exists with Google",skip=Util::isGoogleNotSupported(), body = function( currentSpec ) {
+				testS3ExistsVsDirectoryExists(Util::getGoogleCredentials());
+			});	
+			it(title="check FileExists vs S3Exists with Wasabi",skip=Util::isWasabiNotSupported(), body = function( currentSpec ) {
+				testS3ExistsVsDirectoryExists(Util::getWasabiCredentials());
+			});	
+
 		});
 	}
 
@@ -49,13 +63,12 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 
 	
 
-	private function testS3ExistsVsFileExists(cred) localMode=true {
+	private function testS3ExistsVsFileExists(required struct cred) localMode=true {
 		// setup env for VFS access
 		setup(cred);
 		
 		var bucketName=cred.PREFIXVersion&"vfs-vs-direct-exists"&getTickCount();
 		var objectName="test.txt";
-		var parent="s3://#bucketName#/"; 
 		var path="s3://#bucketName#/#objectName#"; 
 		var pathWithCred="s3://#cred.SECRET_KEY#:#cred.SECRET_KEY#@";
 		if(!isNull(cred.HOST)) pathWithCred&=cred.HOST;
@@ -108,8 +121,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 
 			////////////////////////////////////////////////////////////////////////
 			// create the file VFS approach
-			directoryCreate(parent);
-			fileWrite(path, "Just some content");
+			fileWrite(path, "Just some content"); // directory/bucket should exist at this point
 			
 			////////////////////////////////////////////////////////////////////////
 			// must exists now (direct approach with explicit credentials)
@@ -143,6 +155,70 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 		}
 		finally {
 			deleteBucketEL(cred,bucketName);
+		}
+	}
+
+
+	private function testS3ExistsVsDirectoryExists(required struct cred) localMode=true {
+		// setup env for VFS access
+		setup(cred);
+		
+		var bucketName=cred.PREFIXVersion&"vfs-vs-direct-exists"&getTickCount();
+		var objectName="subfolder";
+		var path="s3://#bucketName#/#objectName#"; 
+		var pathWithCred="s3://#cred.SECRET_KEY#:#cred.SECRET_KEY#@";
+		if(!isNull(cred.HOST)) pathWithCred&=cred.HOST;
+		pathWithCred&="/#bucketName#/#objectName#";
+		
+		try {
+			////////////////////////////////////////////////////////////////////////
+			// does not exists yet (direct approach with explicit credentials)
+			assertFalse(S3Exists( 
+				bucketName:bucketName,  objectName:objectName?:nullValue(), 
+				accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST)));
+			// does not exists yet (direct approach with implicit credentials)
+			assertFalse(S3Exists( bucketName:bucketName,  objectName:objectName?:nullValue()));
+			// does not exists yet (VFS approach with explicit credentials)
+			assertFalse(directoryExists(pathWithCred));
+			// does not exists yet (VFS approach with implicit credentials)
+			assertFalse(directoryExists(path));
+
+			////////////////////////////////////////////////////////////////////////
+			// create the file VFS approach
+			directoryCreate(path);
+
+			////////////////////////////////////////////////////////////////////////
+			// must exists now (direct approach with explicit credentials)
+			assertTrue(S3Exists( 
+				bucketName:bucketName,  objectName:objectName?:nullValue(), 
+				accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST)));
+			// must exists now (direct approach with implicit credentials)
+			assertTrue(S3Exists( bucketName:bucketName,  objectName:objectName?:nullValue()));
+			// must exists now (VFS approach with explicit credentials)
+			assertTrue(directoryExists(pathWithCred));
+			// must exists now (VFS approach with implicit credentials)
+			assertTrue(directoryExists(path));
+
+			
+			////////////////////////////////////////////////////////////////////////
+			// deleteing the file again VFS approach
+			directoryDelete(path, true);
+
+			////////////////////////////////////////////////////////////////////////
+			// does not exists anymore (direct approach with explicit credentials)
+			assertFalse(S3Exists( 
+				bucketName:bucketName,  objectName:objectName?:nullValue(), 
+				accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST)));
+			// does not exists anymore (direct approach with implicit credentials)
+			assertFalse(S3Exists( bucketName:bucketName,  objectName:objectName?:nullValue()));
+			// does not exists anymore (VFS approach with explicit credentials)
+			assertFalse(directoryExists(pathWithCred));
+			// does not exists anymore (VFS approach with implicit credentials)
+			assertFalse(directoryExists(path));
+
+		}
+		finally {
+			Util::deleteBucketEL(cred,bucketName);
 		}
 	}
 
