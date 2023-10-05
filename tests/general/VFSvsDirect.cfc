@@ -195,9 +195,9 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 			// must exists now (direct approach with implicit credentials)
 			assertTrue(S3Exists( bucketName:bucketName,  objectName:objectName?:nullValue()));
 			// must exists now (VFS approach with explicit credentials)
-			assertTrue(directoryExists(pathWithCred));
+			assertTrue(directoryExists(pathWithCred),path);
 			// must exists now (VFS approach with implicit credentials)
-			assertTrue(directoryExists(path));
+			assertTrue(directoryExists(path),path);
 
 			
 			////////////////////////////////////////////////////////////////////////
