@@ -154,7 +154,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 
 		}
 		finally {
-			deleteBucketEL(cred,bucketName);
+			Util::deleteBucketEL(cred,bucketName);
 		}
 	}
 
