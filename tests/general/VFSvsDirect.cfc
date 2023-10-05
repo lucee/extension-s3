@@ -99,9 +99,9 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 			// must exists now (direct approach with implicit credentials)
 			assertTrue(S3Exists( bucketName:bucketName,  objectName:objectName?:nullValue()));
 			// must exists now (VFS approach with explicit credentials)
-			assertTrue(fileExists(pathWithCred));
+			assertTrue(fileExists(pathWithCred),path);
 			// must exists now (VFS approach with implicit credentials)
-			assertTrue(fileExists(path));
+			assertTrue(fileExists(path),path);
 
 			////////////////////////////////////////////////////////////////////////
 			// deleteing the file again
@@ -221,7 +221,6 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 			Util::deleteBucketEL(cred,bucketName);
 		}
 	}
-
 
 	private function toList(arr,key){
 		var rtn="";
