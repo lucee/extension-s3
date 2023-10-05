@@ -22,10 +22,12 @@ import java.nio.charset.Charset;
 
 import org.lucee.extension.resource.s3.S3Properties;
 import org.lucee.extension.resource.s3.S3Resource;
+import org.lucee.extension.resource.s3.S3ResourceProvider;
 import org.lucee.extension.resource.s3.S3Util;
 
 import lucee.commons.io.res.Resource;
 import lucee.commons.io.res.ResourceProvider;
+import lucee.commons.lang.types.RefString;
 import lucee.loader.engine.CFMLEngine;
 import lucee.loader.engine.CFMLEngineFactory;
 import lucee.loader.util.Util;
@@ -132,5 +134,35 @@ public abstract class S3Function extends BIF {
 	public boolean isEmpty(Object object) {
 		if (object instanceof CharSequence) Util.isEmpty(object.toString(), true);
 		return object == null;
+	}
+
+	PropsAndEndpoint extractFromPath(CFMLEngine eng, String bucketName, String objectName, String accessKeyId, String secretAccessKey, String host) {
+		S3Properties props = null;
+		// handle if the bucketName is a VFS path
+		if (Util.isEmpty(objectName) && bucketName != null && bucketName.toLowerCase().startsWith("s3://")) {
+			props = new S3Properties();
+			props.setAccessKeyId(accessKeyId);
+			props.setSecretAccessKey(secretAccessKey);
+			props.setHost(host);
+			RefString location = eng.getCreationUtil().createRefString(null);
+			String[] bo = S3Resource.toBO(S3ResourceProvider.loadWithNewPattern(props, location, bucketName.substring(5), Util.isEmpty(accessKeyId)));
+			bucketName = bo[0];
+			objectName = bo[1];
+
+			if (objectName != null && objectName.endsWith("/")) objectName = objectName.substring(0, objectName.length() - 1);
+		}
+		return new PropsAndEndpoint(props, bucketName, objectName);
+	}
+
+	static class PropsAndEndpoint {
+		S3Properties props;
+		String bucketName;
+		String objectName;
+
+		public PropsAndEndpoint(S3Properties props, String bucketName, String objectName) {
+			this.props = props;
+			this.bucketName = bucketName;
+			this.objectName = objectName;
+		}
 	}
 }

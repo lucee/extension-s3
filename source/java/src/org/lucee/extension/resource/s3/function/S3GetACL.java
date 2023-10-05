@@ -19,7 +19,6 @@
 package org.lucee.extension.resource.s3.function;
 
 import org.lucee.extension.resource.s3.S3;
-import org.lucee.extension.resource.s3.S3ResourceProvider;
 
 import lucee.loader.engine.CFMLEngine;
 import lucee.loader.engine.CFMLEngineFactory;
@@ -35,7 +34,7 @@ public class S3GetACL extends S3Function {
 	public Object invoke(PageContext pc, Object[] args) throws PageException {
 		CFMLEngine eng = CFMLEngineFactory.getInstance();
 		Cast cast = eng.getCastUtil();
-		if (args.length > 6 || args.length < 2) throw eng.getExceptionUtil().createFunctionException(pc, "S3GetACL", 1, 6, args.length);
+		if (args.length > 6 || args.length < 1) throw eng.getExceptionUtil().createFunctionException(pc, "S3GetACL", 1, 6, args.length);
 
 		// required
 		String bucketName = cast.toString(args[0]);
@@ -47,10 +46,12 @@ public class S3GetACL extends S3Function {
 		String host = args.length > 4 && args[4] != null ? cast.toString(args[4]) : null;
 		double timeout = args.length > 5 && !isEmpty(args[5]) ? cast.toDoubleValue(args[5]) : 0;
 
+		PropsAndEndpoint pae = extractFromPath(eng, bucketName, objectName, accessKeyId, secretAccessKey, host);
+
 		try {
 			// create S3 Instance
-			S3 s3 = S3.getInstance(toS3Properties(pc, accessKeyId, secretAccessKey, host), toTimeout(timeout));
-			return s3.getAccessControlList(bucketName, objectName);
+			S3 s3 = S3.getInstance(pae.props != null ? pae.props : toS3Properties(pc, accessKeyId, secretAccessKey, host), toTimeout(timeout));
+			return s3.getAccessControlList(pae.bucketName, pae.objectName);
 		}
 		catch (Exception e) {
 			throw eng.getCastUtil().toPageException(e);

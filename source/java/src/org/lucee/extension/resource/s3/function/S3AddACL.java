@@ -48,10 +48,12 @@ public class S3AddACL extends S3Function {
 		String host = args.length > 5 && args[5] != null ? cast.toString(args[5]) : null;
 		double timeout = args.length > 6 && !isEmpty(args[6]) ? cast.toDoubleValue(args[6]) : 0;
 
+		PropsAndEndpoint pae = extractFromPath(eng, bucketName, objectName, accessKeyId, secretAccessKey, host);
+
 		try {
 			// create S3 Instance
-			S3 s3 = S3.getInstance(toS3Properties(pc, accessKeyId, secretAccessKey, host), toTimeout(timeout));
-			s3.addAccessControlList(bucketName, objectName, objACL);
+			S3 s3 = S3.getInstance(pae.props != null ? pae.props : toS3Properties(pc, accessKeyId, secretAccessKey, host), toTimeout(timeout));
+			s3.addAccessControlList(pae.bucketName, pae.objectName, objACL);
 			return null;
 		}
 		catch (Exception e) {
