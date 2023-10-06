@@ -22,35 +22,75 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 
 
 	private function testit(cred) {
+
+		var file=expandPath("{temp-directory}/test-s3write.txt");
+		fileWrite(file, "Susi Sorglos");
+
+
 		try {
 			// create variables
 			var bucketName=cred.PREFIX&"-write"&listFirst(replace(server.lucee.version,".","","all"),"-");
-			var objectName="sub/test.txt";
+			var objectNameString="sub/string.txt";
+			var objectNameFile="sub/file.txt";
 			
-			Util::deleteIfExists(cred,bucketName,objectName);
+			Util::deleteIfExists(cred,bucketName,objectNameString);
+			Util::deleteIfExists(cred,bucketName,objectNameFile);
 			
 
-			// create source bucket
+			// create string source
 			if(!S3Exists( 
-				bucketName:bucketName,  objectName:objectName, 
+				bucketName:bucketName,  objectName:objectNameString, 
 				accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST))) {
 				S3Write( 
 					value:"Susi Sorglos",
-					bucketName:bucketName,  objectName:objectName, 
+					bucketName:bucketName,  objectName:objectNameString, 
 					accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST));
 			}
+
+			// create file source
+			if(!S3Exists( 
+				bucketName:bucketName,  objectName:objectNameFile, 
+				accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST))) {
+				S3Write( 
+					value:fileOpen(file),
+					bucketName:bucketName,  objectName:objectNameFile, 
+					accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST));
+			}
+
 			// existing bucket 
 			assertTrue(
 				S3Exists( 
 					bucketName:bucketName,  
 					accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST))
 			);
+
 			// existing bucket/object
 			assertTrue(
 				S3Exists( 
-					bucketName:bucketName,  objectName:objectName, 
+					bucketName:bucketName,  objectName:objectNameString, 
 					accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST))
 			);
+			// existing bucket/object
+			assertTrue(
+				S3Exists( 
+					bucketName:bucketName,  objectName:objectNameFile, 
+					accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST))
+			);
+
+			assertEqual(
+				"Susi Sorglos",
+				S3Read( 
+					bucketName:bucketName,  objectName:objectNameString, 
+					accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST))
+			);
+
+			assertEqual(
+				"Susi Sorglos",
+				S3Read( 
+					bucketName:bucketName,  objectName:objectNameFile, 
+					accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST))
+			);
+
 
 		}
 		catch(e) {

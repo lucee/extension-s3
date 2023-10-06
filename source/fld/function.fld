@@ -14,8 +14,9 @@
 	<!-- StoreAddACL -->
 	<function>
 		<name>StoreAddACL</name>
+		<status>deprecated</status>
 		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.StoreAddACL</class>
-		<description>Adds ACL to existing ACL for object or bucket. This function performs the same action as "S3AddACL". However, instead of providing the endpoint as a bucket/object definition, you supply it as a virtual filesystem path.</description>
+		<description>Adds ACL to existing ACL for object or bucket. This function operates identically to "S3AddACL", making it deprecated. The updated function offers greater flexibility in defining the endpoint.</description>
 		<argument>
 			<name>url</name>
 			<type>string</type>
@@ -38,13 +39,13 @@
 	<function>
 		<name>S3AddACL</name>
 		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.S3AddACL</class>
-		<description>Adds ACL to existing ACL for object or bucket. This function performs the same action as "StoreAddACL". However, instead of providing the endpoint as a virtual filesystem path, you supply it as a bucket/object definition.</description>
+		<description>Adds ACL to existing ACL for object or bucket. You can provide the endpoint as a bucket/object defintion (S3AddACL(bucket:"mybucket",object:"myobject.txt",acl:data) ) or as a virtual filesystem path (S3AddACL(path:"s3://mybucket/myobject.txt",acl:data) ).</description>
 		<argument>
 			<name>bucketNameOrPath</name>
 			<alias>bucket,bucketName,path</alias>
 			<type>string</type>
 			<required>Yes</required>
-			<description>Name of the bucket of your object to read</description>
+			<description>This can be the bucketname or a virtual filesystem path for a file/directory (example "s3://mybucket/myobject.txt").</description>
 	    </argument>
 		<argument>
 			<name>objectName</name>
@@ -52,7 +53,7 @@
 			<type>string</type>
 			<required>No</required>
 			<default></default>
-			<description>Name of the object (path) within the bucket of your object to read</description>
+			<description>Name of the object (path) within the bucket of your object to read. In case you have defined a bucket with the first argument.</description>
 	    </argument>
 		<argument>
 			<name>aclObject</name>
@@ -96,8 +97,9 @@
 	<!-- StoreGetACL -->
 	<function>
 		<name>StoreGetACL</name>
+		<status>deprecated</status>
 		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.StoreGetACL</class>
-		<description>Returns an array of structures, with each structure representing an ACL (Access Control List) grant. This function performs the same action as "S3GetACL". However, instead of providing the endpoint as a bucket/object definition, you supply it as a virtual filesystem path.</description>
+		<description>Returns an array of structures, with each structure representing an ACL (Access Control List) grant. This function operates identically to "S3GetACL", making it deprecated. The updated function offers greater flexibility in defining the endpoint.</description>
 		<argument>
 			<name>url</name>
 			<type>string</type>
@@ -113,13 +115,13 @@
 	<function>
 		<name>S3GetACL</name>
 		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.S3GetACL</class>
-		<description>Returns an array of structures, with each structure representing an ACL (Access Control List) grant. This function performs the same action as "StoreGetACL". However, instead of providing the endpoint as a virtual filesystem path, you supply it as a bucket/object definition.</description>
+		<description>Returns an array of structures, with each structure representing an ACL (Access Control List) grant. You can provide the endpoint as a bucket/object defintion (S3GetACL(bucket:"mybucket",object:"myobject.txt") ) or as a virtual filesystem path (S3GetACL(path:"s3://mybucket/myobject.txt") ).</description>
 		<argument>
 			<name>bucketNameOrPath</name>
 			<alias>bucket,bucketName,path</alias>
 			<type>string</type>
 			<required>Yes</required>
-			<description>Name of the bucket of your object to read</description>
+			<description>This can be the bucketname or a virtual filesystem path for a file/directory (example "s3://mybucket/myobject.txt").</description>
 	    </argument>
 		<argument>
 			<name>objectName</name>
@@ -127,7 +129,7 @@
 			<type>string</type>
 			<required>No</required>
 			<default></default>
-			<description>Name of the object (path) within the bucket of your object to read</description>
+			<description>Name of the object (path) within the bucket of your object to read. In case you have defined a bucket with the first argument.</description>
 	    </argument>
 		<argument>
 			<name>accessKeyId</name>
@@ -164,8 +166,9 @@
 	<!-- StoreSetACL -->
 	<function>
 		<name>StoreSetACL</name>
+		<status>deprecated</status>
 		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.StoreSetACL</class>
-		<description>Sets the ACL for object or bucket. This function performs the same action as "S3SetACL". However, instead of providing the endpoint as a bucket/object definition, you supply it as a virtual filesystem path.</description>
+		<description>Sets the ACL for object or bucket. This function operates identically to "S3SetACL", making it deprecated. The updated function offers greater flexibility in defining the endpoint.</description>
 		<argument>
 			<name>url</name>
 			<type>string</type>
@@ -188,13 +191,13 @@
 	<function>
 		<name>S3SetACL</name>
 		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.S3SetACL</class>
-		<description>Sets ACL to existing ACL for object or bucket. This function performs the same action as "StoreSetACL". However, instead of providing the endpoint as a virtual filesystem path, you supply it as a bucket/object definition.</description>
+		<description>Sets ACL to existing ACL for object or bucket. You can provide the endpoint as a bucket/object defintion (S3SetACL(bucket:"mybucket",object:"myobject.txt",acl:data) ) or as a virtual filesystem path (S3SetACL(path:"s3://mybucket/myobject.txt",acl:data) ).</description>
 		<argument>
 			<name>bucketNameOrPath</name>
 			<alias>bucket,bucketName,path</alias>
 			<type>string</type>
 			<required>Yes</required>
-			<description>Name of the bucket of your object to read</description>
+			<description>This can be the bucketname or a virtual filesystem path for a file/directory (example "s3://mybucket/myobject.txt").</description>
 	    </argument>
 		<argument>
 			<name>objectName</name>
@@ -202,7 +205,7 @@
 			<type>string</type>
 			<required>No</required>
 			<default></default>
-			<description>Name of the object (path) within the bucket of your object to read</description>
+			<description>Name of the object (path) within the bucket of your object to read. In case you have defined a bucket with the first argument.</description>
 	    </argument>
 		<argument>
 			<name>aclObject</name>
@@ -248,9 +251,10 @@
 	<!-- StoreGetMetaData -->
 	<function>
 		<name>StoreGetMetaData</name>
+		<status>deprecated</status>
 		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.StoreGetMetaData</class>
         <introduced>5.0.0.000</introduced>
-        <description>Returns the metadata related to the object or bucket. This function performs the same action as "S3GetMetaData". However, instead of providing the endpoint as a bucket/object definition, you supply it as a virtual filesystem path.</description>
+        <description>Returns the metadata related to the object or bucket. This function operates identically to "S3GetMetaData", making it deprecated. The updated function offers greater flexibility in defining the endpoint.</description>
 		<argument>
 			<name>url</name>
 			<type>string</type>
@@ -266,13 +270,13 @@
 	<function>
 		<name>S3GetMetaData</name>
 		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.S3GetMetaData</class>
-		<description>Returns the metadata related to the object or bucket. This function performs the same action as "StoreGetMetaData". However, instead of providing the endpoint as a virtual filesystem path, you supply it as a bucket/object definition.</description>
+		<description>Returns the metadata related to the object or bucket. You can provide the endpoint as a bucket/object defintion (S3GetMetaData(bucket:"mybucket",object:"myobject.txt") ) or as a virtual filesystem path (S3GetMetaData(path:"s3://mybucket/myobject.txt") ).</description>
 		<argument>
 			<name>bucketNameOrPath</name>
 			<alias>bucket,bucketName,path</alias>
 			<type>string</type>
 			<required>Yes</required>
-			<description>Name of the bucket of your object to read</description>
+			<description>This can be the bucketname or a virtual filesystem path for a file/directory (example "s3://mybucket/myobject.txt").</description>
 	    </argument>
 		<argument>
 			<name>objectName</name>
@@ -280,7 +284,7 @@
 			<type>string</type>
 			<required>No</required>
 			<default></default>
-			<description>Name of the object (path) within the bucket of your object to read</description>
+			<description>Name of the object (path) within the bucket of your object to read. In case you have defined a bucket with the first argument.</description>
 	    </argument>
 		<argument>
 			<name>accessKeyId</name>
@@ -318,9 +322,10 @@
 	<!-- StoreSetMetaData -->
 	<function>
 		<name>StoreSetMetaData</name>
+		<status>deprecated</status>
 		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.StoreSetMetaData</class>
         <introduced>5.0.0.000</introduced>
-		<description>Sets the metadata on bucket or object. This function performs the same action as "S3SetMetaData". However, instead of providing the endpoint as a bucket/object definition, you supply it as a virtual filesystem path.</description>
+		<description>Sets the metadata on bucket or object. This function operates identically to "S3SetMetaData", making it deprecated. The updated function offers greater flexibility in defining the endpoint.</description>
 		<argument>
 			<name>url</name>
 			<type>string</type>
@@ -342,13 +347,13 @@
 	<function>
 		<name>S3SetMetaData</name>
 		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.S3SetMetaData</class>
-		<description>Sets the metadata on bucket or object. This function performs the same action as "StoreSetMetaData". However, instead of providing the endpoint as a virtual filesystem path, you supply it as a bucket/object definition.</description>
+		<description>Sets the metadata on bucket or object. You can provide the endpoint as a bucket/object defintion (S3SetMetaData(bucket:"mybucket",object:"myobject.txt",metadata:data) ) or as a virtual filesystem path (S3SetMetaData(path:"s3://mybucket/myobject.txt",metadata:data) ).</description>
 		<argument>
 			<name>bucketNameOrPath</name>
 			<alias>bucket,bucketName,path</alias>
 			<type>string</type>
 			<required>Yes</required>
-			<description>Name of the bucket of your object to read</description>
+			<description>This can be the bucketname or a virtual filesystem path for a file/directory (example "s3://mybucket/myobject.txt").</description>
 	    </argument>
 		<argument>
 			<name>objectName</name>
@@ -356,7 +361,7 @@
 			<type>string</type>
 			<required>No</required>
 			<default></default>
-			<description>Name of the object (path) within the bucket of your object to read</description>
+			<description>Name of the object (path) within the bucket of your object to read. In case you have defined a bucket with the first argument.</description>
 	    </argument>
 		<argument>
 			<name>metadata</name>
@@ -1063,20 +1068,20 @@
 	<function>
 		<name>S3GeneratePresignedURL</name>
 		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.S3GeneratePresignedURL</class>
-		<description>Generates a presigned URL pointing to the object given</description>
+		<description>Generates a presigned URL pointing to the object given. You can provide the endpoint as a bucket/object defintion (S3AddACL(bucket:"mybucket",object:"myobject.txt") ) or as a virtual filesystem path (S3AddACL(path:"s3://mybucket/myobject.txt") ).</description>
 		<argument>
 			<name>bucketNameOrPath</name>
 			<alias>bucket,bucketName,path</alias>
 			<type>string</type>
 			<required>Yes</required>
-			<description>This can be the bucketname or simple the virtual filesystem point for the file (if object name is no defined)</description>
+			<description>This can be the bucketname or a virtual filesystem path for a file/directory (example "s3://mybucket/myobject.txt").</description>
 	    </argument>
 		<argument>
 			<name>objectName</name>
 			<alias>object,path</alias>
 			<type>string</type>
 			<required>No</required>
-			<description>Name of the object (path) within the bucket of your object to read</description>
+			<description>Name of the object (path) within the bucket of your object to read. In case you have defined a bucket with the first argument.</description>
 	    </argument>
 		<argument>
 			<name>expireDate</name>
@@ -1191,20 +1196,20 @@
 	<function>
 		<name>S3GenerateURI</name>
 		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.S3GenerateURI</class>
-		<description>Generates a URI endpoint pointing to the object given</description>
+		<description>Generates a URI endpoint pointing to the object given. You can provide the endpoint as a bucket/object defintion (S3AddACL(bucket:"mybucket",object:"myobject.txt") ) or as a virtual filesystem path (S3AddACL(path:"s3://mybucket/myobject.txt") ).</description>
 		<argument>
 			<name>bucketNameOrPath</name>
 			<alias>bucket,bucketName,path</alias>
 			<type>string</type>
 			<required>Yes</required>
-			<description>This can be the bucketname or simple the virtual filesystem point for the file (if object name is no defined)</description>
+			<description>This can be the bucketname or a virtual filesystem path for a file/directory (example "s3://mybucket/myobject.txt").</description>
 	    </argument>
 		<argument>
 			<name>objectName</name>
 			<alias>object,path</alias>
 			<type>string</type>
 			<required>No</required>
-			<description>Name of the object (path) within the bucket of your object you want to grant access to</description>
+			<description>Name of the object (path) within the bucket of your object to read. In case you have defined a bucket with the first argument.</description>
 	    </argument>
 		<argument>
 			<name>type</name>
