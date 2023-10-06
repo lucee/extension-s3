@@ -47,14 +47,12 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 			
 			assertEquals(bucketName, meta.bucketName);
 			assertEquals(objectName, meta.objectName);
-			try {
-				var meta=S3GetMetadata( 
-					path:path,
-					accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST));
-			}
-			catch(e) {
-				throw path;
-			}
+			
+			// {SECRET_ACCESS_KEY}:///lucee-ldev-e--get-metadata54411/sub/test.txt
+			var meta=S3GetMetadata( 
+				path:path,
+				accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST));
+			
 			assertEquals(bucketName, meta.bucketName);
 			assertEquals(objectName, meta.objectName);
 
