@@ -587,7 +587,7 @@
 			<alias>content</alias>
 			<type>object</type>
 			<required>yes</required>
-			<description>value to store on S3.</description>
+			<description>Value to write to S3. This can be a basic value, a binary, or a file reference defined like this: fileOpen("c:/my/file/path.txt").</description>
 	    </argument>
 		<argument>
 			<name>charset</name>
