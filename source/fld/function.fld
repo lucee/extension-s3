@@ -40,8 +40,8 @@
 		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.S3AddACL</class>
 		<description>Adds ACL to existing ACL for object or bucket. This function performs the same action as "StoreAddACL". However, instead of providing the endpoint as a virtual filesystem path, you supply it as a bucket/object definition.</description>
 		<argument>
-			<name>bucketName</name>
-			<alias>bucket</alias>
+			<name>bucketNameOrPath</name>
+			<alias>bucket,bucketName,path</alias>
 			<type>string</type>
 			<required>Yes</required>
 			<description>Name of the bucket of your object to read</description>
@@ -115,8 +115,8 @@
 		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.S3GetACL</class>
 		<description>Returns an array of structures, with each structure representing an ACL (Access Control List) grant. This function performs the same action as "StoreGetACL". However, instead of providing the endpoint as a virtual filesystem path, you supply it as a bucket/object definition.</description>
 		<argument>
-			<name>bucketName</name>
-			<alias>bucket</alias>
+			<name>bucketNameOrPath</name>
+			<alias>bucket,bucketName,path</alias>
 			<type>string</type>
 			<required>Yes</required>
 			<description>Name of the bucket of your object to read</description>
@@ -190,8 +190,8 @@
 		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.S3SetACL</class>
 		<description>Sets ACL to existing ACL for object or bucket. This function performs the same action as "StoreSetACL". However, instead of providing the endpoint as a virtual filesystem path, you supply it as a bucket/object definition.</description>
 		<argument>
-			<name>bucketName</name>
-			<alias>bucket</alias>
+			<name>bucketNameOrPath</name>
+			<alias>bucket,bucketName,path</alias>
 			<type>string</type>
 			<required>Yes</required>
 			<description>Name of the bucket of your object to read</description>
@@ -268,8 +268,8 @@
 		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.S3GetMetaData</class>
 		<description>Returns the metadata related to the object or bucket. This function performs the same action as "StoreGetMetaData". However, instead of providing the endpoint as a virtual filesystem path, you supply it as a bucket/object definition.</description>
 		<argument>
-			<name>bucketName</name>
-			<alias>bucket</alias>
+			<name>bucketNameOrPath</name>
+			<alias>bucket,bucketName,path</alias>
 			<type>string</type>
 			<required>Yes</required>
 			<description>Name of the bucket of your object to read</description>
@@ -344,8 +344,8 @@
 		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.S3SetMetaData</class>
 		<description>Sets the metadata on bucket or object. This function performs the same action as "StoreSetMetaData". However, instead of providing the endpoint as a virtual filesystem path, you supply it as a bucket/object definition.</description>
 		<argument>
-			<name>bucketName</name>
-			<alias>bucket</alias>
+			<name>bucketNameOrPath</name>
+			<alias>bucket,bucketName,path</alias>
 			<type>string</type>
 			<required>Yes</required>
 			<description>Name of the bucket of your object to read</description>

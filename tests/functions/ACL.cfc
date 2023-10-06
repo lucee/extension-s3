@@ -271,13 +271,19 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 		    
 		    // check inital data
 			if(useS3Function) {
-				var acl=S3GetACL(arguments.bucketName,isEmpty(arguments.objectName)?"":arguments.objectName);
+				var acl=S3GetACL(bucket:arguments.bucketName,object:isEmpty(arguments.objectName)?"":arguments.objectName);
+				assertEquals(1,acl.len());
+				assertEquals("FULL_CONTROL",toList(acl,"permission"));
+
+				var acl=S3GetACL(path:dir);
+				assertEquals(1,acl.len());
+				assertEquals("FULL_CONTROL",toList(acl,"permission"));
 			}
 			else {
 				var acl=StoreGetACL(dir);
+				assertEquals(1,acl.len());
+				assertEquals("FULL_CONTROL",toList(acl,"permission"));
 			}
-			assertEquals(1,acl.len());
-			assertEquals("FULL_CONTROL",toList(acl,"permission"));
 			
 			
 			// add ACL
