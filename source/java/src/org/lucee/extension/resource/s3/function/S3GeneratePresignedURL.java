@@ -1,14 +1,9 @@
 package org.lucee.extension.resource.s3.function;
 
 import org.lucee.extension.resource.s3.S3;
-import org.lucee.extension.resource.s3.S3Properties;
-import org.lucee.extension.resource.s3.S3Resource;
-import org.lucee.extension.resource.s3.S3ResourceProvider;
 
-import lucee.commons.lang.types.RefString;
 import lucee.loader.engine.CFMLEngine;
 import lucee.loader.engine.CFMLEngineFactory;
-import lucee.loader.util.Util;
 import lucee.runtime.PageContext;
 import lucee.runtime.exp.PageException;
 import lucee.runtime.type.Struct;
@@ -54,22 +49,12 @@ public class S3GeneratePresignedURL extends S3Function {
 			host = null;
 		}
 		try {
+			PropsAndEndpoint pae = extractFromPath(eng, bucketNameOrPath, objectName, accessKeyId, secretAccessKey, host);
+
 			// create S3 Instance
-			S3 s3 = S3.getInstance(toS3Properties(pc, accessKeyId, secretAccessKey, host), toTimeout(timeout));
-
-			// get bucket and object from path
-			if (Util.isEmpty(objectName) && ("" + bucketNameOrPath).toLowerCase().startsWith("s3://")) {
-				S3Properties props = new S3Properties();
-				RefString location = eng.getCreationUtil().createRefString(null);
-				String[] bo = S3Resource.toBO(S3ResourceProvider.loadWithNewPattern(props, location, bucketNameOrPath.substring(5), Util.isEmpty(accessKeyId)));
-				bucketNameOrPath = bo[0];
-				objectName = bo[1];
-				if (objectName != null && objectName.endsWith("/")) objectName = objectName.substring(0, objectName.length() - 1);
-			}
-
-			return s3.generatePresignedURL(bucketNameOrPath, objectName, expireDate, httpMethod, sseAlgorithm, sseCustomerKey, checksum, contentType, contentDisposition,
+			S3 s3 = S3.getInstance(pae.props != null ? pae.props : toS3Properties(pc, accessKeyId, secretAccessKey, host), toTimeout(timeout));
+			return s3.generatePresignedURL(pae.bucketName, pae.objectName, expireDate, httpMethod, sseAlgorithm, sseCustomerKey, checksum, contentType, contentDisposition,
 					contentEncoding, versionId, zeroByteContent, customResponseHeaders).toExternalForm();
-
 		}
 		catch (Exception e) {
 			throw eng.getCastUtil().toPageException(e);
