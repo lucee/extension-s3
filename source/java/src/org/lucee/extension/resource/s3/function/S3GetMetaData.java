@@ -19,6 +19,7 @@
 package org.lucee.extension.resource.s3.function;
 
 import org.lucee.extension.resource.s3.S3;
+import org.lucee.extension.resource.s3.S3Properties;
 
 import lucee.loader.engine.CFMLEngine;
 import lucee.loader.engine.CFMLEngineFactory;
@@ -55,14 +56,15 @@ public class S3GetMetaData extends S3Function {
 		 * secretAccessKey, host)); print.e("pae.bucketName:" + pae.bucketName); print.e("pae.objectName:" +
 		 * pae.objectName);
 		 */
-
+		S3Properties props = pae.props != null ? pae.props : toS3Properties(pc, accessKeyId, secretAccessKey, host);
 		try {
 			// create S3 Instance
-			S3 s3 = S3.getInstance(pae.props != null ? pae.props : toS3Properties(pc, accessKeyId, secretAccessKey, host), toTimeout(timeout));
+			S3 s3 = S3.getInstance(props, toTimeout(timeout));
 			return s3.getMetaData(pae.bucketName, pae.objectName);
 		}
 		catch (Exception e) {
-			throw eng.getCastUtil().toPageException(e);
+			throw eng.getExceptionUtil().createApplicationException(eng.getStringUtil().replace(props.toString(), secretAccessKey, "...", false, true));
+			// throw eng.getCastUtil().toPageException(e);
 		}
 	}
 }

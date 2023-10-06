@@ -144,17 +144,18 @@ public abstract class S3Function extends BIF {
 			props.setAccessKeyId(accessKeyId);
 			props.setSecretAccessKey(secretAccessKey);
 			props.setHost(host);
+
 			RefString location = eng.getCreationUtil().createRefString(null);
 			String[] bo = S3Resource.toBO(S3ResourceProvider.loadWithNewPattern(props, location, bucketName.substring(5), Util.isEmpty(accessKeyId)));
 			bucketName = bo[0];
 			objectName = bo[1];
 
+			if (objectName != null && objectName.endsWith("/")) objectName = objectName.substring(0, objectName.length() - 1);
+
 			// explicit credentals overrule in path credentials!
 			if (!Util.isEmpty(accessKeyId)) props.setAccessKeyId(accessKeyId);
 			if (!Util.isEmpty(secretAccessKey)) props.setSecretAccessKey(secretAccessKey);
 			if (!Util.isEmpty(host)) props.setHost(host);
-
-			if (objectName != null && objectName.endsWith("/")) objectName = objectName.substring(0, objectName.length() - 1);
 		}
 		return new PropsAndEndpoint(props, bucketName, objectName);
 	}
