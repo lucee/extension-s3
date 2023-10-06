@@ -14,18 +14,31 @@ public class S3GenerateURI extends S3Function {
 
 	private static final long serialVersionUID = -1361680673704246251L;
 
-	// see https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-bucket-intro.html
-	public static String call(PageContext pc, String bucketNameOrPath, String objectName, String type, boolean secure, String accessKeyId, String secretAccessKey, String host,
-			double timeout) throws PageException {
-
-		// arn:partition:service:region:account-id:resource-id
-
+	@Override
+	public Object invoke(PageContext pc, Object[] args) throws PageException {
 		CFMLEngine eng = CFMLEngineFactory.getInstance();
+		Cast cast = eng.getCastUtil();
+		if (args.length < 1 || args.length > 8) throw eng.getExceptionUtil().createFunctionException(pc, "S3GenerateURL", 1, 8, args.length);
+
+		// required
+		String bucketNameOrPath = cast.toString(args[0]);
+
+		// optional
+		String objectName = args.length > 1 && args[1] != null ? cast.toString(args[1]) : null;
+		String type = args.length > 2 && args[2] != null ? cast.toString(args[2]) : null;
+		boolean secure = args.length > 3 && !isEmpty(args[3]) ? cast.toBooleanValue(args[3]) : true;
+
+		String accessKeyId = args.length > 4 && args[4] != null ? cast.toString(args[4]) : null;
+		String secretAccessKey = args.length > 5 && args[5] != null ? cast.toString(args[5]) : null;
+		String host = args.length > 6 && args[6] != null ? cast.toString(args[6]) : null;
+		double timeout = args.length > 7 && !isEmpty(args[7]) ? cast.toDoubleValue(args[7]) : 0;
+
 		// for backward compatibility, when host was not existing
 		if (eng.getDecisionUtil().isNumber(host)) {
 			timeout = eng.getCastUtil().toDoubleValue(host);
 			host = null;
 		}
+
 		try {
 
 			PropsAndEndpoint pae = extractFromPath(eng, bucketNameOrPath, objectName, accessKeyId, secretAccessKey, host);
@@ -54,39 +67,6 @@ public class S3GenerateURI extends S3Function {
 		}
 	}
 
-	@Override
-	public Object invoke(PageContext pc, Object[] args) throws PageException {
-		CFMLEngine engine = CFMLEngineFactory.getInstance();
-		Cast cast = engine.getCastUtil();
+	// String accessKeyId, String secretAccessKey, String host,double timeout) throws PageException {
 
-		if (args.length == 8) {
-			return call(pc, cast.toString(args[0]), cast.toString(args[1]), cast.toString(args[2]), cast.toBooleanValue(args[3]), cast.toString(args[4]), cast.toString(args[5]),
-					cast.toString(args[6]), cast.toDoubleValue(args[7]));
-		}
-		if (args.length == 7) {
-			return call(pc, cast.toString(args[0]), cast.toString(args[1]), cast.toString(args[2]), cast.toBooleanValue(args[3]), cast.toString(args[4]), cast.toString(args[5]),
-					cast.toString(args[6]), 0);
-		}
-		if (args.length == 6) {
-			return call(pc, cast.toString(args[0]), cast.toString(args[1]), cast.toString(args[2]), cast.toBooleanValue(args[3]), cast.toString(args[4]), cast.toString(args[5]),
-					null, 0);
-		}
-		if (args.length == 5) {
-			return call(pc, cast.toString(args[0]), cast.toString(args[1]), cast.toString(args[2]), cast.toBooleanValue(args[3]), cast.toString(args[4]), null, null, 0);
-		}
-		if (args.length == 4) {
-			return call(pc, cast.toString(args[0]), cast.toString(args[1]), cast.toString(args[2]), cast.toBooleanValue(args[3]), null, null, null, 0);
-		}
-		if (args.length == 3) {
-			return call(pc, cast.toString(args[0]), cast.toString(args[1]), cast.toString(args[2]), true, null, null, null, 0);
-		}
-		if (args.length == 2) {
-			return call(pc, cast.toString(args[0]), cast.toString(args[1]), null, true, null, null, null, 0);
-		}
-		if (args.length == 1) {
-			return call(pc, cast.toString(args[0]), null, null, true, null, null, null, 0);
-		}
-
-		throw engine.getExceptionUtil().createFunctionException(pc, "S3GenerateURL", 1, 8, args.length);
-	}
 }
