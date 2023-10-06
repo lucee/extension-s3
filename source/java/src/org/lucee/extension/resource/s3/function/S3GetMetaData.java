@@ -47,6 +47,14 @@ public class S3GetMetaData extends S3Function {
 		double timeout = args.length > 5 && !isEmpty(args[5]) ? cast.toDoubleValue(args[5]) : 0;
 
 		PropsAndEndpoint pae = extractFromPath(eng, bucketName, objectName, accessKeyId, secretAccessKey, host);
+		/*
+		 * print.e("--------------"); print.e("accessKeyId:" + accessKeyId); print.e("secretAccessKey:" +
+		 * secretAccessKey); print.e("host:" + host); print.e("timeout:" + timeout);
+		 * 
+		 * if (pae.props != null) print.e(pae.props); else print.e(toS3Properties(pc, accessKeyId,
+		 * secretAccessKey, host)); print.e("pae.bucketName:" + pae.bucketName); print.e("pae.objectName:" +
+		 * pae.objectName);
+		 */
 
 		try {
 			// create S3 Instance

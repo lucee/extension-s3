@@ -265,8 +265,8 @@ public final class S3ResourceProvider implements ResourceProvider {
 
 			));
 
-		properties.setSecretAccessKey(secretAccessKey);
-		properties.setAccessKeyId(accessKeyId);
+		if (!Util.isEmpty(accessKeyId)) properties.setAccessKeyId(accessKeyId);
+		if (!Util.isEmpty(secretAccessKey)) properties.setSecretAccessKey(secretAccessKey);
 		properties.setCustomCredentials(hasCustomCredentials);
 		properties.setCustomHost(hasCustomHost);
 		properties.setMapping(mapping);

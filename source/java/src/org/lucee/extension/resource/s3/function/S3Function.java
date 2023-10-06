@@ -149,6 +149,11 @@ public abstract class S3Function extends BIF {
 			bucketName = bo[0];
 			objectName = bo[1];
 
+			// explicit credentals overrule in path credentials!
+			if (!Util.isEmpty(accessKeyId)) props.setAccessKeyId(accessKeyId);
+			if (!Util.isEmpty(secretAccessKey)) props.setSecretAccessKey(secretAccessKey);
+			if (!Util.isEmpty(host)) props.setHost(host);
+
 			if (objectName != null && objectName.endsWith("/")) objectName = objectName.substring(0, objectName.length() - 1);
 		}
 		return new PropsAndEndpoint(props, bucketName, objectName);
