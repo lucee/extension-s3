@@ -2,11 +2,7 @@ package org.lucee.extension.resource.s3.function;
 
 import org.lucee.extension.resource.s3.S3;
 import org.lucee.extension.resource.s3.S3Exception;
-import org.lucee.extension.resource.s3.S3Properties;
-import org.lucee.extension.resource.s3.S3Resource;
-import org.lucee.extension.resource.s3.S3ResourceProvider;
 
-import lucee.commons.lang.types.RefString;
 import lucee.loader.engine.CFMLEngine;
 import lucee.loader.engine.CFMLEngineFactory;
 import lucee.loader.util.Util;
@@ -31,29 +27,23 @@ public class S3GenerateURI extends S3Function {
 			host = null;
 		}
 		try {
-			// create S3 Instance
-			S3 s3 = S3.getInstance(toS3Properties(pc, accessKeyId, secretAccessKey, host), toTimeout(timeout));
 
-			if (Util.isEmpty(objectName) && ("" + bucketNameOrPath).toLowerCase().startsWith("s3://")) {
-				S3Properties props = new S3Properties();
-				RefString location = eng.getCreationUtil().createRefString(null);
-				String[] bo = S3Resource.toBO(S3ResourceProvider.loadWithNewPattern(props, location, bucketNameOrPath.substring(5), Util.isEmpty(accessKeyId)));
-				bucketNameOrPath = bo[0];
-				objectName = bo[1];
-				if (objectName != null && objectName.endsWith("/")) objectName = objectName.substring(0, objectName.length() - 1);
-			}
+			PropsAndEndpoint pae = extractFromPath(eng, bucketNameOrPath, objectName, accessKeyId, secretAccessKey, host);
+
+			// create S3 Instance
+			S3 s3 = S3.getInstance(pae.props != null ? pae.props : toS3Properties(pc, accessKeyId, secretAccessKey, host), toTimeout(timeout));
 
 			if (Util.isEmpty(type, true) || (type = type.trim()).equalsIgnoreCase("virtualhost")) {
-				return s3.generateURI(bucketNameOrPath, objectName, S3.URI_STYLE_VIRTUAL_HOST, secure);
+				return s3.generateURI(pae.bucketName, pae.objectName, S3.URI_STYLE_VIRTUAL_HOST, secure);
 			}
 			else if (type.equalsIgnoreCase("path")) {
-				return s3.generateURI(bucketNameOrPath, objectName, S3.URI_STYLE_PATH, secure);
+				return s3.generateURI(pae.bucketName, pae.objectName, S3.URI_STYLE_PATH, secure);
 			}
 			else if (type.equalsIgnoreCase("s3")) {
-				return s3.generateURI(bucketNameOrPath, objectName, S3.URI_STYLE_S3, secure);
+				return s3.generateURI(pae.bucketName, pae.objectName, S3.URI_STYLE_S3, secure);
 			}
 			else if (type.equalsIgnoreCase("arn")) {
-				return s3.generateURI(bucketNameOrPath, objectName, S3.URI_STYLE_ARN, secure);
+				return s3.generateURI(pae.bucketName, pae.objectName, S3.URI_STYLE_ARN, secure);
 			}
 			else {
 				throw new S3Exception("type [" + type + "] is invalid, valid types are [virtualhost, path, arn or s3]");
