@@ -27,6 +27,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 			var bucketName=cred.PREFIX&"-get-metadata"&listFirst(replace(server.lucee.version,".","","all"),"-");
 			var objectName="sub/test.txt";
 			var path="s3:///#bucketName#/#objectName#";
+			var pathWithCred="s3://#cred.ACCESS_KEY_ID#:#cred.SECRET_KEY#@#(isNull(cred.HOST)?nullvalue():cred.HOST)#/#bucketName#/#objectName#";
 			
 			Util::deleteIfExists(cred,bucketName,objectName);
 			
@@ -47,8 +48,13 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 			
 			assertEquals(bucketName, meta.bucketName);
 			assertEquals(objectName, meta.objectName);
+
+			var meta=S3GetMetadata( path:pathWithCred);
 			
-			// {SECRET_ACCESS_KEY}:///lucee-ldev-e--get-metadata54411/sub/test.txt
+			assertEquals(bucketName, meta.bucketName);
+			assertEquals(objectName, meta.objectName);
+
+			
 			var meta=S3GetMetadata( 
 				path:path,
 				accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST));
