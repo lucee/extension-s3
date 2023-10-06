@@ -290,8 +290,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 			if(add) {
 			    arr=[{'group':"authenticated",'permission':"WRITE"}];
 			    if(useS3Function) {
-					if(isEmpty(arguments.objectName)) S3AddACL(arguments.bucketName,"",arr);
-					else S3AddACL(arguments.bucketName,arguments.objectName,arr);
+					S3AddACL(arguments.bucketName,isEmpty(arguments.objectName)?"":arguments.objectName,arr);
 				}
 				else {
 					StoreAddACL(dir,arr); 
@@ -313,8 +312,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 				arr=[{'group':"authenticated",'permission':"WRITE"}];
 			    
 				if(useS3Function) {
-					if(isEmpty(arguments.objectName)) S3SetACL(arguments.bucketName,"",arr);
-					else S3SetACL(arguments.bucketName,arguments.objectName,arr);
+					S3SetACL(bucketName:arguments.bucketName,objectName:isEmpty(arguments.objectName)?"":arguments.objectName,acl:arr);
+					S3SetACL(path:dir,acl:arr);
 				}
 				else {
 					StoreSetACL(dir,arr); 
