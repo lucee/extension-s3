@@ -77,14 +77,14 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 					accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST))
 			);
 
-			assertEqual(
+			assertEquals(
 				"Susi Sorglos",
 				S3Read( 
 					bucketName:bucketName,  objectName:objectNameString, 
 					accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST))
 			);
 
-			assertEqual(
+			assertEquals(
 				"Susi Sorglos",
 				S3Read( 
 					bucketName:bucketName,  objectName:objectNameFile, 

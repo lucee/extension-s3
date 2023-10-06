@@ -1918,8 +1918,9 @@ public class S3 {
 	public Struct getMetaData(String bucketName, String objectName) throws S3Exception {
 		bucketName = improveBucketName(bucketName);
 		objectName = improveObjectName(objectName);
-
-		return get(bucketName, objectName).getMetaData();
+		S3Info info = get(bucketName, objectName);
+		if (info == null || info.isVirtual()) throw new S3Exception("there is no physical object [" + bucketName + "/" + objectName + "]");
+		return info.getMetaData();
 	}
 
 	public ObjectMetadata getObjectMetadata(String bucketName, String objectName) throws S3Exception {
