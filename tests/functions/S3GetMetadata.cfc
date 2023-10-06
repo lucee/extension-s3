@@ -26,6 +26,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 			// create variables
 			var bucketName=cred.PREFIX&"-get-metadata"&listFirst(replace(server.lucee.version,".","","all"),"-");
 			var objectName="sub/test.txt";
+			var path="s3:///#bucketName#/#objectName#";
 			
 			Util::deleteIfExists(cred,bucketName,objectName);
 			
@@ -46,6 +47,16 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 			
 			assertEquals(bucketName, meta.bucketName);
 			assertEquals(objectName, meta.objectName);
+
+			var meta=S3GetMetadata( 
+				path:path
+				accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST));
+			
+			assertEquals(bucketName, meta.bucketName);
+			assertEquals(objectName, meta.objectName);
+
+
+
 		}
 		catch(e) {
 			if(!findNoCase("Transaction cap exceeded", e.message) ) throw e;

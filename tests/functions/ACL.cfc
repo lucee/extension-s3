@@ -291,6 +291,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 			    arr=[{'group':"authenticated",'permission':"WRITE"}];
 			    if(useS3Function) {
 					S3AddACL(arguments.bucketName,isEmpty(arguments.objectName)?"":arguments.objectName,arr);
+					S3AddACL(path:dir,acl:arr);
 				}
 				else {
 					StoreAddACL(dir,arr); 
