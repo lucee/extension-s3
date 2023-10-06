@@ -56,6 +56,7 @@ public class S3GetMetaData extends S3Function {
 		 * secretAccessKey, host)); print.e("pae.bucketName:" + pae.bucketName); print.e("pae.objectName:" +
 		 * pae.objectName);
 		 */
+
 		S3Properties props = pae.props != null ? pae.props : toS3Properties(pc, accessKeyId, secretAccessKey, host);
 		try {
 			// create S3 Instance
@@ -63,8 +64,7 @@ public class S3GetMetaData extends S3Function {
 			return s3.getMetaData(pae.bucketName, pae.objectName);
 		}
 		catch (Exception e) {
-			throw eng.getExceptionUtil().createApplicationException(eng.getStringUtil().replace(props.toString(), secretAccessKey, "...", false, true));
-			// throw eng.getCastUtil().toPageException(e);
+			throw eng.getCastUtil().toPageException(e);
 		}
 	}
 }
