@@ -105,7 +105,7 @@ public class S3 {
 	private static final ConcurrentHashMap<String, Object> tokens = new ConcurrentHashMap<String, Object>();
 
 	private static Map<String, S3> instances = new ConcurrentHashMap<String, S3>();
-	private static Map<String, Cache> caches = new ConcurrentHashMap<String, Cache>();
+	private static Map<String, S3Cache> caches = new ConcurrentHashMap<String, S3Cache>();
 
 	private final String host;
 	private final String accessKeyId;
@@ -115,27 +115,9 @@ public class S3 {
 	private final long cacheTimeout;
 	private final long liveTimeout;
 
-	private final Cache cache;
+	private final S3Cache cache;
 
 	private Log log;
-	/////////////////////// CACHE ////////////////
-
-	static class Cache {
-
-		private final Harakiri harakiri;
-		private ValidUntilMap<S3BucketWrapper> buckets;
-		private Map<String, S3BucketExists> existBuckets;
-		private final Map<String, ValidUntilMap<S3Info>> objects = new ConcurrentHashMap<String, ValidUntilMap<S3Info>>();
-		private Map<String, ValidUntilElement<AccessControlList>> accessControlLists = new ConcurrentHashMap<String, ValidUntilElement<AccessControlList>>();
-		private Map<String, Region> regions = new ConcurrentHashMap<String, Region>();
-		private final Map<String, Region> bucketRegions = new ConcurrentHashMap<String, Region>();
-		Map<String, S3Info> exists = new ConcurrentHashMap<String, S3Info>();
-
-		public Cache(Log log) {
-			regions.put("US", RegionFactory.US_EAST_1);
-			harakiri = new Harakiri(this, log);
-		}
-	}
 
 	public static S3 getInstance(S3Properties props, long cache) {
 
@@ -147,7 +129,7 @@ public class S3 {
 				if (s3 == null) {
 
 					String keyCache = props.getAccessKeyId() + ":" + props.getSecretAccessKey() + ":" + props.getHostWithoutRegion() + ":" + cache;
-					Cache c = caches.get(keyCache);
+					S3Cache c = caches.get(keyCache);
 					if (c == null) {
 						synchronized (caches) {
 							Log log = null;
@@ -155,7 +137,7 @@ public class S3 {
 							if (config != null) log = config.getLog("application");
 							c = caches.get(keyCache);
 							if (c == null) {
-								caches.put(keyCache, c = new Cache(log));
+								caches.put(keyCache, c = new S3Cache(log));
 							}
 						}
 					}
@@ -177,7 +159,7 @@ public class S3 {
 	 * @param log
 	 * @throws S3Exception
 	 */
-	private S3(Cache cache, String accessKeyId, String secretAccessKey, String host, String defaultLocation, long cacheTimeout, long liveTimeout, boolean cacheRegions, Log log) {
+	private S3(S3Cache cache, String accessKeyId, String secretAccessKey, String host, String defaultLocation, long cacheTimeout, long liveTimeout, boolean cacheRegions, Log log) {
 		this.cache = cache;
 		this.accessKeyId = accessKeyId;
 		this.secretAccessKey = secretAccessKey;
