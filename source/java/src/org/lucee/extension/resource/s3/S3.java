@@ -66,6 +66,7 @@ import lucee.commons.io.res.Resource;
 import lucee.loader.engine.CFMLEngine;
 import lucee.loader.engine.CFMLEngineFactory;
 import lucee.loader.util.Util;
+import lucee.runtime.config.Config;
 import lucee.runtime.exp.PageException;
 import lucee.runtime.net.s3.Properties;
 import lucee.runtime.type.Array;
@@ -102,7 +103,6 @@ public class S3 {
 	public static final String[] PROVIDERS = new String[] { AWS, WASABI, BACKBLAZE, ".digitaloceanspaces.com", DREAM_IO, GOOGLE };
 
 	private static final ConcurrentHashMap<String, Object> tokens = new ConcurrentHashMap<String, Object>();
-	private static final int CHECK_INTERVALL = 1000;
 
 	private static Map<String, S3> instances = new ConcurrentHashMap<String, S3>();
 	private static Map<String, Cache> caches = new ConcurrentHashMap<String, Cache>();
@@ -115,25 +115,26 @@ public class S3 {
 	private final long cacheTimeout;
 	private final long liveTimeout;
 
-	private int existCheckIntervall = 0;
 	private final Cache cache;
 
 	private Log log;
 	/////////////////////// CACHE ////////////////
 
-	private static class Cache {
+	static class Cache {
 
-		public Cache() {
-			regions.put("US", RegionFactory.US_EAST_1);
-		}
-
+		private final Harakiri harakiri;
 		private ValidUntilMap<S3BucketWrapper> buckets;
 		private Map<String, S3BucketExists> existBuckets;
 		private final Map<String, ValidUntilMap<S3Info>> objects = new ConcurrentHashMap<String, ValidUntilMap<S3Info>>();
 		private Map<String, ValidUntilElement<AccessControlList>> accessControlLists = new ConcurrentHashMap<String, ValidUntilElement<AccessControlList>>();
 		private Map<String, Region> regions = new ConcurrentHashMap<String, Region>();
 		private final Map<String, Region> bucketRegions = new ConcurrentHashMap<String, Region>();
-		private Map<String, S3Info> exists = new ConcurrentHashMap<String, S3Info>();
+		Map<String, S3Info> exists = new ConcurrentHashMap<String, S3Info>();
+
+		public Cache(Log log) {
+			regions.put("US", RegionFactory.US_EAST_1);
+			harakiri = new Harakiri(this, log);
+		}
 	}
 
 	public static S3 getInstance(S3Properties props, long cache) {
@@ -144,15 +145,17 @@ public class S3 {
 			synchronized (instances) {
 				s3 = instances.get(keyS3);
 				if (s3 == null) {
-					// print.ds("s3:" + key);
-					// same cache for all locations
+
 					String keyCache = props.getAccessKeyId() + ":" + props.getSecretAccessKey() + ":" + props.getHostWithoutRegion() + ":" + cache;
 					Cache c = caches.get(keyCache);
 					if (c == null) {
 						synchronized (caches) {
+							Log log = null;
+							Config config = CFMLEngineFactory.getInstance().getThreadConfig();
+							if (config != null) log = config.getLog("application");
 							c = caches.get(keyCache);
 							if (c == null) {
-								caches.put(keyCache, c = new Cache());
+								caches.put(keyCache, c = new Cache(log));
 							}
 						}
 					}
@@ -176,7 +179,6 @@ public class S3 {
 	 */
 	private S3(Cache cache, String accessKeyId, String secretAccessKey, String host, String defaultLocation, long cacheTimeout, long liveTimeout, boolean cacheRegions, Log log) {
 		this.cache = cache;
-
 		this.accessKeyId = accessKeyId;
 		this.secretAccessKey = secretAccessKey;
 		this.host = host;
@@ -946,12 +948,12 @@ public class S3 {
 
 								if (!hasObjName || name.equals(nameFile) || name.startsWith(nameDir)) _list.put(kid.getKey(), tmp);
 								cache.exists.put(toKey(bucketName, name), tmp);
-								_flush(cache.exists);
+								cache.harakiri.touch();
 								int index;
 								while ((index = name.lastIndexOf('/')) != -1) {
 									name = name.substring(0, index);
 									cache.exists.put(toKey(bucketName, name), new ParentObject(this, bucketName, name, validUntil, log));
-									_flush(cache.exists);
+									cache.harakiri.touch();
 								}
 							}
 
@@ -1144,7 +1146,7 @@ public class S3 {
 				targetName = summary.getKey();
 				if (nameFile.equals(targetName) || nameDir.equals(targetName)) {
 					cache.exists.put(toKey(bucketName, nameFile), info = new StorageObjectWrapper(this, stoObj = summary, validUntil, log));
-					_flush(cache.exists);
+					cache.harakiri.touch();
 				}
 
 				// pseudo directory?
@@ -1152,13 +1154,13 @@ public class S3 {
 				targetName = summary.getKey();
 				if (nameDir.length() < targetName.length() && targetName.startsWith(nameDir)) {
 					cache.exists.put(toKey(bucketName, nameFile), info = new ParentObject(this, bucketName, nameDir, validUntil, log));
-					_flush(cache.exists);
+					cache.harakiri.touch();
 				}
 
 				// set the value to exist when not a match
 				if (!(stoObj != null && stoObj.equals(summary))) {
 					cache.exists.put(toKey(bucketName, summary.getKey()), new StorageObjectWrapper(this, summary, validUntil, log));
-					_flush(cache.exists);
+					cache.harakiri.touch();
 				}
 				// set all the parents when not exist
 				// TODO handle that also a file with that name can exist at the same time
@@ -1167,7 +1169,7 @@ public class S3 {
 				while ((index = parent.lastIndexOf('/')) != -1) {
 					parent = parent.substring(0, index);
 					cache.exists.put(toKey(bucketName, parent), new ParentObject(this, bucketName, parent, validUntil, log));
-					_flush(cache.exists);
+					cache.harakiri.touch();
 				}
 
 			}
@@ -1181,7 +1183,7 @@ public class S3 {
 																															// does
 				// not exis
 				);
-				_flush(cache.exists);
+				cache.harakiri.touch();
 			}
 			return info;
 		}
@@ -1543,20 +1545,6 @@ public class S3 {
 			}
 			else if (isS3Info.booleanValue() && ((S3Info) e.getValue()).validUntil() < now) {
 				map.remove(key);
-			}
-		}
-	}
-
-	private void _flush(Map<String, S3Info> map) {
-		if (++existCheckIntervall < CHECK_INTERVALL) return;
-		existCheckIntervall = 0;
-		Iterator<Entry<String, S3Info>> it = map.entrySet().iterator();
-		Entry<String, S3Info> e;
-		long now = System.currentTimeMillis();
-		while (it.hasNext()) {
-			e = it.next();
-			if (e.getValue().validUntil() < now) {
-				map.remove(e.getKey());
 			}
 		}
 	}
@@ -2717,4 +2705,5 @@ public class S3 {
 	public long getLiveTimeout() {
 		return liveTimeout;
 	}
+
 }
