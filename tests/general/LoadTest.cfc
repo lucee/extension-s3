@@ -22,8 +22,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 		}
 		var names = [];    
 		var exceptions = [];    
-		for (var i = 1; i <= arguments.repetitition; i++) {
-			for (var y = 1; y <= arguments.threadcount; y++) {
+		for (var i = 1; i <= meta.repetitition; i++) {
+			for (var y = 1; y <= meta.threadcount; y++) {
 				var name="testThread:#i#:#y#";
 				arrayAppend(names, name);
 				thread action="run" name=name udf=code args=arguments exceptions=exceptions {
