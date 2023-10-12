@@ -2,6 +2,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 	function run( testResults , testBox ) {
 		describe( title="Test suite for S3Copy()", body=function() {
 			it(title="check with blackbaze",skip=Util::isBackBlazeNotSupported(), body = function( currentSpec ) {
+				throw "#structKeyList(arguments)#";
 				testit(Util::getBackBlazeCredentials(),"us-east-005");
 			});	
 
