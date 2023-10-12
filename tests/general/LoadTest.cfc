@@ -39,13 +39,16 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 		thread action="join" name=arrayToList(names); 
 
 		if(len(exceptions)) {
+			loop array=exceptions item="local.e" {
+				systemOutput(e,1,1);
+			}
 			throw exceptions[1];
 		}
 	}
 
 	private function code() {
 		systemOutput("execute the code",1,1);
-		throw "upsi dupsi!";
+		assertEquals("a", "b");
 	}
 
 }
