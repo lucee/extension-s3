@@ -19,7 +19,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 		}
 		if(meta.threadcount==1 || meta.repetitition==1) {
 			throw "repetitition or thread count need to be bigger than 1";
-		
+		}
 		var names = [];    
 		var exceptions = [];    
 		for (var i = 1; i <= arguments.repetitition; i++) {
@@ -33,7 +33,6 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 					catch(e) {
 						arrayAppend(exceptions, e);
 					}
-					
 				}
 			}
 		}
