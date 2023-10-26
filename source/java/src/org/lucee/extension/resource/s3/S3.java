@@ -1413,7 +1413,15 @@ public class S3 {
 					boolean customACL = true;
 
 					if (acl == null) {
-						acl = srcClient.getBucketAcl(srcBucketName);
+						try {
+							acl = srcClient.getBucketAcl(srcBucketName);
+						}
+						catch (AmazonServiceException ase) {
+							if ("AccessDenied".equals(ase.getErrorCode())) {
+								// do nothing
+							}
+							else throw ase;
+						}
 						customACL = acl == null;
 					}
 					CreateBucketRequest cbr = new CreateBucketRequest(trgBucketName);
@@ -2038,11 +2046,11 @@ public class S3 {
 
 	public void addAccessControlList(String bucketName, String objectName, Object objACL) throws S3Exception, PageException {
 		AmazonS3Client client = getAmazonS3(bucketName, null);
-
 		bucketName = improveBucketName(bucketName);
 		objectName = improveObjectName(objectName);
-		AccessControlList acl = getACL(client, bucketName, objectName);
+		AccessControlList acl = getACL(client, bucketName, objectName, false);
 		acl.grantAllPermissions(AccessControlListUtil.toGrantAndPermissions(objACL));
+
 		try {
 			client.setObjectAcl(bucketName, objectName, acl);
 			// is it necessary to set it for bucket as well?
@@ -2080,7 +2088,7 @@ public class S3 {
 		}
 
 		Object newACL = AccessControlListUtil.toAccessControlList(objACL);
-		AccessControlList oldACL = getACL(client, bucketName, objectName);
+		AccessControlList oldACL = getACL(client, bucketName, objectName, true);
 		Owner aclOwner = oldACL != null ? oldACL.getOwner() : client.getS3AccountOwner();
 		if (newACL instanceof AccessControlList) ((AccessControlList) newACL).setOwner(aclOwner);
 
@@ -2120,11 +2128,11 @@ public class S3 {
 	}
 
 	public Array getAccessControlList(String bucketName, String objectName) throws S3Exception {
-		AccessControlList acl = getACL(null, bucketName, objectName);
+		AccessControlList acl = getACL(null, bucketName, objectName, false);
 		return AccessControlListUtil.toArray(acl.getGrantsAsList());
 	}
 
-	private AccessControlList getACL(AmazonS3Client client, String bucketName, String objectName) throws S3Exception {
+	private AccessControlList getACL(AmazonS3Client client, String bucketName, String objectName, boolean returnNullWhenAccessDenied) throws S3Exception {
 		bucketName = improveBucketName(bucketName);
 		objectName = improveObjectName(objectName);
 		String key = toKey(bucketName, objectName);
@@ -2141,11 +2149,17 @@ public class S3 {
 			return client.getObjectAcl(bucketName, objectName);
 		}
 		catch (AmazonServiceException se) {
-			if (se.getErrorCode().equals("NoSuchKey")) { // we know at this point objectname is not empty, so we do not have to check that
+			if (returnNullWhenAccessDenied && "AccessDenied".equals(se.getErrorCode())) {
+				return null;
+			}
+			else if ("NoSuchKey".equals(se.getErrorCode())) { // we know at this point objectname is not empty, so we do not have to check that
 				try {
 					return client.getObjectAcl(bucketName, oppositeObjectName(objectName));
 				}
 				catch (AmazonServiceException ise) {
+					if (returnNullWhenAccessDenied && "AccessDenied".equals(ise.getErrorCode())) {
+						return null;
+					}
 					throw toS3Exception(ise);
 				}
 			}
