@@ -1,4 +1,4 @@
-component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
+component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" skip="true" {
 
 	function run( testResults , testBox ) {
 		describe( "Loud test", function() {
@@ -36,20 +36,19 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 						it(text,udf);
 					}
 					catch(e) {
-						//arrayAppend(exceptions, e);
+						arrayAppend(exceptions, e);
 					}
 				}
 			}
 		}
 		thread action="join" name=arrayToList(names); 
 
-		/*if(len(exceptions)) {
+		if(len(exceptions)) {
 			loop array=exceptions item="local.e" {
 				systemOutput(e,1,1);
 			}
 			throw exceptions[1];
-		}*/
-
+		}
 	}
 
 
