@@ -116,7 +116,7 @@ Sor:4;glos:4;");
 				var data=listener.getData();
 				assertTrue(isSimpleValue(data));
 				assertEquals(len(data),24);
-				assertEquals(data, content);
+				assertEquals(data, "before;Susi;Sorglos;after;");
 			});	
 
 			it(title="download to component:line with charset", body = function( currentSpec ) {
@@ -125,7 +125,7 @@ Sor:4;glos:4;");
 				var data=listener.getData();
 				assertTrue(isSimpleValue(data));
 				assertEquals(len(data),24);
-				assertEquals(data, content);
+				assertEquals(data, "before;Susi;Sorglos;after;");
 			});	
 
 			it(title="download to component:string with charset", body = function( currentSpec ) {
@@ -133,8 +133,7 @@ Sor:4;glos:4;");
 				s3Download(bucket:bucketName,object:objectName,charset:"UTF-8",target:listener,accessKeyId:cred.ACCESS_KEY_ID,secretAccessKey:cred.SECRET_KEY);
 				var data=listener.getData();
 				assertTrue(isSimpleValue(data));
-				assertEquals(len(data),24);
-				assertEquals(data, content);
+				assertEquals(data, "before;Susi;after;");
 			});	
 
 			it(title="download to component:binary", body = function( currentSpec ) {
@@ -142,8 +141,7 @@ Sor:4;glos:4;");
 				s3Download(bucket:bucketName,object:objectName,target:listener,accessKeyId:cred.ACCESS_KEY_ID,secretAccessKey:cred.SECRET_KEY);
 				var data=listener.getData();
 				assertTrue(isSimpleValue(data));
-				assertEquals(len(data),24);
-				assertEquals(data, content);
+				assertEquals(data, "before;4;after;");
 			});	
 			
 		});

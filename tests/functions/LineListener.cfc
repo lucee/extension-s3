@@ -7,7 +7,7 @@ component  {
 		variables.lineListener="before;";
 	}
 	function invoke(line) {
-		variables.lineListener&=line;
+		variables.lineListener&=line&";";
 		return true;
 	}
 	function after() {

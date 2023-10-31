@@ -7,8 +7,8 @@ component  {
 		variables.listener="before;";
 	}
 	function invoke(string4) {
-		variables.listener&=string4;
-		return true;
+		variables.listener&=string4&";";
+		return false;
 	}
 	function after() {
 		variables.listener&="after;";
