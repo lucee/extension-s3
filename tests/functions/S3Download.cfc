@@ -115,7 +115,7 @@ Sor:4;glos:4;");
 				s3Download(bucket:bucketName,object:objectName,target:listener,accessKeyId:cred.ACCESS_KEY_ID,secretAccessKey:cred.SECRET_KEY);
 				var data=listener.getData();
 				assertTrue(isSimpleValue(data));
-				assertEquals(len(data),12);
+				assertEquals(len(data),24);
 				assertEquals(data, content);
 			});	
 
@@ -124,23 +124,25 @@ Sor:4;glos:4;");
 				s3Download(bucket:bucketName,object:objectName,charset:"UTF-8",target:listener,accessKeyId:cred.ACCESS_KEY_ID,secretAccessKey:cred.SECRET_KEY);
 				var data=listener.getData();
 				assertTrue(isSimpleValue(data));
-				assertEquals(len(data),12);
+				assertEquals(len(data),24);
 				assertEquals(data, content);
 			});	
 
 			it(title="download to component:string with charset", body = function( currentSpec ) {
 				var listener=new StringListener();
 				s3Download(bucket:bucketName,object:objectName,charset:"UTF-8",target:listener,accessKeyId:cred.ACCESS_KEY_ID,secretAccessKey:cred.SECRET_KEY);
+				var data=listener.getData();
 				assertTrue(isSimpleValue(data));
-				assertEquals(len(data),12);
+				assertEquals(len(data),24);
 				assertEquals(data, content);
 			});	
 
 			it(title="download to component:binary", body = function( currentSpec ) {
 				var listener=new BinaryListener();
 				s3Download(bucket:bucketName,object:objectName,target:listener,accessKeyId:cred.ACCESS_KEY_ID,secretAccessKey:cred.SECRET_KEY);
+				var data=listener.getData();
 				assertTrue(isSimpleValue(data));
-				assertEquals(len(data),12);
+				assertEquals(len(data),24);
 				assertEquals(data, content);
 			});	
 			
