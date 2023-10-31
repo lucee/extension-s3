@@ -7,7 +7,6 @@ import java.nio.charset.Charset;
 import org.lucee.extension.resource.s3.AccessControlListUtil;
 import org.lucee.extension.resource.s3.S3;
 import org.lucee.extension.resource.s3.S3Exception;
-import org.lucee.extension.resource.s3.S3ResourceProvider;
 
 import lucee.commons.io.res.Resource;
 import lucee.loader.engine.CFMLEngine;
@@ -69,9 +68,15 @@ public class S3Write extends S3Function {
 	}
 
 	public static Object toResource(PageContext pc, Object value) {
+		Resource res = toResource(pc, value, true, null);
+		if (res != null) return res;
+		return value;
+	}
+
+	public static Resource toResource(PageContext pc, Object value, boolean needToExist, Resource defaultValue) {
 		if (value instanceof CharSequence) {
 			String str = value.toString();
-			if (str.length() <= 10240) {
+			if (str.length() <= 10240 && needToExist) {
 				try {
 					return CFMLEngineFactory.getInstance().getResourceUtil().toResourceExisting(pc, str);
 				}
@@ -79,14 +84,15 @@ public class S3Write extends S3Function {
 				}
 			}
 		}
-		if (value instanceof Resource || value instanceof File) return value;
+		else if (value instanceof Resource) return (Resource) value;
+		else if (value instanceof File) return CFMLEngineFactory.getInstance().getCastUtil().toResource(value, defaultValue);
 
 		// getResource
 		try {
 			Method m = value.getClass().getMethod("getResource", new Class[0]);
 			if (m != null) {
 				Object obj = m.invoke(value, new Object[0]);
-				if (obj instanceof Resource) return obj;
+				if (obj instanceof Resource) return (Resource) obj;
 			}
 		}
 		catch (Exception e) {
@@ -97,13 +103,13 @@ public class S3Write extends S3Function {
 			Method m = value.getClass().getMethod("getFile", new Class[0]);
 			if (m != null) {
 				Object obj = m.invoke(value, new Object[0]);
-				if (obj instanceof File) return obj;
+				if (obj instanceof File) return CFMLEngineFactory.getInstance().getCastUtil().toResource(obj, defaultValue);
 			}
 		}
 		catch (Exception e) {
 		}
 
-		return value;
+		return defaultValue;
 	}
 
 	@Override
