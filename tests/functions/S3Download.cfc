@@ -77,7 +77,8 @@ Sorglos";
 				
 				assertTrue(isSimpleValue(data));
 				assertEquals(len(data),21);
-				assertEquals(data, "Susi");
+				assertEquals(data, "Susi:4;
+Sor:4;glos:4;");
 			});	
 
 			it(title="download to UDF:string with charset", body = function( currentSpec ) {
@@ -89,19 +90,20 @@ Sorglos";
 				
 				assertTrue(isSimpleValue(data));
 				assertEquals(len(data),21);
-				assertEquals(data, "Susi");
+				assertEquals(data, "Susi:4;
+Sor:4;glos:4;");
 			});	
 
 			it(title="download to UDF:binary", body = function( currentSpec ) {
 				var data="";
-				s3Download(bucket:bucketName,object:objectName,charset:"UTF-8",target:function(binary4){
-					data&=len(binary4)&";";
+				s3Download(bucket:bucketName,object:objectName,charset:"UTF-8",target:function(binary5){
+					data&=len(binary5)&";";
         			return true;
 				},accessKeyId:cred.ACCESS_KEY_ID,secretAccessKey:cred.SECRET_KEY);
 				
 				assertTrue(isSimpleValue(data));
 				assertEquals(len(data),6);
-				assertEquals(data, "Susi");
+				assertEquals(data, "5;5;2;");
 			});	
 			
 		});
