@@ -17,14 +17,14 @@ Sorglos";
 			}
 			
 			it(title="download as binary", body = function( currentSpec ) {
-				var data=s3Download(bucket:bucketName,object:objectName,accessKeyId:cred.accessKeyId,secretAccessKey:cred.awsSecretKey);
+				var data=s3Download(bucket:bucketName,object:objectName,accessKeyId:cred.ACCESS_KEY_ID,secretAccessKey:cred.SECRET_KEY);
 				assertTrue(isBinary(data));
 				assertEquals(len(data),13);
 				assertEquals(toString(data), content);
 			});	
 			
 			it(title="download as string", body = function( currentSpec ) {
-				var data=s3Download(bucket:bucketName,object:objectName,charset:"UTF-8",accessKeyId:cred.accessKeyId,secretAccessKey:cred.awsSecretKey);
+				var data=s3Download(bucket:bucketName,object:objectName,charset:"UTF-8",accessKeyId:cred.ACCESS_KEY_ID,secretAccessKey:cred.SECRET_KEY);
 				assertTrue(isSimpleValue(data));
 				assertEquals(len(data),13);
 				assertEquals(data, content);
@@ -33,7 +33,7 @@ Sorglos";
 			it(title="download to file", body = function( currentSpec ) {
 				var target=getDirectoryFromPath(getCurrentTemplatePath())&"temp.txt";
 				try {
-					s3Download(bucket:bucketName,object:objectName,target:fileOpen(target,"write"),accessKeyId:cred.accessKeyId,secretAccessKey:cred.awsSecretKey);
+					s3Download(bucket:bucketName,object:objectName,target:fileOpen(target,"write"),accessKeyId:cred.ACCESS_KEY_ID,secretAccessKey:cred.SECRET_KEY);
 					var data=fileRead(target);
 					assertTrue(isSimpleValue(data));
 					assertEquals(len(data),13);
@@ -49,7 +49,7 @@ Sorglos";
 				s3Download(bucket:bucketName,object:objectName,target:function(line){
 					data&=line;
 					return false;
-				},accessKeyId:cred.accessKeyId,secretAccessKey:cred.awsSecretKey);
+				},accessKeyId:cred.ACCESS_KEY_ID,secretAccessKey:cred.SECRET_KEY);
 				
 				assertTrue(isSimpleValue(data));
 				assertEquals(len(data),4);
@@ -61,7 +61,7 @@ Sorglos";
 				s3Download(bucket:bucketName,object:objectName,charset:"UTF-8",target:function(line){
 					data&=line;
 					return false;
-				},accessKeyId:cred.accessKeyId,secretAccessKey:cred.awsSecretKey);
+				},accessKeyId:cred.ACCESS_KEY_ID,secretAccessKey:cred.SECRET_KEY);
 				
 				assertTrue(isSimpleValue(data));
 				assertEquals(len(data),4);
@@ -73,7 +73,7 @@ Sorglos";
 				s3Download(bucket:bucketName,object:objectName,charset:"UTF-8",target:function(string4){
 					data&=string4&":"&len(string4)&";";
         			return true;
-				},accessKeyId:cred.accessKeyId,secretAccessKey:cred.awsSecretKey);
+				},accessKeyId:cred.ACCESS_KEY_ID,secretAccessKey:cred.SECRET_KEY);
 				
 				assertTrue(isSimpleValue(data));
 				assertEquals(len(data),4);
@@ -85,7 +85,7 @@ Sorglos";
 				s3Download(bucket:bucketName,object:objectName,charset:"UTF-8",target:function(string4){
 					data&=string4&":"&len(string4)&";";
         			return true;
-				},accessKeyId:cred.accessKeyId,secretAccessKey:cred.awsSecretKey);
+				},accessKeyId:cred.ACCESS_KEY_ID,secretAccessKey:cred.SECRET_KEY);
 				
 				assertTrue(isSimpleValue(data));
 				assertEquals(len(data),4);
@@ -97,7 +97,7 @@ Sorglos";
 				s3Download(bucket:bucketName,object:objectName,charset:"UTF-8",target:function(binary4){
 					data&=len(binary4)&";";
         			return true;
-				},accessKeyId:cred.accessKeyId,secretAccessKey:cred.awsSecretKey);
+				},accessKeyId:cred.ACCESS_KEY_ID,secretAccessKey:cred.SECRET_KEY);
 				
 				assertTrue(isSimpleValue(data));
 				assertEquals(len(data),4);
