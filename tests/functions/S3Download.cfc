@@ -115,7 +115,7 @@ Sor:4;glos:4;");
 				s3Download(bucket:bucketName,object:objectName,target:listener,accessKeyId:cred.ACCESS_KEY_ID,secretAccessKey:cred.SECRET_KEY);
 				var data=listener.getData();
 				assertTrue(isSimpleValue(data));
-				assertEquals(len(data),24);
+				assertEquals(len(data),26);
 				assertEquals(data, "before;Susi;Sorglos;after;");
 			});	
 
@@ -124,7 +124,7 @@ Sor:4;glos:4;");
 				s3Download(bucket:bucketName,object:objectName,charset:"UTF-8",target:listener,accessKeyId:cred.ACCESS_KEY_ID,secretAccessKey:cred.SECRET_KEY);
 				var data=listener.getData();
 				assertTrue(isSimpleValue(data));
-				assertEquals(len(data),24);
+				assertEquals(len(data),26);
 				assertEquals(data, "before;Susi;Sorglos;after;");
 			});	
 
@@ -141,7 +141,7 @@ Sor:4;glos:4;");
 				s3Download(bucket:bucketName,object:objectName,target:listener,accessKeyId:cred.ACCESS_KEY_ID,secretAccessKey:cred.SECRET_KEY);
 				var data=listener.getData();
 				assertTrue(isSimpleValue(data));
-				assertEquals(data, "before;4;after;");
+				assertEquals(data, "before;4;4;4;after;");
 			});	
 			
 		});
