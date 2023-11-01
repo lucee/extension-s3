@@ -29,11 +29,27 @@ Sorglos";
 				assertEquals(len(data),12);
 				assertEquals(data, content);
 			});	
-			
-			it(title="download to file", body = function( currentSpec ) {
+
+//////// FILE ///////////		
+			it(title="download to file (fileOpen)", body = function( currentSpec ) {
 				var target=getDirectoryFromPath(getCurrentTemplatePath())&"temp.txt";
 				try {
 					s3Download(bucket:bucketName,object:objectName,target:fileOpen(target,"write"),accessKeyId:cred.ACCESS_KEY_ID,secretAccessKey:cred.SECRET_KEY);
+					var data=fileRead(target);
+					assertTrue(isSimpleValue(data));
+					assertEquals(len(data),12);
+					assertEquals(data, content);
+				}
+				finally {
+					if(fileExists(target)) fileDelete(target);
+				}
+			});	
+
+				
+			it(title="download to file (string path)", body = function( currentSpec ) {
+				var target=getDirectoryFromPath(getCurrentTemplatePath())&"temp.txt";
+				try {
+					s3Download(bucket:bucketName,object:objectName,target:target,accessKeyId:cred.ACCESS_KEY_ID,secretAccessKey:cred.SECRET_KEY);
 					var data=fileRead(target);
 					assertTrue(isSimpleValue(data));
 					assertEquals(len(data),12);

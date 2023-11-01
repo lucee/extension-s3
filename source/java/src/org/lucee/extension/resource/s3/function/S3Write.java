@@ -76,13 +76,18 @@ public class S3Write extends S3Function {
 	public static Resource toResource(PageContext pc, Object value, boolean needToExist, Resource defaultValue) {
 		if (value instanceof CharSequence) {
 			String str = value.toString();
-			if (str.length() <= 10240 && needToExist) {
-				try {
-					return CFMLEngineFactory.getInstance().getResourceUtil().toResourceExisting(pc, str);
-				}
-				catch (Exception e) {
+			if (needToExist) {
+				if (str.length() <= 10240) {
+
+					try {
+						return CFMLEngineFactory.getInstance().getResourceUtil().toResourceExisting(pc, str);
+					}
+					catch (Exception e) {
+					}
+
 				}
 			}
+			else return CFMLEngineFactory.getInstance().getCastUtil().toResource(str, defaultValue);
 		}
 		else if (value instanceof Resource) return (Resource) value;
 		else if (value instanceof File) return CFMLEngineFactory.getInstance().getCastUtil().toResource(value, defaultValue);
