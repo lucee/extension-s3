@@ -13,13 +13,13 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 				accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST))) {
 				
 				S3CreateBucket( 
-					bucketName:bucketName
+					bucketName:bucketName,
 					accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST));
 	
 			}
 			var executionTime=getTickCount();
 			var qry=S3ListBucket( 
-					bucketName:bucketName
+					bucketName:bucketName,
 					accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST));
 			var executionTime=getTickCount()-executionTime;
 			var records=qry.recordcount;
@@ -27,9 +27,9 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 			if(records==0) {
 				loop from=1 to=10000 index="i" {
 					S3Write( 
-						value:i
-						bucketName:bucketName
-						objectName:"file#i#.txt"
+						value:i,
+						bucketName:bucketName,
+						objectName:"file#i#.txt",
 						accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST));
 				}
 			}
@@ -40,7 +40,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 				if(records==0){
 					var executionTime=getTickCount();
 					var qry=S3ListBucket( 
-							bucketName:bucketName
+							bucketName:bucketName,
 							accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST));
 					var executionTime=getTickCount()-executionTime;
 					var records=qry.recordcount;
