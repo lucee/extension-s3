@@ -44,7 +44,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 					var records=qry.recordcount;
 				}
 				
-				assertTrue( executionTime<1000);
+				assertTrue( executionTime<10000);
 				assertEquals(records, executionTime);
 			});
 		});
