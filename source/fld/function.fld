@@ -635,6 +635,66 @@
 			<type>void</type>
 		</return>
 	</function>
+
+
+	<!-- S3CreateBucket -->
+	<function>
+		<name>S3CreateBucket</name>
+		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.S3CreateBucket</class>
+		<description>Creates a bucket on S3.</description>
+		<argument>
+			<name>bucketName</name>
+			<alias>bucket</alias>
+			<type>string</type>
+			<required>Yes</required>
+			<description>Name of the bucket to create</description>
+	    </argument>
+		<argument>
+			<name>acl</name>
+			<alias>aclObject</alias>
+			<type>object</type>
+			<required>No</required>
+			<description>an array of struct where each struct represents an ACL grant</description>
+	    </argument>
+		<argument>
+			<name>location</name>
+			<alias>region</alias>
+			<type>string</type>
+			<required>No</required>
+			<description>location of the S3 storage.</description>
+	    </argument>
+		<argument>
+			<name>accessKeyId</name>
+			<alias>accessKey,awsAccessKeyId,awsAccessKey</alias>
+			<type>string</type>
+			<required>No</required>
+			<description>S3 accessKeyId, if not defined it checks the system property/environment variable for [lucee.s3.accesskeyid].</description>
+	    </argument>
+		<argument>
+			<name>secretAccessKey</name>
+			<alias>secretkey,awsSecretkey,awsSecretAccessKey</alias>
+			<type>string</type>
+			<required>No</required>
+			<description>S3 secretAccessKey, if not defined it checks the system property/environment variable for [lucee.s3.secretaccesskey].</description>
+	    </argument>
+		<argument>
+			<name>host</name>
+			<alias>provider,server</alias>
+			<type>string</type>
+			<required>No</required>
+			<description>the provider to connect, if not set Amazon AWS is used.</description>
+	    </argument>
+		<argument>
+			<name>timeout</name>
+			<type>number</type>
+			<required>No</required>
+			<default>10000</default>
+			<description>timeout for this execution</description>
+	    </argument>
+		<return>
+			<type>void</type>
+		</return>
+	</function>
 	<!-- S3Write -->
 	<function>
 		<name>S3Write</name>
