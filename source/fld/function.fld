@@ -64,14 +64,14 @@
 	    </argument>
 		<argument>
 			<name>accessKeyId</name>
-			<alias>accessKey</alias>
+			<alias>accessKey,awsAccessKeyId,awsAccessKey</alias>
 			<type>string</type>
 			<required>No</required>
 			<description>S3 accessKeyId, if not defined it checks the system property/environment variable for [lucee.s3.accesskeyid].</description>
 	    </argument>
 		<argument>
 			<name>secretAccessKey</name>
-			<alias>secretkey</alias>
+			<alias>secretkey,awsSecretkey,awsSecretAccessKey</alias>
 			<type>string</type>
 			<required>No</required>
 			<description>S3 secretAccessKey, if not defined it checks the system property/environment variable for [lucee.s3.secretaccesskey].</description>
@@ -133,14 +133,14 @@
 	    </argument>
 		<argument>
 			<name>accessKeyId</name>
-			<alias>accessKey</alias>
+			<alias>accessKey,awsAccessKeyId,awsAccessKey</alias>
 			<type>string</type>
 			<required>No</required>
 			<description>S3 accessKeyId, if not defined it checks the system property/environment variable for [lucee.s3.accesskeyid].</description>
 	    </argument>
 		<argument>
 			<name>secretAccessKey</name>
-			<alias>secretkey</alias>
+			<alias>secretkey,awsSecretkey,awsSecretAccessKey</alias>
 			<type>string</type>
 			<required>No</required>
 			<description>S3 secretAccessKey, if not defined it checks the system property/environment variable for [lucee.s3.secretaccesskey].</description>
@@ -216,14 +216,14 @@
 	    </argument>
 		<argument>
 			<name>accessKeyId</name>
-			<alias>accessKey</alias>
+			<alias>accessKey,awsAccessKeyId,awsAccessKey</alias>
 			<type>string</type>
 			<required>No</required>
 			<description>S3 accessKeyId, if not defined it checks the system property/environment variable for [lucee.s3.accesskeyid].</description>
 	    </argument>
 		<argument>
 			<name>secretAccessKey</name>
-			<alias>secretkey</alias>
+			<alias>secretkey,awsSecretkey,awsSecretAccessKey</alias>
 			<type>string</type>
 			<required>No</required>
 			<description>S3 secretAccessKey, if not defined it checks the system property/environment variable for [lucee.s3.secretaccesskey].</description>
@@ -288,14 +288,14 @@
 	    </argument>
 		<argument>
 			<name>accessKeyId</name>
-			<alias>accessKey</alias>
+			<alias>accessKey,awsAccessKeyId,awsAccessKey</alias>
 			<type>string</type>
 			<required>No</required>
 			<description>S3 accessKeyId, if not defined it checks the system property/environment variable for [lucee.s3.accesskeyid].</description>
 	    </argument>
 		<argument>
 			<name>secretAccessKey</name>
-			<alias>secretkey</alias>
+			<alias>secretkey,awsSecretkey,awsSecretAccessKey</alias>
 			<type>string</type>
 			<required>No</required>
 			<description>S3 secretAccessKey, if not defined it checks the system property/environment variable for [lucee.s3.secretaccesskey].</description>
@@ -371,14 +371,14 @@
 	    </argument>
 		<argument>
 			<name>accessKeyId</name>
-			<alias>accessKey</alias>
+			<alias>accessKey,awsAccessKeyId,awsAccessKey</alias>
 			<type>string</type>
 			<required>No</required>
 			<description>S3 accessKeyId, if not defined it checks the system property/environment variable for [lucee.s3.accesskeyid].</description>
 	    </argument>
 		<argument>
 			<name>secretAccessKey</name>
-			<alias>secretkey</alias>
+			<alias>secretkey,awsSecretkey,awsSecretAccessKey</alias>
 			<type>string</type>
 			<required>No</required>
 			<description>S3 secretAccessKey, if not defined it checks the system property/environment variable for [lucee.s3.secretaccesskey].</description>
@@ -423,14 +423,14 @@
 	    </argument>
 		<argument>
 			<name>accessKeyId</name>
-			<alias>accessKey</alias>
+			<alias>accessKey,awsAccessKeyId,awsAccessKey</alias>
 			<type>string</type>
 			<required>No</required>
 			<description>S3 accessKeyId, if not defined it checks the system property/environment variable for [lucee.s3.accesskeyid].</description>
 	    </argument>
 		<argument>
 			<name>secretAccessKey</name>
-			<alias>secretkey</alias>
+			<alias>secretkey,awsSecretkey,awsSecretAccessKey</alias>
 			<type>string</type>
 			<required>No</required>
 			<description>S3 secretAccessKey, if not defined it checks the system property/environment variable for [lucee.s3.secretaccesskey].</description>
@@ -482,14 +482,14 @@
 	    </argument>
 		<argument>
 			<name>accessKeyId</name>
-			<alias>accessKey</alias>
+			<alias>accessKey,awsAccessKeyId,awsAccessKey</alias>
 			<type>string</type>
 			<required>No</required>
 			<description>S3 accessKeyId, if not defined it checks the system property/environment variable for [lucee.s3.accesskeyid].</description>
 	    </argument>
 		<argument>
 			<name>secretAccessKey</name>
-			<alias>secretkey</alias>
+			<alias>secretkey,awsSecretkey,awsSecretAccessKey</alias>
 			<type>string</type>
 			<required>No</required>
 			<description>S3 secretAccessKey, if not defined it checks the system property/environment variable for [lucee.s3.secretaccesskey].</description>
@@ -533,14 +533,14 @@
 	    </argument>
 		<argument>
 			<name>accessKeyId</name>
-			<alias>accessKey</alias>
+			<alias>accessKey,awsAccessKeyId,awsAccessKey</alias>
 			<type>string</type>
 			<required>No</required>
 			<description>S3 accessKeyId, if not defined it checks the system property/environment variable for [lucee.s3.accesskeyid].</description>
 	    </argument>
 		<argument>
 			<name>secretAccessKey</name>
-			<alias>secretkey</alias>
+			<alias>secretkey,awsSecretkey,awsSecretAccessKey</alias>
 			<type>string</type>
 			<required>No</required>
 			<description>S3 secretAccessKey, if not defined it checks the system property/environment variable for [lucee.s3.secretaccesskey].</description>
@@ -561,6 +561,78 @@
 	    </argument>
 		<return>
 			<type>binary</type>
+		</return>
+	</function>
+
+	<!-- S3Upload -->
+	<function>
+		<name>S3Upload</name>
+		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.S3Upload</class>
+		<description>Uploads a file to S3.</description>
+		<argument>
+			<name>bucketName</name>
+			<alias>bucket</alias>
+			<type>string</type>
+			<required>Yes</required>
+			<description>Name of the bucket of your object to write</description>
+	    </argument>
+		<argument>
+			<name>objectName</name>
+			<alias>object</alias>
+			<type>string</type>
+			<required>Yes</required>
+			<description>Name of the object (path) within the bucket of your object to write</description>
+	    </argument>
+		<argument>
+			<name>source</name>
+			<type>object</type>
+			<required>yes</required>
+			<description>Source file to write to S3. A string path to a file or a object created with the function "fileOpen".</description>
+	    </argument>
+		<argument>
+			<name>acl</name>
+			<alias>aclObject</alias>
+			<type>object</type>
+			<required>No</required>
+			<description>an array of struct where each struct represents an ACL grant</description>
+	    </argument>
+		<argument>
+			<name>location</name>
+			<alias>region</alias>
+			<type>string</type>
+			<required>No</required>
+			<description>location of the S3 storage.</description>
+	    </argument>
+		<argument>
+			<name>accessKeyId</name>
+			<alias>accessKey,awsAccessKeyId,awsAccessKey</alias>
+			<type>string</type>
+			<required>No</required>
+			<description>S3 accessKeyId, if not defined it checks the system property/environment variable for [lucee.s3.accesskeyid].</description>
+	    </argument>
+		<argument>
+			<name>secretAccessKey</name>
+			<alias>secretkey,awsSecretkey,awsSecretAccessKey</alias>
+			<type>string</type>
+			<required>No</required>
+			<description>S3 secretAccessKey, if not defined it checks the system property/environment variable for [lucee.s3.secretaccesskey].</description>
+	    </argument>
+		<argument>
+			<name>host</name>
+			<alias>provider,server</alias>
+			<type>string</type>
+			<required>No</required>
+			<description>the provider to connect, if not set Amazon AWS is used.</description>
+	    </argument>
+		<argument>
+			<name>timeout</name>
+			<type>number</type>
+			<required>No</required>
+			<default>10000</default>
+			<description>timeout for this execution</description>
+	    </argument>
+		<return>
+			<type>void</type>
 		</return>
 	</function>
 	<!-- S3Write -->
@@ -619,14 +691,14 @@
 	    </argument>
 		<argument>
 			<name>accessKeyId</name>
-			<alias>accessKey</alias>
+			<alias>accessKey,awsAccessKeyId,awsAccessKey</alias>
 			<type>string</type>
 			<required>No</required>
 			<description>S3 accessKeyId, if not defined it checks the system property/environment variable for [lucee.s3.accesskeyid].</description>
 	    </argument>
 		<argument>
 			<name>secretAccessKey</name>
-			<alias>secretkey</alias>
+			<alias>secretkey,awsSecretkey,awsSecretAccessKey</alias>
 			<type>string</type>
 			<required>No</required>
 			<description>S3 secretAccessKey, if not defined it checks the system property/environment variable for [lucee.s3.secretaccesskey].</description>
@@ -646,7 +718,7 @@
 			<description>timeout for this execution</description>
 	    </argument>
 		<return>
-			<type>binary</type>
+			<type>void</type>
 		</return>
 	</function>
 
@@ -672,14 +744,14 @@
 	    </argument>
 		<argument>
 			<name>accessKeyId</name>
-			<alias>accessKey</alias>
+			<alias>accessKey,awsAccessKeyId,awsAccessKey</alias>
 			<type>string</type>
 			<required>No</required>
 			<description>S3 accessKeyId, if not defined it checks the system property/environment variable for [lucee.s3.accesskeyid].</description>
 	    </argument>
 		<argument>
 			<name>secretAccessKey</name>
-			<alias>secretkey</alias>
+			<alias>secretkey,awsSecretkey,awsSecretAccessKey</alias>
 			<type>string</type>
 			<required>No</required>
 			<description>S3 secretAccessKey, if not defined it checks the system property/environment variable for [lucee.s3.secretaccesskey].</description>
@@ -731,14 +803,14 @@
 	    </argument>
 		<argument>
 			<name>accessKeyId</name>
-			<alias>accessKey</alias>
+			<alias>accessKey,awsAccessKeyId,awsAccessKey</alias>
 			<type>string</type>
 			<required>No</required>
 			<description>S3 accessKeyId, if not defined it checks the system property/environment variable for [lucee.s3.accesskeyid].</description>
 	    </argument>
 		<argument>
 			<name>secretAccessKey</name>
-			<alias>secretkey</alias>
+			<alias>secretkey,awsSecretkey,awsSecretAccessKey</alias>
 			<type>string</type>
 			<required>No</required>
 			<description>S3 secretAccessKey, if not defined it checks the system property/environment variable for [lucee.s3.secretaccesskey].</description>
@@ -812,14 +884,14 @@
 	    </argument>
 		<argument>
 			<name>accessKeyId</name>
-			<alias>accessKey</alias>
+			<alias>accessKey,awsAccessKeyId,awsAccessKey</alias>
 			<type>string</type>
 			<required>No</required>
 			<description>S3 accessKeyId, if not defined it checks the system property/environment variable for [lucee.s3.accesskeyid].</description>
 	    </argument>
 		<argument>
 			<name>secretAccessKey</name>
-			<alias>secretkey</alias>
+			<alias>secretkey,awsSecretkey,awsSecretAccessKey</alias>
 			<type>string</type>
 			<required>No</required>
 			<description>S3 secretAccessKey, if not defined it checks the system property/environment variable for [lucee.s3.secretaccesskey].</description>
@@ -859,14 +931,14 @@
 	    </argument>
 		<argument>
 			<name>accessKeyId</name>
-			<alias>accessKey</alias>
+			<alias>accessKey,awsAccessKeyId,awsAccessKey</alias>
 			<type>string</type>
 			<required>No</required>
 			<description>S3 accessKeyId, if not defined it checks the system property/environment variable for [lucee.s3.accesskeyid].</description>
 	    </argument>
 		<argument>
 			<name>secretAccessKey</name>
-			<alias>secretkey</alias>
+			<alias>secretkey,awsSecretkey,awsSecretAccessKey</alias>
 			<type>string</type>
 			<required>No</required>
 			<description>S3 secretAccessKey, if not defined it checks the system property/environment variable for [lucee.s3.secretaccesskey].</description>
@@ -898,14 +970,14 @@
 		<description>List all buckets</description>
 		<argument>
 			<name>accessKeyId</name>
-			<alias>accessKey</alias>
+			<alias>accessKey,awsAccessKeyId,awsAccessKey</alias>
 			<type>string</type>
 			<required>No</required>
 			<description>S3 accessKeyId, if not defined it checks the system property/environment variable for [lucee.s3.accesskeyid].</description>
 	    </argument>
 		<argument>
 			<name>secretAccessKey</name>
-			<alias>secretkey</alias>
+			<alias>secretkey,awsSecretkey,awsSecretAccessKey</alias>
 			<type>string</type>
 			<required>No</required>
 			<description>S3 secretAccessKey, if not defined it checks the system property/environment variable for [lucee.s3.secretaccesskey].</description>
@@ -950,14 +1022,14 @@
 	    </argument>
 		<argument>
 			<name>accessKeyId</name>
-			<alias>accessKey</alias>
+			<alias>accessKey,awsAccessKeyId,awsAccessKey</alias>
 			<type>string</type>
 			<required>No</required>
 			<description>S3 accessKeyId, if not defined it checks the system property/environment variable for [lucee.s3.accesskeyid].</description>
 	    </argument>
 		<argument>
 			<name>secretAccessKey</name>
-			<alias>secretkey</alias>
+			<alias>secretkey,awsSecretkey,awsSecretAccessKey</alias>
 			<type>string</type>
 			<required>No</required>
 			<description>S3 secretAccessKey, if not defined it checks the system property/environment variable for [lucee.s3.secretaccesskey].</description>
@@ -1032,14 +1104,14 @@
 	    </argument>
 		<argument>
 			<name>accessKeyId</name>
-			<alias>accessKey</alias>
+			<alias>accessKey,awsAccessKeyId,awsAccessKey</alias>
 			<type>string</type>
 			<required>No</required>
 			<description>S3 accessKeyId, if not defined it checks the system property/environment variable for [lucee.s3.accesskeyid].</description>
 	    </argument>
 		<argument>
 			<name>secretAccessKey</name>
-			<alias>secretkey</alias>
+			<alias>secretkey,awsSecretkey,awsSecretAccessKey</alias>
 			<type>string</type>
 			<required>No</required>
 			<description>S3 secretAccessKey, if not defined it checks the system property/environment variable for [lucee.s3.secretaccesskey].</description>
@@ -1114,14 +1186,14 @@
 	    </argument>
 		<argument>
 			<name>accessKeyId</name>
-			<alias>accessKey</alias>
+			<alias>accessKey,awsAccessKeyId,awsAccessKey</alias>
 			<type>string</type>
 			<required>No</required>
 			<description>S3 accessKeyId, if not defined it checks the system property/environment variable for [lucee.s3.accesskeyid].</description>
 	    </argument>
 		<argument>
 			<name>secretAccessKey</name>
-			<alias>secretkey</alias>
+			<alias>secretkey,awsSecretkey,awsSecretAccessKey</alias>
 			<type>string</type>
 			<required>No</required>
 			<description>S3 secretAccessKey, if not defined it checks the system property/environment variable for [lucee.s3.secretaccesskey].</description>
@@ -1243,14 +1315,14 @@
 	    </argument>
 		<argument>
 			<name>accessKeyId</name>
-			<alias>accessKey</alias>
+			<alias>accessKey,awsAccessKeyId,awsAccessKey</alias>
 			<type>string</type>
 			<required>No</required>
 			<description>S3 accessKeyId, if not defined it checks the system property/environment variable for [lucee.s3.accesskeyid].</description>
 	    </argument>
 		<argument>
 			<name>secretAccessKey</name>
-			<alias>secretkey</alias>
+			<alias>secretkey,awsSecretkey,awsSecretAccessKey</alias>
 			<type>string</type>
 			<required>No</required>
 			<description>S3 secretAccessKey, if not defined it checks the system property/environment variable for [lucee.s3.secretaccesskey].</description>
@@ -1321,14 +1393,14 @@
 
 		<argument>
 			<name>accessKeyId</name>
-			<alias>accessKey</alias>
+			<alias>accessKey,awsAccessKeyId,awsAccessKey</alias>
 			<type>string</type>
 			<required>No</required>
 			<description>S3 accessKeyId, if not defined it checks the system property/environment variable for [lucee.s3.accesskeyid].</description>
 	    </argument>
 		<argument>
 			<name>secretAccessKey</name>
-			<alias>secretkey</alias>
+			<alias>secretkey,awsSecretkey,awsSecretAccessKey</alias>
 			<type>string</type>
 			<required>No</required>
 			<description>S3 secretAccessKey, if not defined it checks the system property/environment variable for [lucee.s3.secretaccesskey].</description>
