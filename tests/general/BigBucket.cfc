@@ -47,6 +47,22 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 				assertTrue( executionTime<2000 );
 				assertEquals(10000, records); // 10000] but received [861
 			});
+
+
+			it(title="checking with S3Exists", skip=Util::isAWSNotSupported(), body = function( currentSpec ) {
+				var cred=Util::getAWSCredentials()
+			
+				var executionTime=getTickCount();
+				S3Exists( 
+					bucketName:bucketName, 
+					accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST));
+				var executionTime=getTickCount()-executionTime;
+				
+				
+				assertTrue( executionTime<500 );
+				assertEquals(10000, executionTime);
+			});
+
 		});
 	}
 
