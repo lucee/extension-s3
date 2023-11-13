@@ -66,7 +66,6 @@ import lucee.commons.io.res.Resource;
 import lucee.loader.engine.CFMLEngine;
 import lucee.loader.engine.CFMLEngineFactory;
 import lucee.loader.util.Util;
-import lucee.runtime.config.Config;
 import lucee.runtime.exp.PageException;
 import lucee.runtime.net.s3.Properties;
 import lucee.runtime.type.Array;
@@ -132,21 +131,27 @@ public class S3 {
 					S3Cache c = caches.get(keyCache);
 					if (c == null) {
 						synchronized (caches) {
-							Log log = null;
-							Config config = CFMLEngineFactory.getInstance().getThreadConfig();
-							if (config != null) log = config.getLog("application");
 							c = caches.get(keyCache);
 							if (c == null) {
-								caches.put(keyCache, c = new S3Cache(log));
+								caches.put(keyCache, c = new S3Cache(getLog()));
 							}
 						}
 					}
 					instances.put(keyS3, s3 = new S3(c, props.getAccessKeyId(), props.getSecretAccessKey(), props.getHost(), props.getDefaultLocation(), cache,
-							S3.DEFAULT_LIVE_TIMEOUT, true, CFMLEngineFactory.getInstance().getThreadConfig().getLog("application")));
+							S3.DEFAULT_LIVE_TIMEOUT, true, getLog()));
 				}
 			}
 		}
 		return s3;
+	}
+
+	private static Log getLog() {
+		try {
+			return CFMLEngineFactory.getInstance().getThreadConfig().getLog("application");
+		}
+		catch (Exception e) {
+		}
+		return null;
 	}
 
 	/**
@@ -681,36 +686,19 @@ public class S3 {
 		return list;
 	}
 
-	public List<S3ObjectSummary> listObjectSummaries(String bucketName) throws S3Exception {
-		AmazonS3Client client = getAmazonS3(bucketName, null);
-		try {
-			ObjectListing objects = client.listObjects(bucketName);
-			/* Recursively delete all the objects inside given bucket */
-			List<S3ObjectSummary> summeries = new ArrayList<>();
-			if (objects != null && objects.getObjectSummaries() != null) {
-				while (true) {
-					for (S3ObjectSummary summary: objects.getObjectSummaries()) {
-						fixBackBlazeBug(summary, bucketName);
-						summeries.add(summary);
-					}
-					if (objects.isTruncated()) {
-						objects = client.listNextBatchOfObjects(objects);
-					}
-					else {
-						break;
-					}
-				}
-			}
-			return summeries;
-
-		}
-		catch (AmazonServiceException ase) {
-			throw toS3Exception(ase);
-		}
-		finally {
-			client.release();
-		}
-	}
+	/*
+	 * public List<S3ObjectSummary> listObjectSummaries(String bucketName) throws S3Exception {
+	 * AmazonS3Client client = getAmazonS3(bucketName, null); try { ObjectListing objects =
+	 * client.listObjects(bucketName); // Recursively delete all the objects inside given bucket
+	 * List<S3ObjectSummary> summeries = new ArrayList<>(); if (objects != null &&
+	 * objects.getObjectSummaries() != null) { while (true) { for (S3ObjectSummary summary:
+	 * objects.getObjectSummaries()) { fixBackBlazeBug(summary, bucketName); summeries.add(summary); }
+	 * if (objects.isTruncated()) { objects = client.listNextBatchOfObjects(objects); } else { break; }
+	 * } } return summeries;
+	 * 
+	 * } catch (AmazonServiceException ase) { throw toS3Exception(ase); } finally { client.release(); }
+	 * }
+	 */
 
 	public List<S3Object> listObjects(String bucketName) throws S3Exception {
 		AmazonS3Client client = getAmazonS3(bucketName, null);
