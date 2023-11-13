@@ -19,19 +19,19 @@
 component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 	
 	function run( testResults , testBox ) {
-		describe( title="Test suite to compare the VFS against the direct approch vs HTTP (if possible)", body=function() {
+		describe( title="Test suite to test VFS fileWrite and FileAppend", body=function() {
 			
 		// FileExists vs S3Exists
-			it(title="check FileExists vs S3Exists with AWS",skip=Util::isAWSNotSupported(), body = function( currentSpec ) {
+			it(title="check with AWS",skip=Util::isAWSNotSupported(), body = function( currentSpec ) {
 				testS3ExistsVsFileExists(Util::getAWSCredentials());
 			});	
-			it(title="check FileExists vs S3Exists with Blackbaze",skip=Util::isBackBlazeNotSupported(), body = function( currentSpec ) {
+			it(title="check with Blackbaze",skip=Util::isBackBlazeNotSupported(), body = function( currentSpec ) {
 				testS3ExistsVsFileExists(Util::getBackBlazeCredentials());
 			});	
-			it(title="check FileExists vs S3Exists with Google",skip=Util::isGoogleNotSupported(), body = function( currentSpec ) {
+			it(title="check with Google",skip=Util::isGoogleNotSupported(), body = function( currentSpec ) {
 				testS3ExistsVsFileExists(Util::getGoogleCredentials());
 			});	
-			it(title="check FileExists vs S3Exists with Wasabi",skip=Util::isWasabiNotSupported(), body = function( currentSpec ) {
+			it(title="check with Wasabi",skip=Util::isWasabiNotSupported(), body = function( currentSpec ) {
 				testS3ExistsVsFileExists(Util::getWasabiCredentials());
 			});	
 				
@@ -58,6 +58,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 		var path="s3://#bucketName#/#objectName#"; 
 		var pathWithCred="s3://#cred.ACCESS_KEY_ID#:#cred.SECRET_KEY#@";
 		if(!isNull(cred.HOST)) pathWithCred&=cred.HOST;
+		parentPathWithCred&="/#bucketName#/";
 		pathWithCred&="/#bucketName#/#objectName#";
 		
 		var phrase1="Just some content.";
@@ -68,6 +69,9 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 			////////////////////////////////////////////////////////////////////////
 			// does not exists yet (direct approach with explicit credentials)
 			assertFalse(fileExists(pathWithCred));
+
+			directoryCreate(parentPathWithCred);
+
 
 			// write
 			fileWrite(pathWithCred,phrase1);
