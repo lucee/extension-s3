@@ -77,12 +77,12 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 			fileWrite(pathWithCred,phrase1);
 			assertTrue(fileExists(pathWithCred),path);
 			var content=fileRead(pathWithCred);
-			assertEqual(content,phrase1);
+			assertEquals(content,phrase1);
 
 			// append
 			fileAppend(pathWithCred,phrase2);
 			var content=fileRead(pathWithCred);
-			assertEqual(content,phrase1&phrase2);
+			assertEquals(content,phrase1&phrase2);
 
 			fileDelete(pathWithCred);
 			assertFalse(fileExists(pathWithCred));
