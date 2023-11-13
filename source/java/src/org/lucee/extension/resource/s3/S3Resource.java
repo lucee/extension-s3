@@ -17,8 +17,6 @@
  */
 package org.lucee.extension.resource.s3;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -261,24 +259,17 @@ public final class S3Resource extends ResourceSupport {
 		}
 
 		try {
-			byte[] barr = null;
-			if (append) {
-				InputStream is = null;
-				OutputStream os = null;
-				try {
-					ByteArrayOutputStream baos = new ByteArrayOutputStream();
-					os = baos;
-					engine.getIOUtil().copy(is = getInputStream(), baos, false, false);
-					barr = baos.toByteArray();
-				}
-				finally {
-					Util.closeEL(is);
-					Util.closeEL(os);
-				}
-			}
+			/*
+			 * byte[] barr = null; if (append) { InputStream is = null; OutputStream os = null; try {
+			 * ByteArrayOutputStream baos = new ByteArrayOutputStream(); os = baos; engine.getIOUtil().copy(is =
+			 * getInputStream(), baos, false, false); barr = baos.toByteArray(); } finally { Util.closeEL(is);
+			 * Util.closeEL(os); } }
+			 */
 
 			S3ResourceOutputStream os = new S3ResourceOutputStream(s3, bucketName, objectName, getInnerPath(), acl, location);
-			if (append && !(barr == null || barr.length == 0)) engine.getIOUtil().copy(new ByteArrayInputStream(barr), os, true, false);
+			if (append) {
+				engine.getIOUtil().copy(getInputStream(), os, true, false);
+			}
 			return os;
 		}
 		catch (IOException e) {
