@@ -58,7 +58,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 		var path="s3://#bucketName#/#objectName#"; 
 		var pathWithCred="s3://#cred.ACCESS_KEY_ID#:#cred.SECRET_KEY#@";
 		if(!isNull(cred.HOST)) pathWithCred&=cred.HOST;
-		parentPathWithCred&="/#bucketName#/";
+		parentPathWithCred=pathWithCred&"/#bucketName#/";
 		pathWithCred&="/#bucketName#/#objectName#";
 		
 		var phrase1="Just some content.";
