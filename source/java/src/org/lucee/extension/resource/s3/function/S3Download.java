@@ -77,7 +77,7 @@ public class S3Download extends S3Function {
 				boolean hasBefore = toFunction(csa.get(BEFORE), null) != null;
 				boolean hasAfter = toFunction(csa.get(AFTER), null) != null;
 				UDF invoke = toFunction(csa.get(INVOKE), null);
-				if (invoke == null) throw eng.getExceptionUtil().createFunctionException(pc, "DirectoryEvery", 2, "component",
+				if (invoke == null) throw eng.getExceptionUtil().createFunctionException(pc, "S3Download", 2, "component",
 						"the listener component does not contain a instance function with name [invoke] that is required", null);
 				validateInvoke(pc, invoke, mode, blockSize, false);
 			}
@@ -92,7 +92,7 @@ public class S3Download extends S3Function {
 
 		// create S3 Instance
 		try {
-			S3 s3 = S3.getInstance(toS3Properties(pc, accessKeyId, secretAccessKey, host), toTimeout(timeout));
+			S3 s3 = S3.getInstance(toS3Properties(pc, accessKeyId, secretAccessKey, host), toTimeout(timeout), pc.getConfig());
 			S3Object obj = s3.getData(bucketName, objectName);
 			Cast caster = eng.getCastUtil();
 			// stream to UDF

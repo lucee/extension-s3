@@ -53,7 +53,7 @@ public class S3SetMetaData extends S3Function {
 
 		try {
 			// create S3 Instance
-			S3 s3 = S3.getInstance(pae.props != null ? pae.props : toS3Properties(pc, accessKeyId, secretAccessKey, host), toTimeout(timeout));
+			S3 s3 = S3.getInstance(pae.props != null ? pae.props : toS3Properties(pc, accessKeyId, secretAccessKey, host), toTimeout(timeout), pc.getConfig());
 			s3.setMetaData(pae.bucketName, pae.objectName, metadata);
 			return null;
 		}

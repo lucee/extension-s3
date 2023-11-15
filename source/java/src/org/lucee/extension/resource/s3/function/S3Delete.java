@@ -23,7 +23,7 @@ public class S3Delete extends S3Function {
 			host = null;
 		}
 		try {
-			S3 s3 = S3.getInstance(toS3Properties(pc, accessKeyId, secretAccessKey, host), toTimeout(timeout));
+			S3 s3 = S3.getInstance(toS3Properties(pc, accessKeyId, secretAccessKey, host), toTimeout(timeout), pc.getConfig());
 			if (Util.isEmpty(objectName, true)) s3.delete(bucketName, force);
 			else s3.delete(bucketName, objectName, force);
 			return null;

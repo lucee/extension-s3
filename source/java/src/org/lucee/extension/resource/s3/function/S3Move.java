@@ -2,7 +2,6 @@ package org.lucee.extension.resource.s3.function;
 
 import org.lucee.extension.resource.s3.S3;
 import org.lucee.extension.resource.s3.S3Exception;
-import org.lucee.extension.resource.s3.S3ResourceProvider;
 
 import com.amazonaws.services.s3.model.CannedAccessControlList;
 
@@ -42,7 +41,7 @@ public class S3Move extends S3Function {
 
 		try {
 			// create S3 Instance
-			S3 s3 = S3.getInstance(toS3Properties(pc, accessKeyId, secretAccessKey, host), toTimeout(timeout));
+			S3 s3 = S3.getInstance(toS3Properties(pc, accessKeyId, secretAccessKey, host), toTimeout(timeout), pc.getConfig());
 			s3.moveObject(srcBucketName, srcObjectName, trgBucketName, trgObjectName, acl, location);
 		}
 		catch (Exception e) {

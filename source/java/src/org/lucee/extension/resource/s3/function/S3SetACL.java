@@ -52,7 +52,7 @@ public class S3SetACL extends S3Function {
 
 		try {
 			// create S3 Instance
-			S3 s3 = S3.getInstance(pae.props != null ? pae.props : toS3Properties(pc, accessKeyId, secretAccessKey, host), toTimeout(timeout));
+			S3 s3 = S3.getInstance(pae.props != null ? pae.props : toS3Properties(pc, accessKeyId, secretAccessKey, host), toTimeout(timeout), pc.getConfig());
 			s3.setAccessControlList(null, pae.bucketName, pae.objectName, objACL);
 			return null;
 		}

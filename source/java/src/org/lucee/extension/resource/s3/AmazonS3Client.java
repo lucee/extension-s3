@@ -61,6 +61,7 @@ public class AmazonS3Client implements AmazonS3 {
 				client = pool.get(key);
 				if (client == null || client.isExpired()) {
 					pool.put(key, client = new AmazonS3Client(accessKeyId, secretAccessKey, host, region, key, liveTimeout, pathStyleAccess, log));
+					if (log != null) log.debug("S3", "create client for  [" + accessKeyId + ":...@" + host + "]");
 				}
 			}
 

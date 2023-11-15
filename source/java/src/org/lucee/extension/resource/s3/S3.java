@@ -66,6 +66,7 @@ import lucee.commons.io.res.Resource;
 import lucee.loader.engine.CFMLEngine;
 import lucee.loader.engine.CFMLEngineFactory;
 import lucee.loader.util.Util;
+import lucee.runtime.config.Config;
 import lucee.runtime.exp.PageException;
 import lucee.runtime.net.s3.Properties;
 import lucee.runtime.type.Array;
@@ -106,6 +107,8 @@ public class S3 {
 	private static Map<String, S3> instances = new ConcurrentHashMap<String, S3>();
 	private static Map<String, S3Cache> caches = new ConcurrentHashMap<String, S3Cache>();
 
+	private static String logName;
+	private static Log _log;
 	private final String host;
 	private final String accessKeyId;
 	private final String secretAccessKey;
@@ -116,9 +119,9 @@ public class S3 {
 
 	private final S3Cache cache;
 
-	private Log log;
+	private final Log log;
 
-	public static S3 getInstance(S3Properties props, long cache) {
+	public static S3 getInstance(S3Properties props, long cache, Config config) {
 
 		String keyS3 = props.getAccessKeyId() + ":" + props.getSecretAccessKey() + ":" + props.getHost() + ":" + props.getDefaultLocation() + ":" + cache;
 		S3 s3 = instances.get(keyS3);
@@ -133,25 +136,50 @@ public class S3 {
 						synchronized (caches) {
 							c = caches.get(keyCache);
 							if (c == null) {
-								caches.put(keyCache, c = new S3Cache(getLog()));
+								caches.put(keyCache, c = new S3Cache(getLog(config)));
 							}
 						}
 					}
 					instances.put(keyS3, s3 = new S3(c, props.getAccessKeyId(), props.getSecretAccessKey(), props.getHost(), props.getDefaultLocation(), cache,
-							S3.DEFAULT_LIVE_TIMEOUT, true, getLog()));
+							S3.DEFAULT_LIVE_TIMEOUT, true, config));
 				}
 			}
 		}
 		return s3;
 	}
 
-	private static Log getLog() {
-		try {
-			return CFMLEngineFactory.getInstance().getThreadConfig().getLog("application");
+	public static Log getLog(Config config) {
+		if (config == null) config = CFMLEngineFactory.getInstance().getThreadConfig();
+
+		if (_log == null || _log.getClass().getClassLoader() != config.getClass().getClassLoader()) {
+			// does the logName exist?
+			if (logName == null) {
+				synchronized (DEFAULT_HOST) {
+					if (logName == null) {
+						if (config != null) {
+							try {
+								for (String ln: S3Util.getLogNames(config)) {
+									if ("s3".equalsIgnoreCase(ln)) {
+										logName = ln;
+										break;
+									}
+								}
+							}
+							catch (Exception e) {
+							}
+						}
+						if (logName == null) {
+							logName = "application";
+						}
+					}
+				}
+			}
+
+			if (config != null) {
+				_log = config.getLog(logName);
+			}
 		}
-		catch (Exception e) {
-		}
-		return null;
+		return _log;
 	}
 
 	/**
@@ -164,7 +192,8 @@ public class S3 {
 	 * @param log
 	 * @throws S3Exception
 	 */
-	private S3(S3Cache cache, String accessKeyId, String secretAccessKey, String host, String defaultLocation, long cacheTimeout, long liveTimeout, boolean cacheRegions, Log log) {
+	private S3(S3Cache cache, String accessKeyId, String secretAccessKey, String host, String defaultLocation, long cacheTimeout, long liveTimeout, boolean cacheRegions,
+			Config config) {
 		this.cache = cache;
 		this.accessKeyId = accessKeyId;
 		this.secretAccessKey = secretAccessKey;
@@ -183,7 +212,7 @@ public class S3 {
 		if (cacheRegions) {
 			new CacheRegions().start();
 		}
-		this.log = log;
+		this.log = getLog(config);
 	}
 
 	public String getHost() {
@@ -225,6 +254,7 @@ public class S3 {
 			AmazonS3Client client = getAmazonS3(null, region);
 			try {
 				b = client.createBucket(cbr);
+				if (log != null) log.debug("S3", "created bucket [" + bucketName + "]");
 			}
 			catch (AmazonServiceException ase) {
 				// TODO better way to handle this situation
@@ -234,6 +264,7 @@ public class S3 {
 					if (expectedRegion != null && !expectedRegion.equalsIgnoreCase(defaultRegion)) {
 						client = getAmazonS3(null, expectedRegion);
 						b = client.createBucket(cbr);
+						if (log != null) log.debug("S3", "created bucket [" + bucketName + "]");
 						return b;
 					}
 				}
@@ -314,12 +345,14 @@ public class S3 {
 			try {
 				client.putObject(por);
 				flushExists(bucketName, objectName);
+				if (log != null) log.debug("S3", "put object (directory) [" + bucketName + "/" + objectName + "]");
 			}
 			catch (AmazonServiceException ase) {
 				if (ase.getErrorCode().equals("NoSuchBucket")) {
 					createDirectory(bucketName, acl, region);
 					client.putObject(por);
 					flushExists(bucketName, objectName);
+					if (log != null) log.debug("S3", "put object (directory) [" + bucketName + "/" + objectName + "]");
 				}
 				else throw toS3Exception(ase);
 			}
@@ -363,12 +396,14 @@ public class S3 {
 			try {
 				client.putObject(por);
 				flushExists(bucketName, objectName);
+				if (log != null) log.debug("S3", "put object (file) [" + bucketName + "/" + objectName + "]");
 			}
 			catch (AmazonServiceException ase) {
 				if (ase.getErrorCode().equals("NoSuchBucket")) {
 					createDirectory(bucketName, acl, region);
 					client.putObject(por);
 					flushExists(bucketName, objectName);
+					if (log != null) log.debug("S3", "put object (file) [" + bucketName + "/" + objectName + "]");
 				}
 				else throw toS3Exception(ase);
 			}
@@ -388,6 +423,8 @@ public class S3 {
 
 		AmazonS3Client client = getAmazonS3(bucketName, null);
 		try {
+			if (log != null) log.debug("S3", "get data from [" + bucketName + "/" + objectName + "]");
+			if (log != null) log.debug("S3", "get [" + bucketName + "/" + objectName + "]");
 			return client.getObject(bucketName, objectName);
 		}
 		catch (AmazonServiceException se) {
@@ -414,6 +451,7 @@ public class S3 {
 		bucketName = improveBucketName(bucketName);
 		objectName = improveObjectName(objectName);
 
+		if (log != null) log.debug("S3", "get info [" + bucketName + "/" + objectName + "]");
 		S3Info info = get(bucketName, objectName);
 		if (info instanceof StorageObjectWrapper) {
 			return fixBackBlazeBug(((StorageObjectWrapper) info).getStorageObject(), bucketName);
@@ -449,7 +487,7 @@ public class S3 {
 			String contentType, String contentDisposition, String contentEncoding, String versionId, Boolean zeroByteContent, Struct customResponseHeaders) throws S3Exception {
 		bucketName = improveBucketName(bucketName);
 		objectName = improveObjectName(objectName);
-
+		if (log != null) log.debug("S3", "generate presigned URL for  [" + bucketName + "/" + objectName + "]");
 		// http method
 		HttpMethod method;
 		if (Util.isEmpty(httpMethod, true)) method = HttpMethod.GET;
@@ -619,6 +657,7 @@ public class S3 {
 				client = getAmazonS3(null, null);
 
 				List<Bucket> s3buckets = client.listBuckets();
+				if (log != null) log.debug("S3", "list buckets (recursive:" + recursive + ";listPseudoFolder:" + listPseudoFolder + ")");
 				long now = System.currentTimeMillis();
 				cache.buckets = new ValidUntilMap<S3BucketWrapper>(now + cacheTimeout);
 				for (Bucket s3b: s3buckets) {
@@ -704,14 +743,18 @@ public class S3 {
 		AmazonS3Client client = getAmazonS3(bucketName, null);
 		try {
 			ObjectListing objects = client.listObjects(bucketName);
+
 			/* Recursively delete all the objects inside given bucket */
 			List<S3Object> list = new ArrayList<>();
+			int sum = 0;
 			if (objects != null) {
 				List<S3ObjectSummary> summeries = objects.getObjectSummaries();
 				if (summeries != null) {
+					sum += summeries.size();
 					while (true) {
 						for (S3ObjectSummary summary: summeries) {
 							fixBackBlazeBug(summary, bucketName);
+							if (log != null) log.debug("S3", "get [" + bucketName + "/" + summary.getKey() + "]");
 							list.add(client.getObject(bucketName, summary.getKey()));
 						}
 						if (objects.isTruncated()) {
@@ -723,6 +766,7 @@ public class S3 {
 					}
 				}
 			}
+			if (log != null) log.debug("S3", "list objects (" + sum + ") for [" + bucketName + "/" + "]");
 			return list;
 		}
 		catch (AmazonServiceException ase) {
@@ -784,12 +828,14 @@ public class S3 {
 
 			ObjectListing objects = client.listObjects(bucketName);
 			/* Recursively delete all the objects inside given bucket */
-			List<S3Object> list = new ArrayList<>();
 
 			if (objects != null && objects.getObjectSummaries() != null) {
-				int row;
+				int row, sum = 0;
+				List<S3ObjectSummary> summeries;
 				while (true) {
-					for (S3ObjectSummary summary: objects.getObjectSummaries()) {
+					summeries = objects.getObjectSummaries();
+					sum += summeries.size();
+					for (S3ObjectSummary summary: summeries) {
 						fixBackBlazeBug(summary, bucketName);
 						row = qry.addRow();
 						qry.setAt(objectName, row, summary.getKey());
@@ -804,8 +850,8 @@ public class S3 {
 						break;
 					}
 				}
+				if (log != null) log.debug("S3", "list objects as query (" + sum + ") for [" + bucketName + "/" + "]");
 			}
-
 			return qry;
 		}
 		catch (AmazonServiceException ase) {
@@ -888,6 +934,7 @@ public class S3 {
 					outer: while (true) {
 						AmazonS3Client client = getAmazonS3(null, null);
 						try {
+							if (log != null) log.debug("S3", "list buckets ");
 							for (Bucket b: client.listBuckets()) {
 								// TOD is there a more direct way?
 								if (b.getName().equals(bucketName)) {
@@ -906,8 +953,10 @@ public class S3 {
 				ObjectListing list = (hasObjName ? client.listObjects(bucketName, nameFile) : client.listObjects(bucketName));
 				try {
 					if (list != null && list.getObjectSummaries() != null) {
+						int sum = 0;
 						while (true) {
 							List<S3ObjectSummary> kids = list.getObjectSummaries();
+							sum += kids.size();
 							StorageObjectWrapper tmp;
 							String name;
 							for (S3ObjectSummary kid: kids) {
@@ -934,6 +983,7 @@ public class S3 {
 								break;
 							}
 						}
+						if (log != null) log.debug("S3", "list objects (" + sum + ") for [" + bucketName + "/" + nameFile + "]");
 					}
 				}
 				finally {
@@ -1009,6 +1059,7 @@ public class S3 {
 		try { // delete the content of the bucket
 				// in case bucket does not exist, it will throw an error
 			client.listObjects(bucketName, "sadasdsadasdasasdasd");
+			if (log != null) log.debug("S3", "list objects  for [" + bucketName + "/sadasdsadasdasasdasd]");
 			cache.existBuckets.put(bucketName, new S3BucketExists(bucketName, now + cacheTimeout, true));
 			return true;
 		}
@@ -1025,14 +1076,17 @@ public class S3 {
 	}
 
 	public boolean isDirectory(String bucketName, String objectName) throws S3Exception {
+		if (log != null) log.debug("S3", "is directory? [" + bucketName + "/" + objectName + "]");
 		return is(bucketName, objectName, CHECK_IS_DIR);
 	}
 
 	public boolean isFile(String bucketName, String objectName) throws S3Exception {
+		if (log != null) log.debug("S3", "is file? [" + bucketName + "/" + objectName + "]");
 		return is(bucketName, objectName, CHECK_IS_FILE);
 	}
 
 	public boolean exists(String bucketName, String objectName) throws S3Exception {
+		if (log != null) log.debug("S3", "exists? [" + bucketName + "/" + objectName + "]");
 		return is(bucketName, objectName, CHECK_EXISTS);
 	}
 
@@ -1050,6 +1104,7 @@ public class S3 {
 		objectName = improveObjectName(objectName);
 		AmazonS3Client client = getAmazonS3(bucketName, null);
 		try {
+			if (log != null) log.debug("S3", "get meta data [" + bucketName + "/" + objectName + "]");
 			return client.getObjectMetadata(bucketName, objectName).getContentType();
 		}
 		finally {
@@ -1086,6 +1141,7 @@ public class S3 {
 				lor.setPrefix(nameFile);
 				lor.setMaxKeys(100);
 
+				if (log != null) log.debug("S3", "list objects (max:100)  for [" + bucketName + "/" + nameFile + "]");
 				objects = client.listObjects(lor);
 			}
 			catch (Exception e) {
@@ -1195,10 +1251,12 @@ public class S3 {
 			if (force) {
 				clear(bucketName, 0);
 				client.deleteBucket(bucketName);
+				if (log != null) log.debug("S3", "deleted bucket [" + bucketName + "]");
 			}
 			else {
 				client.deleteBucket(bucketName);
 				flushExists(bucketName, true);
+				if (log != null) log.debug("S3", "deleted bucket [" + bucketName + "]");
 			}
 
 		}
@@ -1228,8 +1286,12 @@ public class S3 {
 			ObjectListing objects = client.listObjects(bucketName, nameFile);
 			List<KeyVersion> matches = new ArrayList<>();
 			if (objects != null && objects.getObjectSummaries() != null) {
+				int sum = 0;
+				List<S3ObjectSummary> summeries;
 				while (true) {
-					for (S3ObjectSummary summary: objects.getObjectSummaries()) {
+					summeries = objects.getObjectSummaries();
+					sum += summeries.size();
+					for (S3ObjectSummary summary: summeries) {
 						fixBackBlazeBug(summary, bucketName);
 						if (summary.getKey().equals(nameFile)) {
 							matchFile = true;
@@ -1248,6 +1310,7 @@ public class S3 {
 						break;
 					}
 				}
+				if (log != null) log.debug("S3", "list objects (" + sum + ") for [" + bucketName + "/" + nameFile + "]");
 			}
 			else {
 				throw new S3Exception("can't delete file/directory " + bucketName + "/" + objectName + ", file/directory does not exist");
@@ -1268,6 +1331,7 @@ public class S3 {
 				DeleteObjectsRequest dor = new DeleteObjectsRequest(bucketName).withKeys(matches).withQuiet(false);
 				client.deleteObjects(dor);
 				flushExists(bucketName, objectName);
+				if (log != null) log.debug("S3", "deleted object in bucket [" + bucketName + "]");
 				// we create parent because before it maybe was a pseudi dir
 				createParentDirectory(bucketName, objectName, true);
 			}
@@ -1294,11 +1358,13 @@ public class S3 {
 		bucketName = improveBucketName(bucketName);
 		AmazonS3Client client = getAmazonS3(bucketName, null);
 		try {
-
 			ObjectListing objects = client.listObjects(bucketName);
 			if (objects != null && objects.getObjectSummaries() != null) {
+				int sum = 0;
 				while (true) {
-					List<KeyVersion> filtered = toObjectKeyAndVersions(objects.getObjectSummaries(), maxAge);
+					List<S3ObjectSummary> summeries = objects.getObjectSummaries();
+					sum += summeries.size();
+					List<KeyVersion> filtered = toObjectKeyAndVersions(summeries, maxAge);
 					if (filtered != null && filtered.size() > 0) {
 						DeleteObjectsRequest dor = new DeleteObjectsRequest(bucketName).withKeys(filtered).withQuiet(false);
 						client.deleteObjects(dor);
@@ -1311,15 +1377,18 @@ public class S3 {
 						break;
 					}
 				}
+				if (log != null) log.debug("S3", "Recursively delete all objects (" + sum + ") inside bucket  [" + bucketName + "]");
 			}
 
 			/* Get list of versions in a given bucket */
 			VersionListing versions = client.listVersions(new ListVersionsRequest().withBucketName(bucketName));
 
-			/* Recursively delete all the versions inside given bucket */
 			if (versions != null && versions.getVersionSummaries() != null) {
+				int sum = 0;
 				while (true) {
-					for (S3VersionSummary summary: versions.getVersionSummaries()) {
+					List<S3VersionSummary> summeries = versions.getVersionSummaries();
+					sum += summeries.size();
+					for (S3VersionSummary summary: summeries) {
 						client.deleteObject(bucketName, summary.getKey());
 					}
 
@@ -1330,6 +1399,8 @@ public class S3 {
 						break;
 					}
 				}
+				if (log != null) log.debug("S3", "Recursively delete all the versions (" + sum + ") inside bucket  [" + bucketName + "]");
+
 			}
 
 			flushExists(bucketName, false);
@@ -1387,6 +1458,7 @@ public class S3 {
 			if (acl != null) setACL(cor, acl);
 			try {
 				trgClient.copyObject(cor);
+				if (log != null) log.debug("S3", "copy object from [" + srcBucketName + "/" + srcObjectName + " to " + trgBucketName + "/" + trgObjectName + "]");
 			}
 			catch (AmazonServiceException se) {
 				// could be an Pseudo folder
@@ -1424,6 +1496,7 @@ public class S3 {
 					try {
 						try {
 							clientTarget.createBucket(cbr);
+							if (log != null) log.debug("S3", "create bucket [" + trgBucketName + "]");
 						}
 						catch (AmazonS3Exception e) {
 							if (customACL) throw e;
@@ -1432,6 +1505,8 @@ public class S3 {
 						}
 
 						trgClient.copyObject(cor);
+						if (log != null)
+							log.debug("S3", "copy object from [" + srcBucketName + "/" + srcObjectName + " to " + trgBucketName + "/" + trgObjectName + "] (fallback)");
 					}
 					finally {
 						clientTarget.release();
@@ -1542,7 +1617,7 @@ public class S3 {
 		bucketName = improveBucketName(bucketName);
 		objectName = improveObjectName(objectName, false);
 		flushExists(bucketName, objectName);
-
+		if (log != null) log.debug("S3", "write string (" + (data == null ? 0 : data.length()) + ") to [" + bucketName + "/" + objectName + "]");
 		AmazonS3Client client = getAmazonS3(bucketName, region);
 		String ct = toContentType(mimeType, charset, null);
 		byte[] bytes = charset == null ? data.getBytes() : data.getBytes(charset);
@@ -1616,6 +1691,7 @@ public class S3 {
 	public void write(String bucketName, String objectName, byte[] data, String mimeType, Object acl, String region) throws IOException {
 		bucketName = improveBucketName(bucketName);
 		objectName = improveObjectName(objectName, false);
+		if (log != null) log.debug("S3", "write byte array (" + (data == null ? 0 : data.length) + ") to [" + bucketName + "/" + objectName + "]");
 
 		flushExists(bucketName, objectName);
 		AmazonS3Client client = getAmazonS3(bucketName, region);
@@ -1667,7 +1743,7 @@ public class S3 {
 	public void write(String bucketName, String objectName, File file, Object acl, String region) throws IOException {
 		bucketName = improveBucketName(bucketName);
 		objectName = improveObjectName(objectName, false);
-
+		if (log != null) log.debug("S3", "write file [" + file + "] to [" + bucketName + "/" + objectName + "]");
 		String ct = CFMLEngineFactory.getInstance().getResourceUtil().getMimeType(max1000(file), null);
 		ObjectMetadata md = new ObjectMetadata();
 		md.setContentLength(file.length());
@@ -1775,6 +1851,7 @@ public class S3 {
 			write(bucketName, objectName, (File) res, acl, region);
 			return;
 		}
+		if (log != null) log.debug("S3", "write resource [" + res + "] to [" + bucketName + "/" + objectName + "]");
 		String ct = CFMLEngineFactory.getInstance().getResourceUtil().getMimeType(max1000(res), null);
 		// write(bucketName, objectName, res.getInputStream(), res.length(), true, ct, acl, region);
 
@@ -1857,6 +1934,7 @@ public class S3 {
 
 				S3Object o = client.getObject(bucketName, objectName);
 				ObjectMetadata md = o.getObjectMetadata();
+				if (log != null) log.debug("S3", "get [" + bucketName + "/" + objectName + "]");
 
 				Map<String, Object> rmd = md.getRawMetadata();
 				Iterator<Entry<String, Object>> it = rmd.entrySet().iterator();
@@ -1894,6 +1972,7 @@ public class S3 {
 		objectName = improveObjectName(objectName);
 		AmazonS3Client client = getAmazonS3(bucketName, null);
 		try {
+			if (log != null) log.debug("S3", "get [" + bucketName + "/" + objectName + "] for meta data");
 			return client.getObject(bucketName, objectName).getObjectMetadata();
 		}
 		finally {
@@ -2041,12 +2120,13 @@ public class S3 {
 
 		try {
 			client.setObjectAcl(bucketName, objectName, acl);
-			// is it necessary to set it for bucket as well?
+			if (log != null) log.debug("S3", "added ACL to [" + bucketName + "/" + objectName + "]");
 		}
 		catch (AmazonServiceException se) {
 			if (se.getErrorCode().equals("NoSuchKey")) { // we know at this point objectname is not empty, so we do not have to check that
 				try {
 					client.setObjectAcl(bucketName, oppositeObjectName(objectName), acl);
+					if (log != null) log.debug("S3", "added ACL to [" + bucketName + "/" + objectName + "]");
 					return;
 				}
 				catch (AmazonServiceException ise) {
@@ -2084,10 +2164,12 @@ public class S3 {
 			if (!Util.isEmpty(objectName)) {
 				if (newACL instanceof AccessControlList) client.setObjectAcl(bucketName, objectName, (AccessControlList) newACL);
 				else client.setObjectAcl(bucketName, objectName, (CannedAccessControlList) newACL);
+				if (log != null) log.debug("S3", "added ACL to [" + bucketName + "/" + objectName + "]");
 			}
 			else {
 				if (newACL instanceof AccessControlList) client.setBucketAcl(bucketName, (AccessControlList) newACL);
 				else client.setBucketAcl(bucketName, (CannedAccessControlList) newACL);
+				if (log != null) log.debug("S3", "added ACL to [" + bucketName + "]");
 			}
 
 		}
@@ -2096,6 +2178,7 @@ public class S3 {
 				try {
 					if (newACL instanceof AccessControlList) client.setObjectAcl(bucketName, oppositeObjectName(objectName), (AccessControlList) newACL);
 					else client.setObjectAcl(bucketName, oppositeObjectName(objectName), (CannedAccessControlList) newACL);
+					if (log != null) log.debug("S3", "added ACL to [" + bucketName + "/" + objectName + "]");
 					return;
 				}
 				catch (AmazonServiceException ise) {
@@ -2117,6 +2200,7 @@ public class S3 {
 
 	public Array getAccessControlList(String bucketName, String objectName) throws S3Exception {
 		AccessControlList acl = getACL(null, bucketName, objectName, false);
+		if (log != null) log.debug("S3", "get ACL for [" + bucketName + "/" + objectName + "]");
 		return AccessControlListUtil.toArray(acl.getGrantsAsList());
 	}
 
@@ -2188,6 +2272,7 @@ public class S3 {
 	}
 
 	public Region getBucketRegion(String bucketName, boolean loadIfNecessary) throws S3Exception {
+		if (log != null) log.debug("S3", "get region for bucket  [" + bucketName + "]");
 		bucketName = improveBucketName(bucketName);
 		Region r = cache.bucketRegions.get(bucketName);
 
@@ -2653,13 +2738,13 @@ public class S3 {
 			}
 			catch (S3Exception e1) {
 				if (!"AccessDenied".equalsIgnoreCase(e1.getErrorCode())) { // in case we can not the region because of access right, we don't care.
-					if (log != null) log.error("s3", e1);
+					if (log != null) log.log(Log.LEVEL_DEBUG, "s3", e1);
 					else e1.printStackTrace();
 				}
 			}
 			catch (Exception e) {
 				if (!(e.getCause() instanceof UnknownHostException)) {
-					if (log != null) log.error("s3", e);
+					if (log != null) log.log(Log.LEVEL_DEBUG, "s3", e);
 				}
 			}
 
@@ -2668,7 +2753,7 @@ public class S3 {
 					if (client != null) client.release();
 				}
 				catch (S3Exception e) {
-					if (log != null) log.error("s3", e);
+					if (log != null) log.log(Log.LEVEL_DEBUG, "s3", e);
 				}
 			}
 		}

@@ -3,7 +3,6 @@ package org.lucee.extension.resource.s3.function;
 import java.io.ByteArrayOutputStream;
 
 import org.lucee.extension.resource.s3.S3;
-import org.lucee.extension.resource.s3.S3ResourceProvider;
 
 import com.amazonaws.services.s3.model.S3Object;
 
@@ -26,7 +25,7 @@ public class S3ReadBinary extends S3Function {
 		}
 		try {
 			// create S3 Instance
-			S3 s3 = S3.getInstance(toS3Properties(pc, accessKeyId, secretAccessKey, host), toTimeout(timeout));
+			S3 s3 = S3.getInstance(toS3Properties(pc, accessKeyId, secretAccessKey, host), toTimeout(timeout), pc.getConfig());
 			S3Object obj = s3.getData(bucketName, objectName);
 
 			// copy data

@@ -170,7 +170,7 @@ public class S3Properties {
 				}
 			}
 			catch (Exception e) {
-				Log log = pc.getConfig().getLog("application");
+				Log log = S3.getLog(pc != null ? pc.getConfig() : CFMLEngineFactory.getInstance().getThreadConfig());
 				if (log != null) log.error("S3", e);
 			}
 
@@ -196,7 +196,7 @@ public class S3Properties {
 				}
 			}
 			catch (Exception e) {
-				Log log = pc.getConfig().getLog("application");
+				Log log = S3.getLog(pc != null ? pc.getConfig() : CFMLEngineFactory.getInstance().getThreadConfig());
 				if (log != null) log.error("S3", e);
 			}
 		}

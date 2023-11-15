@@ -3,7 +3,6 @@ package org.lucee.extension.resource.s3.function;
 import org.lucee.extension.resource.s3.AccessControlListUtil;
 import org.lucee.extension.resource.s3.S3;
 import org.lucee.extension.resource.s3.S3Exception;
-import org.lucee.extension.resource.s3.S3ResourceProvider;
 
 import lucee.loader.engine.CFMLEngine;
 import lucee.loader.engine.CFMLEngineFactory;
@@ -39,7 +38,7 @@ public class S3Copy extends S3Function {
 
 		try {
 			// create S3 Instance
-			S3 s3 = S3.getInstance(toS3Properties(pc, accessKeyId, secretAccessKey, host), toTimeout(timeout));
+			S3 s3 = S3.getInstance(toS3Properties(pc, accessKeyId, secretAccessKey, host), toTimeout(timeout), pc.getConfig());
 			s3.copyObject(srcBucketName, srcObjectName, trgBucketName, trgObjectName, acl, location);
 		}
 		catch (Exception e) {

@@ -34,7 +34,7 @@ public class S3CreateBucket extends S3Function {
 		Object acl = null;
 		try {
 			acl = objACL != null ? AccessControlListUtil.toAccessControlList(objACL) : null;
-			S3 s3 = S3.getInstance(toS3Properties(pc, accessKeyId, secretAccessKey, host), toTimeout(timeout));
+			S3 s3 = S3.getInstance(toS3Properties(pc, accessKeyId, secretAccessKey, host), toTimeout(timeout), pc.getConfig());
 			s3.createDirectory(bucketName, acl, location);
 		}
 		catch (Exception e) {

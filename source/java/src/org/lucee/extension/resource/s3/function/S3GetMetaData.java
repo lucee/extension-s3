@@ -60,7 +60,7 @@ public class S3GetMetaData extends S3Function {
 		S3Properties props = pae.props != null ? pae.props : toS3Properties(pc, accessKeyId, secretAccessKey, host);
 		try {
 			// create S3 Instance
-			S3 s3 = S3.getInstance(props, toTimeout(timeout));
+			S3 s3 = S3.getInstance(props, toTimeout(timeout), pc.getConfig());
 			return s3.getMetaData(pae.bucketName, pae.objectName);
 		}
 		catch (Exception e) {

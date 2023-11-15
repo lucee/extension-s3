@@ -141,7 +141,6 @@ public final class S3Resource extends ResourceSupport {
 
 	@Override
 	public InputStream getInputStream() throws IOException {
-		engine.getResourceUtil().checkGetInputStreamOK(this);
 		provider.read(this);
 		return engine.getIOUtil().toBufferedInputStream(s3.getInputStream(bucketName, objectName));
 	}

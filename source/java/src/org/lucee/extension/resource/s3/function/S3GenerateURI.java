@@ -44,7 +44,7 @@ public class S3GenerateURI extends S3Function {
 			PropsAndEndpoint pae = extractFromPath(eng, bucketNameOrPath, objectName, accessKeyId, secretAccessKey, host);
 
 			// create S3 Instance
-			S3 s3 = S3.getInstance(pae.props != null ? pae.props : toS3Properties(pc, accessKeyId, secretAccessKey, host), toTimeout(timeout));
+			S3 s3 = S3.getInstance(pae.props != null ? pae.props : toS3Properties(pc, accessKeyId, secretAccessKey, host), toTimeout(timeout), pc.getConfig());
 
 			if (Util.isEmpty(type, true) || (type = type.trim()).equalsIgnoreCase("virtualhost")) {
 				return s3.generateURI(pae.bucketName, pae.objectName, S3.URI_STYLE_VIRTUAL_HOST, secure);

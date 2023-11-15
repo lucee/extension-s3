@@ -52,7 +52,7 @@ public class S3GeneratePresignedURL extends S3Function {
 			PropsAndEndpoint pae = extractFromPath(eng, bucketNameOrPath, objectName, accessKeyId, secretAccessKey, host);
 
 			// create S3 Instance
-			S3 s3 = S3.getInstance(pae.props != null ? pae.props : toS3Properties(pc, accessKeyId, secretAccessKey, host), toTimeout(timeout));
+			S3 s3 = S3.getInstance(pae.props != null ? pae.props : toS3Properties(pc, accessKeyId, secretAccessKey, host), toTimeout(timeout), pc.getConfig());
 			return s3.generatePresignedURL(pae.bucketName, pae.objectName, expireDate, httpMethod, sseAlgorithm, sseCustomerKey, checksum, contentType, contentDisposition,
 					contentEncoding, versionId, zeroByteContent, customResponseHeaders).toExternalForm();
 		}
