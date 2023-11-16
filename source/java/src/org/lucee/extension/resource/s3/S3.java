@@ -103,6 +103,8 @@ public class S3 {
 	public static final String[] PROVIDERS = new String[] { AWS, WASABI, BACKBLAZE, ".digitaloceanspaces.com", DREAM_IO, GOOGLE };
 
 	private static final ConcurrentHashMap<String, Object> tokens = new ConcurrentHashMap<String, Object>();
+	private static int errorThreshold = 0;
+	private static int warnThreshold = 0;
 
 	private static Map<String, S3> instances = new ConcurrentHashMap<String, S3>();
 	private static Map<String, S3Cache> caches = new ConcurrentHashMap<String, S3Cache>();
@@ -129,6 +131,22 @@ public class S3 {
 			synchronized (instances) {
 				s3 = instances.get(keyS3);
 				if (s3 == null) {
+
+					if (errorThreshold == 0) {
+						synchronized (AWS) {
+							if (errorThreshold == 0) {
+								errorThreshold = CFMLEngineFactory.getInstance().getCastUtil().toIntValue(S3Util.getSystemPropOrEnvVar("lucee.s3.listErrorThreshold", null),
+										100000);
+							}
+						}
+					}
+					if (warnThreshold == 0) {
+						synchronized (AWS) {
+							if (warnThreshold == 0) {
+								warnThreshold = CFMLEngineFactory.getInstance().getCastUtil().toIntValue(S3Util.getSystemPropOrEnvVar("lucee.s3.listWarnThreshold", null), 10000);
+							}
+						}
+					}
 
 					String keyCache = props.getAccessKeyId() + ":" + props.getSecretAccessKey() + ":" + props.getHostWithoutRegion() + ":" + cache;
 					S3Cache c = caches.get(keyCache);
@@ -751,6 +769,8 @@ public class S3 {
 				List<S3ObjectSummary> summeries = objects.getObjectSummaries();
 				if (summeries != null) {
 					sum += summeries.size();
+					// we do it already here to avoid a OOME later on
+					if (sum >= warnThreshold) logThreshold(sum, bucketName);
 					while (true) {
 						for (S3ObjectSummary summary: summeries) {
 							fixBackBlazeBug(summary, bucketName);
@@ -775,6 +795,20 @@ public class S3 {
 		finally {
 			client.release();
 		}
+	}
+
+	private void logThreshold(int sum, String endpoint) {
+		String msg = "High volume of records (" + sum + ") encountered while listing objects in S3 bucket [" + endpoint + "].";
+		if (log == null) {
+			System.err.println(msg);
+		}
+		else {
+			log.log(sum >= errorThreshold ? Log.LEVEL_ERROR : Log.LEVEL_WARN, "S3", msg, createThrow(msg));
+		}
+	}
+
+	private Throwable createThrow(String message) {
+		return new Exception(message);
 	}
 
 	public Query listBucketsAsQuery() throws S3Exception, PageException {
@@ -835,6 +869,7 @@ public class S3 {
 				while (true) {
 					summeries = objects.getObjectSummaries();
 					sum += summeries.size();
+					if (sum >= warnThreshold) logThreshold(sum, bucketName);
 					for (S3ObjectSummary summary: summeries) {
 						fixBackBlazeBug(summary, bucketName);
 						row = qry.addRow();
@@ -957,6 +992,7 @@ public class S3 {
 						while (true) {
 							List<S3ObjectSummary> kids = list.getObjectSummaries();
 							sum += kids.size();
+							if (sum >= warnThreshold) logThreshold(sum, bucketName + "/" + nameFile);
 							StorageObjectWrapper tmp;
 							String name;
 							for (S3ObjectSummary kid: kids) {
@@ -1291,6 +1327,7 @@ public class S3 {
 				while (true) {
 					summeries = objects.getObjectSummaries();
 					sum += summeries.size();
+					if (sum >= warnThreshold) logThreshold(sum, bucketName + "/" + nameFile);
 					for (S3ObjectSummary summary: summeries) {
 						fixBackBlazeBug(summary, bucketName);
 						if (summary.getKey().equals(nameFile)) {
@@ -1364,6 +1401,7 @@ public class S3 {
 				while (true) {
 					List<S3ObjectSummary> summeries = objects.getObjectSummaries();
 					sum += summeries.size();
+					if (sum >= warnThreshold) logThreshold(sum, bucketName);
 					List<KeyVersion> filtered = toObjectKeyAndVersions(summeries, maxAge);
 					if (filtered != null && filtered.size() > 0) {
 						DeleteObjectsRequest dor = new DeleteObjectsRequest(bucketName).withKeys(filtered).withQuiet(false);
