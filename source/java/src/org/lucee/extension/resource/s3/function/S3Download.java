@@ -69,13 +69,12 @@ public class S3Download extends S3Function {
 			if (target instanceof UDF) {
 				targetUDF = (UDF) target;
 				validateInvoke(pc, targetUDF, mode, blockSize, false);
-
 			}
 			else if (target instanceof Component) {
 				targetCFC = (Component) target;
 				Component csa = toComponentSpecificAccess(Component.ACCESS_PRIVATE, targetCFC);
-				boolean hasBefore = toFunction(csa.get(BEFORE), null) != null;
-				boolean hasAfter = toFunction(csa.get(AFTER), null) != null;
+				boolean hasBefore = toFunction(csa.get(BEFORE, null), null) != null;
+				boolean hasAfter = toFunction(csa.get(AFTER, null), null) != null;
 				UDF invoke = toFunction(csa.get(INVOKE), null);
 				if (invoke == null) throw eng.getExceptionUtil().createFunctionException(pc, "S3Download", 2, "component",
 						"the listener component does not contain a instance function with name [invoke] that is required", null);
@@ -218,7 +217,7 @@ public class S3Download extends S3Function {
 		}
 	}
 
-	private UDF toFunction(Object obj, UDF defaultValue) {
+	public static UDF toFunction(Object obj, UDF defaultValue) {
 		if (obj instanceof UDF) return (UDF) obj;
 		return defaultValue;
 	}
