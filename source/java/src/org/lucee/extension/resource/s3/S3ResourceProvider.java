@@ -75,13 +75,13 @@ public final class S3ResourceProvider implements ResourceProvider {
 		return this;
 	}
 
-	private int toIntValue(String str, int defaultValue) {
+	public static int toIntValue(String str, int defaultValue) {
+		if (Util.isEmpty(str)) return defaultValue;
 		try {
 			return Integer.parseInt(str);
 		}
-		catch (Throwable t) {
-			if (t instanceof ThreadDeath) throw (ThreadDeath) t;
-			return defaultValue;
+		catch (Exception e) {
+			return CFMLEngineFactory.getInstance().getCastUtil().toIntValue(str, defaultValue);
 		}
 	}
 

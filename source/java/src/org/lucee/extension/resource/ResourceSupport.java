@@ -20,8 +20,6 @@ package org.lucee.extension.resource;
 
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.ArrayList;
-import java.util.List;
 
 import lucee.commons.io.res.Resource;
 import lucee.commons.io.res.filter.ResourceFilter;
@@ -108,71 +106,47 @@ public abstract class ResourceSupport implements Resource {
 
 	@Override
 	public String[] list(ResourceFilter filter) {
-		String[] files = list();
-		if (files == null) return null;
-		List list = new ArrayList();
-		Resource res;
-		for (int i = 0; i < files.length; i++) {
-			res = getRealResource(files[i]);
-			if (filter.accept(res)) list.add(files[i]);
-		}
-		return (String[]) list.toArray(new String[list.size()]);
+		return list(null, filter);
 	}
 
 	@Override
 	public String[] list(ResourceNameFilter filter) {
-		String[] lst = list();
-		if (lst == null) return null;
-
-		List list = new ArrayList();
-		for (int i = 0; i < lst.length; i++) {
-			if (filter.accept(getParentResource(), lst[i])) list.add(lst[i]);
-		}
-		if (list.size() == 0) return new String[0];
-		if (list.size() == lst.length) return lst;
-		return (String[]) list.toArray(new String[list.size()]);
-	}
-
-	@Override
-	public Resource[] listResources(ResourceNameFilter filter) {
-		String[] files = list();
-		if (files == null) return null;
-
-		List list = new ArrayList();
-		for (int i = 0; i < files.length; i++) {
-			if (filter.accept(this, files[i])) list.add(getRealResource(files[i]));
-		}
-		return (Resource[]) list.toArray(new Resource[list.size()]);
-	}
-
-	@Override
-	public Resource[] listResources(ResourceFilter filter) {
-		String[] files = list();
-		if (files == null) return null;
-
-		List list = new ArrayList();
-		Resource res;
-		for (int i = 0; i < files.length; i++) {
-			res = this.getRealResource(files[i]);
-			if (filter.accept(res)) list.add(res);
-		}
-		return (Resource[]) list.toArray(new Resource[list.size()]);
-	}
-
-	@Override
-	public String getReal(String realpath) {
-		return getRealResource(realpath).getPath();
+		return list(filter, null);
 	}
 
 	@Override
 	public String[] list() {
-		Resource[] children = listResources();
+		return list(null, null);
+	}
+
+	private String[] list(ResourceNameFilter nameilter, ResourceFilter filter) {
+		Resource[] children = listResources(nameilter, filter);
 		if (children == null) return null;
 		String[] rtn = new String[children.length];
 		for (int i = 0; i < children.length; i++) {
 			rtn[i] = children[i].getName();
 		}
 		return rtn;
+	}
+
+	@Override
+	public Resource[] listResources(ResourceNameFilter filter) {
+		return listResources(filter, null);
+	}
+
+	@Override
+	public Resource[] listResources(ResourceFilter filter) {
+		return listResources(null, filter);
+	}
+
+	@Override
+	public Resource[] listResources() {
+		return listResources(null, null);
+	}
+
+	@Override
+	public String getReal(String realpath) {
+		return getRealResource(realpath).getPath();
 	}
 
 	@Override
@@ -326,4 +300,6 @@ public abstract class ResourceSupport implements Resource {
 			return res.toString();
 		}
 	}
+
+	public abstract Resource[] listResources(ResourceNameFilter nameFilter, ResourceFilter filter);
 }

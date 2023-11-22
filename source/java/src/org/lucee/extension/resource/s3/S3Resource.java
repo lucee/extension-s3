@@ -30,6 +30,8 @@ import com.amazonaws.services.s3.model.CannedAccessControlList;
 
 import lucee.commons.io.res.Resource;
 import lucee.commons.io.res.ResourceProvider;
+import lucee.commons.io.res.filter.ResourceFilter;
+import lucee.commons.io.res.filter.ResourceNameFilter;
 import lucee.loader.engine.CFMLEngine;
 import lucee.loader.engine.CFMLEngineFactory;
 import lucee.loader.util.Util;
@@ -52,7 +54,7 @@ public final class S3Resource extends ResourceSupport {
 	private String location = null;
 	private Object acl;// ="public-read";
 
-	private S3Resource(CFMLEngine engine, S3 s3, S3Properties props, String location, S3ResourceProvider provider, String buckedName, String objectName) {
+	S3Resource(CFMLEngine engine, S3 s3, S3Properties props, String location, S3ResourceProvider provider, String buckedName, String objectName) {
 		super(engine);
 		this.s3 = s3;
 		this.props = props;
@@ -367,30 +369,36 @@ public final class S3Resource extends ResourceSupport {
 	}
 
 	@Override
-	public Resource[] listResources() {
+	public Resource[] listResources(ResourceNameFilter nameFilter, ResourceFilter filter) {
 		S3Resource[] children = null;
+		S3ResourceS3InfoListener listener = null;
 		// long timeout=System.currentTimeMillis()+provider.getCache();
 		try {
 			boolean buckets = false;
-			List<S3Info> list = null;
 			if (isRoot()) {
 				buckets = true;
-				list = s3.list(false, false);
+				List<S3Info> list = s3.list(false, false);
+				if (list != null) {
+					Iterator<S3Info> it = list.iterator();
+					children = new S3Resource[list.size()];
+					S3Info si;
+					int index = 0;
+					while (it.hasNext()) {
+						si = it.next();
+						children[index] = new S3Resource(engine, s3, props, location, provider, si.getBucketName(), buckets ? "" : S3.improveObjectName(si.getObjectName(), false));
+						index++;
+					}
+				}
 			}
 			else if (isDirectory()) {
-				list = isBucket() ? s3.list(bucketName, "", false, true, true) : s3.list(bucketName, objectName + "/", false, true, true);
-			}
-
-			if (list != null) {
-				Iterator<S3Info> it = list.iterator();
-				children = new S3Resource[list.size()];
-				S3Info si;
-				int index = 0;
-				while (it.hasNext()) {
-					si = it.next();
-					children[index] = new S3Resource(engine, s3, props, location, provider, si.getBucketName(), buckets ? "" : S3.improveObjectName(si.getObjectName(), false));
-					index++;
+				listener = new S3ResourceS3InfoListener(provider, s3, props, location, nameFilter, filter);
+				if (isBucket()) {
+					s3.list(bucketName, "", false, true, true, false, listener);
 				}
+				else {
+					s3.list(bucketName, objectName + "/", false, true, true, false, listener);
+				}
+				children = listener.getRecords();
 			}
 		}
 		catch (S3Exception e) {

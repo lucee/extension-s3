@@ -26,9 +26,12 @@ import org.lucee.extension.resource.s3.info.ParentObject;
 import org.lucee.extension.resource.s3.info.S3BucketWrapper;
 import org.lucee.extension.resource.s3.info.S3Info;
 import org.lucee.extension.resource.s3.info.StorageObjectWrapper;
+import org.lucee.extension.resource.s3.listener.ListListener;
+import org.lucee.extension.resource.s3.listener.S3InfoListener;
 import org.lucee.extension.resource.s3.region.RegionFactory;
 import org.lucee.extension.resource.s3.region.RegionFactory.Region;
 import org.lucee.extension.resource.s3.util.XMLUtil;
+import org.lucee.extension.resource.s3.util.print;
 
 import com.amazonaws.AmazonServiceException;
 import com.amazonaws.HttpMethod;
@@ -135,15 +138,14 @@ public class S3 {
 					if (errorThreshold == 0) {
 						synchronized (AWS) {
 							if (errorThreshold == 0) {
-								errorThreshold = CFMLEngineFactory.getInstance().getCastUtil().toIntValue(S3Util.getSystemPropOrEnvVar("lucee.s3.listErrorThreshold", null),
-										100000);
+								errorThreshold = S3ResourceProvider.toIntValue(S3Util.getSystemPropOrEnvVar("lucee.s3.listErrorThreshold", null), 100000);
 							}
 						}
 					}
 					if (warnThreshold == 0) {
 						synchronized (AWS) {
 							if (warnThreshold == 0) {
-								warnThreshold = CFMLEngineFactory.getInstance().getCastUtil().toIntValue(S3Util.getSystemPropOrEnvVar("lucee.s3.listWarnThreshold", null), 10000);
+								warnThreshold = S3ResourceProvider.toIntValue(S3Util.getSystemPropOrEnvVar("lucee.s3.listWarnThreshold", null), 10000);
 							}
 						}
 					}
@@ -167,13 +169,20 @@ public class S3 {
 	}
 
 	public static Log getLog(Config config) {
-		if (config == null) config = CFMLEngineFactory.getInstance().getThreadConfig();
 
 		if (_log == null || _log.getClass().getClassLoader() != config.getClass().getClassLoader()) {
 			// does the logName exist?
 			if (logName == null) {
 				synchronized (DEFAULT_HOST) {
 					if (logName == null) {
+						if (config == null) {
+							try {
+								config = CFMLEngineFactory.getInstance().getThreadConfig();
+							}
+							catch (Exception e) {
+
+							}
+						}
 						if (config != null) {
 							try {
 								for (String ln: S3Util.getLogNames(config)) {
@@ -690,7 +699,7 @@ public class S3 {
 				info = it.next();
 				list.add(info);
 				if (recursive) {
-					Iterator<S3Info> iit = list(info.getBucketName(), "", recursive, listPseudoFolder, true).iterator();
+					Iterator<S3Info> iit = list(info.getBucketName(), "", recursive, listPseudoFolder, true, false, null).iterator();
 					while (iit.hasNext()) {
 						list.add(iit.next());
 					}
@@ -706,72 +715,26 @@ public class S3 {
 		}
 	}
 
-	/**
-	 * list all allements in a specific bucket
-	 * 
-	 * @param bucketName name of the bucket
-	 * @param recursive show all objects (recursive==true) or direct kids
-	 * @param listPseudoFolder if recursive false also list the "folder" of objects with sub folders
-	 * @return
-	 * @throws S3Exception
-	 * 
-	 *             public List<S3Info> list(String bucketName, boolean recursive, boolean
-	 *             listPseudoFolder) throws S3Exception { return list(bucketName, "", recursive,
-	 *             listPseudoFolder); }
-	 */
-
-	public List<S3Info> list(String bucketName, String objectName, boolean recursive, boolean listPseudoFolder, boolean onlyChildren) throws S3Exception {
-		return list(bucketName, objectName, recursive, listPseudoFolder, onlyChildren, false);
-	}
-
-	public List<S3Info> list(String bucketName, String objectName, boolean recursive, boolean listPseudoFolder, boolean onlyChildren, boolean noCache) throws S3Exception {
-		bucketName = improveBucketName(bucketName);
-		ValidUntilMap<S3Info> objects = _list(bucketName, objectName, onlyChildren, noCache);
-
-		Iterator<S3Info> it = objects.values().iterator();
-		Map<String, S3Info> map = new LinkedHashMap<String, S3Info>();
-		S3Info info;
-		while (it.hasNext()) {
-			info = it.next();
-			add(map, info, objectName, recursive, listPseudoFolder, onlyChildren);
-		}
-		Iterator<S3Info> iit = map.values().iterator();
-		List<S3Info> list = new ArrayList<S3Info>();
-		while (iit.hasNext()) {
-			list.add(iit.next());
-		}
-		return list;
-	}
-
-	/*
-	 * public List<S3ObjectSummary> listObjectSummaries(String bucketName) throws S3Exception {
-	 * AmazonS3Client client = getAmazonS3(bucketName, null); try { ObjectListing objects =
-	 * client.listObjects(bucketName); // Recursively delete all the objects inside given bucket
-	 * List<S3ObjectSummary> summeries = new ArrayList<>(); if (objects != null &&
-	 * objects.getObjectSummaries() != null) { while (true) { for (S3ObjectSummary summary:
-	 * objects.getObjectSummaries()) { fixBackBlazeBug(summary, bucketName); summeries.add(summary); }
-	 * if (objects.isTruncated()) { objects = client.listNextBatchOfObjects(objects); } else { break; }
-	 * } } return summeries;
-	 * 
-	 * } catch (AmazonServiceException ase) { throw toS3Exception(ase); } finally { client.release(); }
-	 * }
-	 */
-
 	public List<S3Object> listObjects(String bucketName) throws S3Exception {
 		AmazonS3Client client = getAmazonS3(bucketName, null);
 		try {
-			ObjectListing objects = client.listObjects(bucketName);
+
+			ListObjectsRequest lor = new ListObjectsRequest();
+			lor.setBucketName(bucketName);
+			lor.setMaxKeys(2);
+
+			ObjectListing objects = client.listObjects(lor);
 
 			/* Recursively delete all the objects inside given bucket */
 			List<S3Object> list = new ArrayList<>();
 			int sum = 0;
-			if (objects != null) {
-				List<S3ObjectSummary> summeries = objects.getObjectSummaries();
-				if (summeries != null) {
-					sum += summeries.size();
-					// we do it already here to avoid a OOME later on
-					if (sum >= warnThreshold) logThreshold(sum, bucketName);
-					while (true) {
+			while (true) {
+				if (objects != null) {
+					List<S3ObjectSummary> summeries = objects.getObjectSummaries();
+					if (summeries != null) {
+						sum += summeries.size();
+						// we do it already here to avoid a OOME later on
+						if (sum >= warnThreshold) logThreshold(sum, bucketName);
 						for (S3ObjectSummary summary: summeries) {
 							fixBackBlazeBug(summary, bucketName);
 							if (log != null) log.debug("S3", "get [" + bucketName + "/" + summary.getKey() + "]");
@@ -848,7 +811,7 @@ public class S3 {
 		}
 	}
 
-	public Query listObjectsAsQuery(String bucketName) throws S3Exception, PageException {
+	public Query listObjectsAsQuery(String bucketName, int maxKeys, ListListener listener) throws S3Exception, PageException {
 		AmazonS3Client client = getAmazonS3(bucketName, null);
 		try {
 			CFMLEngine eng = CFMLEngineFactory.getInstance();
@@ -858,9 +821,14 @@ public class S3 {
 			final Key size = creator.createKey("size");
 			final Key lastModified = creator.createKey("lastModified");
 			final Key owner = creator.createKey("owner");
-			Query qry = eng.getCreationUtil().createQuery(new Key[] { objectName, size, lastModified, owner }, 0, "buckets");
+			Query qry = listener == null ? eng.getCreationUtil().createQuery(new Key[] { objectName, size, lastModified, owner }, 0, "buckets") : null;
+			ListObjectsRequest lor = new ListObjectsRequest();
+			lor.setBucketName(bucketName);
 
-			ObjectListing objects = client.listObjects(bucketName);
+			if (maxKeys < 1 || maxKeys > 1000) throw new S3Exception("invalid maxKeys [" + maxKeys + "] must be an number between 1 and 1000");
+			lor.setMaxKeys(maxKeys);
+
+			ObjectListing objects = client.listObjects(lor);
 			/* Recursively delete all the objects inside given bucket */
 
 			if (objects != null && objects.getObjectSummaries() != null) {
@@ -869,6 +837,7 @@ public class S3 {
 				while (true) {
 					summeries = objects.getObjectSummaries();
 					sum += summeries.size();
+					if (listener != null) qry = eng.getCreationUtil().createQuery(new Key[] { objectName, size, lastModified, owner }, 0, "buckets");
 					if (sum >= warnThreshold) logThreshold(sum, bucketName);
 					for (S3ObjectSummary summary: summeries) {
 						fixBackBlazeBug(summary, bucketName);
@@ -878,16 +847,20 @@ public class S3 {
 						qry.setAt(size, row, summary.getSize());
 						qry.setAt(owner, row, summary.getOwner().getDisplayName());
 					}
+
 					if (objects.isTruncated()) {
+						if (listener != null && !listener.invoke(qry)) break;
 						objects = client.listNextBatchOfObjects(objects);
+						if (objects == null) break;
 					}
 					else {
+						if (listener != null) listener.invoke(qry);
 						break;
 					}
 				}
 				if (log != null) log.debug("S3", "list objects as query (" + sum + ") for [" + bucketName + "/" + "]");
 			}
-			return qry;
+			return listener == null ? qry : null;
 		}
 		catch (AmazonServiceException ase) {
 			throw toS3Exception(ase);
@@ -950,7 +923,23 @@ public class S3 {
 		return sub.indexOf('/') == -1;
 	}
 
-	private ValidUntilMap<S3Info> _list(String bucketName, String objectName, boolean onlyChildren, boolean noCache) throws S3Exception {
+	/**
+	 * list all allements in a specific bucket
+	 * 
+	 * @param bucketName name of the bucket
+	 * @param recursive show all objects (recursive==true) or direct kids
+	 * @param listPseudoFolder if recursive false also list the "folder" of objects with sub folders
+	 * @return
+	 * @throws S3Exception
+	 * 
+	 *             public List<S3Info> list(String bucketName, boolean recursive, boolean
+	 *             listPseudoFolder) throws S3Exception { return list(bucketName, "", recursive,
+	 *             listPseudoFolder); }
+	 */
+	public List<S3Info> list(String bucketName, final String objectName, boolean recursive, boolean listPseudoFolder, boolean onlyChildren, boolean noCache,
+			S3InfoListener listener) throws S3Exception {
+		bucketName = improveBucketName(bucketName);
+
 		try {
 			String key = toKey(bucketName, objectName);
 			String nameDir = improveObjectName(objectName, true);
@@ -958,11 +947,13 @@ public class S3 {
 			boolean hasObjName = !Util.isEmpty(objectName);
 
 			// not cached
-			ValidUntilMap<S3Info> _list = cacheTimeout <= 0 || noCache ? null : cache.objects.get(key);
+			ValidUntilMap<S3Info> _list = cacheTimeout <= 0 || noCache || listener != null ? null : cache.objects.get(key);
 			if (_list == null || _list.validUntil < System.currentTimeMillis()) {
 				long validUntil = System.currentTimeMillis() + cacheTimeout;
 				_list = new ValidUntilMap<S3Info>(validUntil);
-				cache.objects.put(key, _list);
+
+				// we don't cache when listener is used because never all records are loaded
+				if (listener != null) cache.objects.put(key, _list);
 
 				// add bucket
 				if (!hasObjName && !onlyChildren) {
@@ -985,7 +976,12 @@ public class S3 {
 					}
 				}
 				AmazonS3Client client = getAmazonS3(bucketName, null);
-				ObjectListing list = (hasObjName ? client.listObjects(bucketName, nameFile) : client.listObjects(bucketName));
+				ListObjectsRequest lor = new ListObjectsRequest();
+				lor.setBucketName(bucketName);
+				if (hasObjName) lor.setPrefix(nameFile);
+				// lor.setMaxKeys(100);
+
+				ObjectListing list = client.listObjects(lor);
 				try {
 					if (list != null && list.getObjectSummaries() != null) {
 						int sum = 0;
@@ -1012,6 +1008,11 @@ public class S3 {
 								}
 							}
 
+							if (listener != null) {
+								listener.invoke(improveResult(_list, bucketName, objectName, recursive, listPseudoFolder, onlyChildren, noCache));
+								_list.clear();
+							}
+
 							if (list.isTruncated()) {
 								list = client.listNextBatchOfObjects(list);
 							}
@@ -1026,11 +1027,34 @@ public class S3 {
 					client.release();
 				}
 			}
-			return _list;
+			if (listener != null) return null;
+			return improveResult(_list, bucketName, objectName, recursive, listPseudoFolder, onlyChildren, noCache);
 		}
 		catch (AmazonS3Exception ase) {
 			throw toS3Exception(ase);
 		}
+	}
+
+	private List<S3Info> improveResult(ValidUntilMap<S3Info> objects, String bucketName, String objectName, boolean recursive, boolean listPseudoFolder, boolean onlyChildren,
+			boolean noCache) throws S3Exception {
+		bucketName = improveBucketName(bucketName);
+		print.e("--- improveResult ----");
+		print.e("- " + objects.size());
+		Iterator<S3Info> it = objects.values().iterator();
+		Map<String, S3Info> map = new LinkedHashMap<String, S3Info>();
+		S3Info info;
+		while (it.hasNext()) {
+			info = it.next();
+			add(map, info, objectName, recursive, listPseudoFolder, onlyChildren);
+		}
+		print.e("- " + map.size());
+		Iterator<S3Info> iit = map.values().iterator();
+		List<S3Info> list = new ArrayList<S3Info>();
+		while (iit.hasNext()) {
+			list.add(iit.next());
+		}
+		print.e("- " + list.size());
+		return list;
 	}
 
 	private S3ObjectSummary fixBackBlazeBug(S3ObjectSummary kid, String bucketName) {
