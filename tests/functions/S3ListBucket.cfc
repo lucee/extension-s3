@@ -93,7 +93,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 				secretAccessKey:cred.SECRET_KEY,
 				host:(isNull(cred.HOST)?nullvalue():cred.HOST)
 			);
-			assertEquals("->3;2;<-", listener.getData());
+			assertEquals("-->3;2;<--", listener.getData());
 		}
 		catch(e) {
 			if(!findNoCase("Transaction cap exceeded", e.message) ) throw e;
