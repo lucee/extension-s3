@@ -236,10 +236,10 @@ public class S3 {
 			}
 		}
 
-		if (cacheRegions) {
-			new CacheRegions().start();
-		}
 		this.log = getLog(config);
+		if (cacheRegions) {
+			new CacheRegions(this.log).start();
+		}
 	}
 
 	public String getHost() {
@@ -327,7 +327,6 @@ public class S3 {
 				}
 				catch (S3Exception e) {
 					if (log != null) log.error("s3", e);
-					else e.printStackTrace();
 				}
 			}
 		}
@@ -1210,7 +1209,6 @@ public class S3 {
 					if ("NoSuchBucket".equals(ase.getErrorCode()) || "404".equals(ase.getStatusCode())) return null;
 				}
 				if (log != null) log.error("s3", e);
-				else e.printStackTrace();
 			}
 
 			/* Recursively delete all the objects inside given bucket */
@@ -2354,7 +2352,7 @@ public class S3 {
 					return null;
 				}
 				if (log != null) log.error("s3", "failed to load region", ase);
-				else ase.printStackTrace();
+
 				// could be AccessDenied
 				cache.bucketRegions.put(bucketName, RegionFactory.ERROR);
 				return null;
@@ -2775,6 +2773,12 @@ public class S3 {
 
 	private class CacheRegions extends Thread {
 
+		private Log log;
+
+		public CacheRegions(Log log) {
+			this.log = log;
+		}
+
 		@Override
 		public void run() {
 			AmazonS3Client client = null;
@@ -2801,7 +2805,6 @@ public class S3 {
 			catch (S3Exception e1) {
 				if (!"AccessDenied".equalsIgnoreCase(e1.getErrorCode())) { // in case we can not the region because of access right, we don't care.
 					if (log != null) log.log(Log.LEVEL_DEBUG, "s3", e1);
-					else e1.printStackTrace();
 				}
 			}
 			catch (Exception e) {
