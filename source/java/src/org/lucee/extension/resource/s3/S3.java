@@ -227,6 +227,7 @@ public class S3 {
 		this.host = host;
 		this.cacheTimeout = cacheTimeout;
 		this.liveTimeout = liveTimeout;
+		print.ds();
 		if (!Util.isEmpty(defaultLocation, true)) {
 			try {
 				defaultRegion = toString(RegionFactory.getInstance(defaultLocation));
