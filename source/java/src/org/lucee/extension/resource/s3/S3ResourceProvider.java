@@ -125,6 +125,7 @@ public final class S3ResourceProvider implements ResourceProvider {
 		boolean hasCustomCredentials = false;
 		String accessKeyId, host, secretAccessKey, defaultLocation, bucket, mapping = null;
 		Object defaultACL;
+		Boolean cacheRegion = null;
 		Struct appData = null;
 
 		// env var / system prop
@@ -150,6 +151,15 @@ public final class S3ResourceProvider implements ResourceProvider {
 
 			defaultACL = S3Util.getSystemPropOrEnvVar("lucee.s3.acl", null);
 			if (defaultACL == null) defaultACL = S3Util.getSystemPropOrEnvVar("lucee.s3.accesscontrollist", null);
+
+			String tmp = S3Util.getSystemPropOrEnvVar("lucee.s3.cacheregion", null);
+			if (!Util.isEmpty(tmp, true)) {
+				try {
+					cacheRegion = Util.toBooleanValue(tmp.trim());
+				}
+				catch (Exception e) {
+				}
+			}
 		}
 
 		// Application Context Data
@@ -270,6 +280,7 @@ public final class S3ResourceProvider implements ResourceProvider {
 		properties.setCustomCredentials(hasCustomCredentials);
 		properties.setCustomHost(hasCustomHost);
 		properties.setMapping(mapping);
+		if (cacheRegion != null) properties.setCacheRegion(cacheRegion);
 		if (defaultACL != null) properties.setACL(defaultACL);
 		if (defaultLocation != null) properties.setDefaultLocation(defaultLocation);
 		if (!hasCustomHost && !Util.isEmpty(host, true)) properties.setHost(host);

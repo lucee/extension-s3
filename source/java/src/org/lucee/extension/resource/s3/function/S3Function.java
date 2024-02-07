@@ -94,6 +94,9 @@ public abstract class S3Function extends BIF {
 		if (Util.isEmpty(host, true)) host = S3Util.getSystemPropOrEnvVar("lucee.s3.server", null);
 		if (Util.isEmpty(host, true)) host = S3Util.getSystemPropOrEnvVar("lucee.s3.provider", null);
 
+		String strCacheRegion = S3Util.getSystemPropOrEnvVar("lucee.s3.cacheregion", null);
+		Boolean cacheRegion = (Util.isEmpty(strCacheRegion, true)) ? null : CFMLEngineFactory.getInstance().getCastUtil().toBoolean(strCacheRegion.trim(), null);
+
 		if (Util.isEmpty(secretAccessKey, true) || Util.isEmpty(accessKeyId, true)) throw CFMLEngineFactory.getInstance().getExceptionUtil().createApplicationException(
 				"missing S3 credentials",
 				"you can define the credentials as argument for the function [accessKeyId, secretAccessKey], in the application.cfc [this.s3.accessKeyId, this.s3.secretAccessKey] or in the system properties/environment variables [lucee.s3.secretaccesskey,lucee.s3.accesskeyid]");
@@ -107,6 +110,7 @@ public abstract class S3Function extends BIF {
 			props.setCustomHost(true);
 		}
 		else props.setCustomHost(false);
+		if (cacheRegion != null) props.setCacheRegion(cacheRegion.booleanValue());
 
 		return props;
 	}

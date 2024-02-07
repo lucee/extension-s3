@@ -31,7 +31,6 @@ import org.lucee.extension.resource.s3.listener.S3InfoListener;
 import org.lucee.extension.resource.s3.region.RegionFactory;
 import org.lucee.extension.resource.s3.region.RegionFactory.Region;
 import org.lucee.extension.resource.s3.util.XMLUtil;
-import org.lucee.extension.resource.s3.util.print;
 
 import com.amazonaws.AmazonServiceException;
 import com.amazonaws.HttpMethod;
@@ -161,7 +160,7 @@ public class S3 {
 						}
 					}
 					instances.put(keyS3, s3 = new S3(c, props.getAccessKeyId(), props.getSecretAccessKey(), props.getHost(), props.getDefaultLocation(), cache,
-							S3.DEFAULT_LIVE_TIMEOUT, true, config));
+							S3.DEFAULT_LIVE_TIMEOUT, props.getCacheRegion(), config));
 				}
 			}
 		}
@@ -227,7 +226,6 @@ public class S3 {
 		this.host = host;
 		this.cacheTimeout = cacheTimeout;
 		this.liveTimeout = liveTimeout;
-		print.ds();
 		if (!Util.isEmpty(defaultLocation, true)) {
 			try {
 				defaultRegion = toString(RegionFactory.getInstance(defaultLocation));
@@ -1038,8 +1036,6 @@ public class S3 {
 	private List<S3Info> improveResult(ValidUntilMap<S3Info> objects, String bucketName, String objectName, boolean recursive, boolean listPseudoFolder, boolean onlyChildren,
 			boolean noCache) throws S3Exception {
 		bucketName = improveBucketName(bucketName);
-		print.e("--- improveResult ----");
-		print.e("- " + objects.size());
 		Iterator<S3Info> it = objects.values().iterator();
 		Map<String, S3Info> map = new LinkedHashMap<String, S3Info>();
 		S3Info info;
@@ -1047,13 +1043,11 @@ public class S3 {
 			info = it.next();
 			add(map, info, objectName, recursive, listPseudoFolder, onlyChildren);
 		}
-		print.e("- " + map.size());
 		Iterator<S3Info> iit = map.values().iterator();
 		List<S3Info> list = new ArrayList<S3Info>();
 		while (iit.hasNext()) {
 			list.add(iit.next());
 		}
-		print.e("- " + list.size());
 		return list;
 	}
 

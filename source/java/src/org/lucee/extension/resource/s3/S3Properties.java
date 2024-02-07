@@ -37,6 +37,7 @@ public class S3Properties {
 	private String defaultLocation;
 	private long cache;
 	private String mapping;
+	private boolean cacheRegion = false;
 
 	public void setBucket(String bucket) {
 		if (!Util.isEmpty(bucket, true)) this.bucket = bucket;
@@ -116,11 +117,20 @@ public class S3Properties {
 		return mapping;
 	}
 
+	public boolean getCacheRegion() {
+		return cacheRegion;
+	}
+
+	public void setCacheRegion(boolean cacheRegion) {
+		this.cacheRegion = cacheRegion;
+	}
+
 	@Override
 	public String toString() {
 
 		return new StringBuilder().append("host:").append(getHost()).append(";").append("accessKeyId:").append(getAccessKeyId()).append(";").append("secretAccessKey:")
-				.append(getSecretAccessKey()).append(";acl:").append(getACL()).append(";location:").append(getDefaultLocation()).append(";").toString();
+				.append(getSecretAccessKey()).append(";acl:").append(getACL()).append(";location:").append(getDefaultLocation()).append(";cacheRegion:").append(getCacheRegion())
+				.append(";").toString();
 	}
 
 	public void setACL(Object acl) {
@@ -246,11 +256,13 @@ public class S3Properties {
 		if (Util.isEmpty(sk)) sk = eng.getCastUtil().toString(sct.get("secretKey", null), null);
 
 		return toS3(eng.getCastUtil().toString(sct.get("accessKeyId", null), null), sk, eng.getCastUtil().toString(sct.get("defaultLocation", null), null), host, bucket,
-				eng.getCastUtil().toString(sct.get("acl", null), null), eng.getCastUtil().toTimespan(sct.get("cache", null), null));
+				eng.getCastUtil().toString(sct.get("acl", null), null), eng.getCastUtil().toBoolean(sct.get("cacheregion", null), null),
+				eng.getCastUtil().toTimespan(sct.get("cache", null), null));
 
 	}
 
-	private static S3Properties toS3(String accessKeyId, String awsSecretKey, String defaultLocation, String host, String bucket, String acl, TimeSpan cache) throws S3Exception {
+	private static S3Properties toS3(String accessKeyId, String awsSecretKey, String defaultLocation, String host, String bucket, String acl, Boolean cacheRegion, TimeSpan cache)
+			throws S3Exception {
 
 		S3Properties s3 = new S3Properties();
 		defaultLocation = S3Util.extractLocationFromHostIfNecessary(defaultLocation, host);
@@ -261,6 +273,7 @@ public class S3Properties {
 		if (!Util.isEmpty(host)) s3.setHost(host);
 		if (!Util.isEmpty(bucket)) s3.setBucket(bucket);
 		if (!Util.isEmpty(acl)) s3.setACL(AccessControlListUtil.toAccessControlList(acl));
+		if (cacheRegion != null) s3.setCacheRegion(cacheRegion.booleanValue());
 		if (cache != null) s3.setCache(cache.getMillis());
 
 		return s3;
