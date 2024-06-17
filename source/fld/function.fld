@@ -1522,4 +1522,59 @@
 			<type>struct</type>
 		</return>
 	</function>
+
+
+	<!-- S3GetVersionInfo -->
+	<!-- S3GetVersionInfo -->
+<function>
+    <name>S3GetVersionInfo</name>
+    <class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.S3GetVersionInfo</class>
+    <description>Returns version information as a query for a specific object or bucket.</description>
+    <argument>
+        <name>bucketName</name>
+        <alias>bucket</alias>
+        <type>string</type>
+        <required>Yes</required>
+        <description>Name of the bucket to get info for.</description>
+    </argument>
+    <argument>
+        <name>objectName</name>
+        <alias>object,path</alias>
+        <type>string</type>
+        <required>No</required>
+        <description>Name of the object (path) within the bucket to get info for. If not defined, info of the bucket is returned.</description>
+    </argument>
+    <argument>
+        <name>accessKeyId</name>
+        <alias>accessKey,awsAccessKeyId,awsAccessKey</alias>
+        <type>string</type>
+        <required>No</required>
+        <description>S3 accessKeyId. If not defined, checks the system property/environment variable for [lucee.s3.accesskeyid].</description>
+    </argument>
+    <argument>
+        <name>secretAccessKey</name>
+        <alias>secretKey,awsSecretKey,awsSecretAccessKey</alias>
+        <type>string</type>
+        <required>No</required>
+        <description>S3 secretAccessKey. If not defined, checks the system property/environment variable for [lucee.s3.secretaccesskey].</description>
+    </argument>
+    <argument>
+        <name>host</name>
+        <alias>provider,server</alias>
+        <type>string</type>
+        <required>No</required>
+        <description>The provider to connect to. If not set, Amazon AWS is used.</description>
+    </argument>
+    <argument>
+        <name>timeout</name>
+        <type>number</type>
+        <required>No</required>
+        <default>10000</default>
+        <description>Timeout for this execution (in milliseconds).</description>
+    </argument>
+    <return>
+        <type>query</type>
+    </return>
+</function>
+
 </func-lib>

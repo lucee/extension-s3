@@ -166,7 +166,12 @@ public final class S3ResourceProvider implements ResourceProvider {
 		{
 			S3Properties prop = null;
 			if (pc != null) {
-				appData = S3Properties.getApplicationData(pc);
+				appData = null;
+				try {
+					appData = S3Properties.getApplicationData(pc);
+				}
+				catch (Exception e) {
+				}
 				prop = appData != null ? S3Properties.load(pc, appData, null) : null;// pc.getApplicationContext().getS3();
 			}
 

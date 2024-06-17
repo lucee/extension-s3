@@ -449,8 +449,52 @@ public class S3 {
 		AmazonS3Client client = getAmazonS3(bucketName, null);
 		try {
 			if (log != null) log.debug("S3", "get data from [" + bucketName + "/" + objectName + "]");
-			if (log != null) log.debug("S3", "get [" + bucketName + "/" + objectName + "]");
 			return client.getObject(bucketName, objectName);
+		}
+		catch (AmazonServiceException se) {
+			throw toS3Exception(se);
+		}
+		finally {
+			client.release();
+		}
+	}
+
+	public Query listVersions(String bucketName, String objectName) throws S3Exception, PageException {
+		bucketName = improveBucketName(bucketName);
+		objectName = improveObjectName(objectName);
+		CFMLEngine eng = CFMLEngineFactory.getInstance();
+		Creation creator = eng.getCreationUtil();
+		Cast caster = eng.getCastUtil();
+		Query data = creator.createQuery(new String[] { "id", "lasModified", "size", "etag", "stotageClass", "owner", "isLatest" }, 0, "versions");
+		int row;
+		AmazonS3Client client = getAmazonS3(bucketName, null);
+		try {
+
+			ListVersionsRequest request = new ListVersionsRequest().withBucketName(bucketName);
+			if (objectName != null) request.withPrefix(objectName);
+
+			if (log != null) log.debug("S3", "read versions from [" + bucketName + "/" + objectName + "]");
+
+			VersionListing versionListing;
+			do {
+				versionListing = client.listVersions(request);
+				if (versionListing != null) {
+					for (S3VersionSummary versionSummary: versionListing.getVersionSummaries()) {
+						row = data.addRow();
+						data.setAt("id", row, versionSummary.getVersionId());
+						data.setAt("lasModified", row, caster.toDatetime(versionSummary.getLastModified(), null));
+						data.setAt("isLatest", row, versionSummary.isLatest());
+						data.setAt("size", row, versionSummary.getSize());
+						data.setAt("etag", row, versionSummary.getETag());
+						data.setAt("stotageClass", row, versionSummary.getStorageClass());
+						data.setAt("owner", row, versionSummary.getOwner() == null ? "" : versionSummary.getOwner().getDisplayName());
+					}
+				}
+				request.setKeyMarker(versionListing.getNextKeyMarker());
+				request.setVersionIdMarker(versionListing.getNextVersionIdMarker());
+			}
+			while (versionListing.isTruncated());
+			return data;
 		}
 		catch (AmazonServiceException se) {
 			throw toS3Exception(se);
