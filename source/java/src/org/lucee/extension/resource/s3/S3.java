@@ -876,6 +876,7 @@ public class S3 {
 			if (objects != null && objects.getObjectSummaries() != null) {
 				int row, sum = 0;
 				List<S3ObjectSummary> summeries;
+				Owner o;
 				while (true) {
 					summeries = objects.getObjectSummaries();
 					sum += summeries.size();
@@ -887,7 +888,8 @@ public class S3 {
 						qry.setAt(objectName, row, summary.getKey());
 						qry.setAt(lastModified, row, summary.getLastModified());
 						qry.setAt(size, row, summary.getSize());
-						qry.setAt(owner, row, summary.getOwner().getDisplayName());
+						o = summary.getOwner();
+						if (o != null) qry.setAt(owner, row, o.getDisplayName());
 					}
 
 					if (objects.isTruncated()) {
