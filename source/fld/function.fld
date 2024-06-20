@@ -1525,7 +1525,6 @@
 
 
 	<!-- S3GetVersionInfo -->
-	<!-- S3GetVersionInfo -->
 <function>
     <name>S3GetVersionInfo</name>
     <class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.S3GetVersionInfo</class>

@@ -1,4 +1,4 @@
-/dist
+/target
 **/Test.java
 **/TestCase.java
 **/.DS_Store

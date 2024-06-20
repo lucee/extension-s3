@@ -1,42 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project default="clean" basedir="." name="formtag-extension">
+<project default="clean" basedir="." name="s3-extension">
 	<description>
-        Build Form Extension
+        Build S3 Extension
     </description>
     <!-- set global properties for this build -->
   
-  <property file="build.properties"/>
-
   <property name="lib" location="source/java/libs"/>
   <property name="src" location="source/java/src"/>
   <property name="srcImg" location="source/images"/>
   <property name="temp" location="temp"/>
   <property name="build" location="build"/>
-  <property name="dist"  location="dist"/>
+  <property name="dist"  location="target"/>
 
   <property name="tld" location="source/tld"/>
   <property name="fld" location="source/fld"/>
   
-
-  
-  <buildnumber file="build.number"/>
-
-  <scriptdef name="replace" language="javascript">
-     <attribute name="haystack" />
-     <attribute name="needle" />
-     <attribute name="repl" />
-     <attribute name="property" />
-     <![CDATA[
-      var text = attributes.get("haystack");
-      var needle = attributes.get("needle");
-      var repl = attributes.get("repl");
-      text=text.trim();
-
-      var regex = new RegExp(needle,'g');
-      text=text.replace(regex,repl);
-      project.setProperty(attributes.get("property"), text);
-     ]]>
-  </scriptdef>
 
   <path id="classpath">
     <fileset dir="${lib}">
@@ -77,14 +55,14 @@
 
     <echo file="${dist}/extension/META-INF/MANIFEST.MF">Manifest-Version: 1.0
 Built-Date: ${NOW}
-version: "${bundleversion}${build.number}${appendix}"
+version: "${bundleversion}"
 id: "${id}"
 name: "${label}"
 description: "${description}"
 lucee-core-version: "${luceeCoreVersion}"
 release-type: ${releaseType}
 start-bundles: false
-resource: "[{'class':'${class}','bundleName':'${bundlename}','bundleVersion':'${bundleversion}${build.number}${appendix}','scheme':'s3','lock-timeout':'10000'}]"
+resource: "[{'class':'${class}','bundleName':'${bundlename}','bundleVersion':'${bundleversion}','scheme':'s3','lock-timeout':'10000'}]"
 </echo>
   </target>
   
@@ -104,9 +82,9 @@ resource: "[{'class':'${class}','bundleName':'${bundlename}','bundleVersion':'${
  
     <!-- Put everything in ${build} into .jar file -->
     <jar 
-    	jarfile="${dist}/extension/jars/${filename}-${bundleversion}${build.number}${appendix}.jar" basedir="${build}"  manifest="${src}/META-INF/MANIFEST.MF">
+    	jarfile="${dist}/extension/jars/${bundlename}-${bundleversion}.jar" basedir="${build}"  manifest="${src}/META-INF/MANIFEST.MF">
       <manifest>
-        <attribute name="Bundle-Version" value="${bundleversion}${build.number}${appendix}"/>
+        <attribute name="Bundle-Version" value="${bundleversion}"/>
         <attribute name="Built-Date" value="${NOW}"/>
         <attribute name="Bundle-SymbolicName" value="${bundlename}"/>
 
@@ -114,28 +92,18 @@ resource: "[{'class':'${class}','bundleName':'${bundlename}','bundleVersion':'${
     </jar>
 
 
-
-    <!-- copy the tlds necessary 
-    <loadfile property="content1" srcFile="${tld}/tag.tld" />
-    <replace haystack="${content1}" needle="{bundle-name}" repl="${bundlename}" property="content2"/>
-    <replace haystack="${content2}" needle="{bundle-version}" repl="${bundleversion}${build.number}${appendix}" property="content3"/>
-    <echo message="${content3}" file="${dist}/extension/tlds/pdftag.tld"/>
-    -->
-
     <!-- copy the flds necessary -->
-    <loadfile property="c1" srcFile="${fld}/function.fld" />
-    <replace haystack="${c1}" needle="{bundle-name}" repl="${bundlename}" property="c2"/>
-    <replace haystack="${c2}" needle="{bundle-version}" repl="${bundleversion}${build.number}${appendix}" property="c3"/>
-    <echo message="${c3}" file="${dist}/extension/flds/s3-functions.fld"/>
-
-
-
-    <!-- copy the context necessary
-    <copy todir="${dist}/extension/webcontexts">
-      <fileset dir="${context}">
-        <include name="**/*.*"/>
-      </fileset>
-    </copy> -->
+    <copy file="${fld}/function.fld" tofile="${dist}/extension/flds/s3-functions.fld" />
+    <replaceregexp 
+      file="${dist}/extension/flds/s3-functions.fld" 
+      match="\{bundle-name\}" 
+      replace="${bundlename}" 
+      byline="true"/>
+    <replaceregexp 
+      file="${dist}/extension/flds/s3-functions.fld" 
+      match="\{bundle-version\}" 
+      replace="${bundleversion}" 
+      byline="true"/>
 
     <!-- copy the jars necessary -->
     <copy todir="${dist}/extension/jars">
@@ -166,7 +134,7 @@ resource: "[{'class':'${class}','bundleName':'${bundlename}','bundleVersion':'${
 
 
     <!-- Zip everything  -->
-     <zip destfile="${dist}/${filename}-${bundleversion}${build.number}${appendix}.lex">
+     <zip destfile="${dist}/${filename}-${bundleversion}.lex">
         <zipfileset dir="${dist}/extension"/>
     </zip>
 		
@@ -174,8 +142,9 @@ resource: "[{'class':'${class}','bundleName':'${bundlename}','bundleVersion':'${
 
 	<target name="clean"  depends="dist" description="clean up" >
 		<!-- Delete the ${build} and ${dist} directory trees -->
-		<delete dir="${build}"/>
-		<delete dir="${temp}"/>
+		<delete dir="${dist}/extension"/>
+    <delete dir="${build}"/>
+    <delete dir="${temp}"/>
 	</target>
 
 </project>
