@@ -35,13 +35,9 @@ jobs:
         path: ~/work/_actions/lucee/script-runner/main/lucee-download-cache
         key: lucee-downloads
     - name: Build and Install with Maven
-        env:
-          MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
-          MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
-          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
-        run: |
-          echo "------- Maven Install -------";
-          mvn -B -e -f pom.xml clean install 
+      run: |
+        echo "------- Maven Install -------";
+        mvn -B -e -f pom.xml clean install 
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
