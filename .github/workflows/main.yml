@@ -1,113 +1,152 @@
-# This workflow will build a Java project with Ant
-# For more information see: https://help.github.com/actions/language-and-framework-guides/building-and-testing-java-with-ant
+name: Java CI Combined
 
-name: Java CI 6.1
+on: [push, pull_request, workflow_dispatch]
 
-on: [push, pull_request,workflow_dispatch]
- 
 jobs:
-  build:
-
+  setup:
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.extract-version.outputs.VERSION }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 11
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '11'
+
+      - name: Cache Maven packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      - name: Extract version number
+        id: extract-version
+        run: |
+          VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+          echo "::set-output name=VERSION::$VERSION"
+
+      - name: Cache Lucee files
+        uses: actions/cache@v4
+        with:
+          path: ~/work/_actions/lucee/script-runner/main/lucee-download-cache
+          key: lucee-downloads
+
+      - name: Import GPG key
+        run: |
+          echo "$GPG_PRIVATE_KEY" | base64 --decode | gpg --batch --import
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+
+  build-and-test:
+    runs-on: ubuntu-latest
+    needs: setup
     env:
-      luceeVersion: light-6.0.0.507-SNAPSHOT
-      luceeVersionQuery: 0/all/light
+      S3_ACCESS_KEY_ID: ${{ secrets.S3_ACCESS_ID_TEST }}
+      S3_SECRET_KEY: ${{ secrets.S3_SECRET_KEY_TEST }}
+      S3_BUCKET_PREFIX: lucee-ldev-e-
+      S3_CUSTOM_ACCESS_KEY_ID: "minioadmin"
+      S3_CUSTOM_SECRET_KEY: "minioadmin"
+      S3_CUSTOM_HOST: "localhost:9000"
+      S3_CUSTOM_BUCKET_PREFIX: lucee-ldev-e-
+      S3_BACKBLAZE_ACCESS_KEY_ID: 005a56c2ce399e70000000001
+      S3_BACKBLAZE_SECRET_KEY: ${{ secrets.S3_BACKBLAZE_SECRET_KEY }}
+      S3_BACKBLAZE_HOST: s3.us-east-005.backblazeb2.com
+      S3_BACKBLAZE_BUCKET_PREFIX: lucee-ldev-e-
+      S3_WASABI_ACCESS_KEY_ID: JM8VC29WSODA1DRT2H4Y
+      S3_WASABI_SECRET_KEY: ${{ secrets.S3_WASABI_SECRET_KEY }}
+      S3_WASABI_HOST: s3.eu-central-1.wasabisys.com
+      S3_WASABI_BUCKET_PREFIX: lucee-ldev-e-
+      S3_GOOGLE_ACCESS_KEY_ID: ${{ secrets.S3_GOOGLE_ACCESS_KEY_ID }}
+      S3_GOOGLE_SECRET_KEY: ${{ secrets.S3_GOOGLE_SECRET_KEY }}
+      S3_GOOGLE_HOST: storage.googleapis.com
+      S3_GOOGLE_BUCKET_PREFIX: lucee-ldev-e-
+    strategy:
+      matrix:
+        lucee: 
+          - { version: 'light-5.4.2.4-SNAPSHOT', query: '5/all/light' }
+          - { version: 'light-6.0.3.1', query: '6.0/all/light' }
+          - { version: 'light-6.0.0.507-SNAPSHOT', query: '0/all/light' }
     services:
       minio:
-       image: fclairamb/minio-github-actions
-       ports:
-        - 9000:9000
+        image: fclairamb/minio-github-actions
+        ports:
+          - 9000:9000
     steps:
-    - uses: actions/checkout@v4
-    - name: Set up JDK 11
-      uses: actions/setup-java@v4
-      with:
-        java-version: '11'
-        distribution: 'adopt'
-    - name: Cache Maven packages
-      uses: actions/cache@v4
-      with:
-        path: ~/.m2
-        key: lucee-s3
-    - name: Cache Lucee files
-      uses: actions/cache@v4
-      with:
-        path: ~/work/_actions/lucee/script-runner/main/lucee-download-cache
-        key: lucee-downloads
-    - name: Build and Install with Maven
-      run: |
-        echo "------- Maven Install -------";
-        mvn -B -e -f pom.xml clean install 
-    - name: Upload Artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: s3-lex
-        path: target/*.lex
-    - name: Checkout Lucee
-      uses: actions/checkout@v4
-      with:
-        repository: lucee/lucee
-        path: lucee
-    - name: Run Lucee Test Suite, labels="s3"
-      uses: lucee/script-runner@main
-      with:
-        webroot: ${{ github.workspace }}/lucee/test
-        execute: /bootstrap-tests.cfm
-        luceeVersion: ${{ env.luceeVersion }}
-        luceeVersionQuery: ${{ env.luceeVersionQuery }}
-        extensionDir: ${{ github.workspace }}/target
-      env:
-        testLabels: s3
-        testAdditional: ${{ github.workspace }}/tests
-        S3_ACCESS_KEY_ID: ${{ secrets.S3_ACCESS_ID_TEST }}
-        S3_SECRET_KEY: ${{ secrets.S3_SECRET_KEY_TEST }}
-        S3_BUCKET_PREFIX: lucee-ldev-e-
-        S3_CUSTOM_ACCESS_KEY_ID: "minioadmin"
-        S3_CUSTOM_SECRET_KEY: "minioadmin"
-        S3_CUSTOM_HOST: "localhost:9000"
-        S3_CUSTOM_BUCKET_PREFIX: lucee-ldev-e-
-        S3_BACKBLAZE_ACCESS_KEY_ID: 005a56c2ce399e70000000001
-        S3_BACKBLAZE_SECRET_KEY: ${{ secrets.S3_BACKBLAZE_SECRET_KEY }}
-        S3_BACKBLAZE_HOST: s3.us-east-005.backblazeb2.com
-        S3_BACKBLAZE_BUCKET_PREFIX: lucee-ldev-e-
-        S3_WASABI_ACCESS_KEY_ID: JM8VC29WSODA1DRT2H4Y
-        S3_WASABI_SECRET_KEY: ${{ secrets.S3_WASABI_SECRET_KEY }}
-        S3_WASABI_HOST: s3.eu-central-1.wasabisys.com
-        S3_WASABI_BUCKET_PREFIX: lucee-ldev-e-
-        S3_GOOGLE_ACCESS_KEY_ID: ${{ secrets.S3_GOOGLE_ACCESS_KEY_ID }}
-        S3_GOOGLE_SECRET_KEY: ${{ secrets.S3_GOOGLE_SECRET_KEY }}
-        S3_GOOGLE_HOST: storage.googleapis.com
-        S3_GOOGLE_BUCKET_PREFIX: lucee-ldev-e-
-    - name: Cache Maven packages
-      uses: actions/cache@v2
-      with:
-        path: ~/.m2
-        key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-        restore-keys: |
-          ${{ runner.os }}-maven-
+      - uses: actions/checkout@v4
 
-    - name: Extract version number
-      id: extract-version
-      run: |
-        VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
-        echo "VERSION=$VERSION" >> $GITHUB_ENV
+      - name: Set up JDK 11
+        uses: actions/setup-java@v4
+        with:
+          java-version: '11'
+          distribution: 'adopt'
 
-    - name: Import GPG key
-      run: |
-        echo "$GPG_PRIVATE_KEY" | base64 --decode | gpg --batch --import
-      env:
-        GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+      - name: Build and Install with Maven
+        run: |
+          echo "------- Maven Install -------";
+          mvn -B -e -f pom.xml clean install
 
-    - name: Build and Deploy with Maven
-      env:
-        MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
-        MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
-        GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
-      run: |
-        if [[ "$VERSION" == *-SNAPSHOT ]]; then
-          echo "------- Maven Deploy snapshot on ${{ github.event_name }} -------";
-          mvn -B -e -f pom.xml clean deploy --settings maven-settings.xml
-        else
-          echo "------- Maven Deploy release on ${{ github.event_name }} -------";
-          mvn -B -e -f pom.xml clean deploy -DperformRelease=true --settings maven-settings.xml
-        fi
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: s3-lex
+          path: target/*.lex
+
+      - name: Checkout Lucee
+        uses: actions/checkout@v4
+        with:
+          repository: lucee/lucee
+          path: lucee
+
+      - name: Run Lucee Test Suite
+        uses: lucee/script-runner@main
+        with:
+          webroot: ${{ github.workspace }}/lucee/test
+          execute: /bootstrap-tests.cfm
+          luceeVersion: ${{ matrix.lucee.version }}
+          luceeVersionQuery: ${{ matrix.lucee.query }}
+          extensionDir: ${{ github.workspace }}/target
+        env:
+          testLabels: s3
+          testAdditional: ${{ github.workspace }}/tests
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [build-and-test]
+    if: needs.build-and-test.result == 'success'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 11
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '11'
+
+      - name: Cache Maven packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      - name: Build and Deploy with Maven
+        env:
+          MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
+          MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: |
+          if [[ "${{ needs.setup.outputs.version }}" == *-SNAPSHOT ]]; then
+            echo "------- Maven Deploy snapshot on ${{ github.event_name }} -------";
+            mvn -B -e -f pom.xml clean deploy --settings maven-settings.xml
+          else
+            echo "------- Maven Deploy release on ${{ github.event_name }} -------";
+            mvn -B -e -f pom.xml clean deploy -DperformRelease=true --settings maven-settings.xml
+          fi
