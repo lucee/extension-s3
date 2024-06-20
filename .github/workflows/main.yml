@@ -42,7 +42,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: s3-lex
-        path: dist/*.lex
+        path: target/*.lex
     - name: Checkout Lucee
       uses: actions/checkout@v4
       with:
@@ -55,7 +55,7 @@ jobs:
         execute: /bootstrap-tests.cfm
         luceeVersion: ${{ env.luceeVersion }}
         luceeVersionQuery: ${{ env.luceeVersionQuery }}
-        extensionDir: ${{ github.workspace }}/dist
+        extensionDir: ${{ github.workspace }}/target
       env:
         testLabels: s3
         testAdditional: ${{ github.workspace }}/tests
