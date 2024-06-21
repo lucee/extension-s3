@@ -10,7 +10,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 					,accessKeyId:cred.ACCESS_KEY_ID
 					,secretAccessKey:cred.SECRET_KEY
 				);
-				assertEquals("http://bundle-downloadx.s3.us-west-1.amazonaws.com/sentry-log4j-1.7.22.jar", res);
+				assertEquals("http://bundle-downloadx.s3.us-east-1.amazonaws.com/sentry-log4j-1.7.22.jar", res);
 			});			
 			it(title="checking function with type path",skip=isNotSupported(), body = function( currentSpec ) {
 				var cred=Util::getAWSCredentials();
@@ -21,7 +21,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 					,accessKeyId:cred.ACCESS_KEY_ID
 					,secretAccessKey:cred.SECRET_KEY
 				);
-				assertEquals("https://s3.us-west-1.amazonaws.com/bundle-downloadx/sentry-log4j-1.7.22.jar", res);
+				assertEquals("https://s3.us-east-1.amazonaws.com/bundle-downloadx/sentry-log4j-1.7.22.jar", res);
 			});				
 			it(title="checking function with type arn",skip=isNotSupported(), body = function( currentSpec ) {
 				var cred=Util::getAWSCredentials();
