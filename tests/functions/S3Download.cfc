@@ -7,7 +7,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 			var objectName="sub/test.txt";
 			var content="Susi
 Sorglos";
-			throw  (server.system.environment.S3_AMAZON_ACCESS_KEY_ID?:"undefined")& structKeyList(cred?:{})&"->"&isNUll(cred.ACCESS_KEY_ID)&"->"&len(cred.ACCESS_KEY_ID?:"");
+throw  (server.system.environment.S3_AMAZON_ACCESS_KEY_ID?:"undefined")& structKeyList(server.system.environment?:{})&"->"&isNUll(cred.ACCESS_KEY_ID)&"->"&len(cred.ACCESS_KEY_ID?:"");
 			if(!S3Exists( 
 				bucketName=bucketName,  objectName=objectName, 
 				accessKeyId=cred.ACCESS_KEY_ID, secretAccessKey=cred.SECRET_KEY, host=(isNull(cred.HOST)?nullvalue():cred.HOST))) {
