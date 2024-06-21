@@ -8,12 +8,12 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 			var content="Susi
 Sorglos";
 			if(!S3Exists( 
-				bucketName:bucketName,  objectName:objectName, 
-				accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST))) {
+				bucketName=bucketName,  objectName=objectName, 
+				accessKeyId=cred.ACCESS_KEY_ID, secretAccessKey=cred.SECRET_KEY, host=(isNull(cred.HOST)?nullvalue():cred.HOST))) {
 				S3Write( 
-					value:content,
-					bucketName:bucketName,  objectName:objectName, 
-					accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST));
+					value=content,
+					bucketName=bucketName,  objectName=objectName, 
+					accessKeyId=cred.ACCESS_KEY_ID, secretAccessKey=cred.SECRET_KEY, host=(isNull(cred.HOST)?nullvalue():cred.HOST));
 			}
 			
 			it(title="download as binary", body = function( currentSpec ) {
