@@ -40,7 +40,7 @@ component  {
 		if(isNull(SECRET_KEY) || isEmpty(SECRET_KEY)) return {};
 		
 		var PREFIX=server.system.environment.S3_BUCKET_PREFIX?:nullValue();
-		if(isNull(PREFIX) || isEmpty(PREFIX)) return {};
+		if(isNull(PREFIX) || isEmpty(PREFIX)) local.prefix="ldev";
 
 		return {ACCESS_KEY_ID:ACCESS_KEY_ID,SECRET_KEY:SECRET_KEY,PREFIX:PREFIX};
 	}
