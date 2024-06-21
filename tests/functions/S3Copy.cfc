@@ -24,8 +24,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 	private function testit(cred,region) {
 		try {
 			// create variables
-			var srcBucketName=cred.PREFIX&"src-filecopy"&listFirst(replace(server.lucee.version,".","","all"),"-");
-			var trgBucketName=cred.PREFIX&"trg-filecopy"&listFirst(replace(server.lucee.version,".","","all"),"-");
+			var srcBucketName=cred.PREFIX&"src-filecopy"&listFirst(replace(server.lucee.version,".","","all"),"-")&"-"&createUniqueId();
+			var trgBucketName=cred.PREFIX&"trg-filecopy"&listFirst(replace(server.lucee.version,".","","all"),"-")&"-"&createUniqueId();
 			var srcObjectName="src/test.txt";
 			var trgObjectName="trg/test.txt";
 			

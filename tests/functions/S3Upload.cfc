@@ -31,7 +31,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 
 		try {
 			// create variables
-			var bucketName=cred.PREFIX&"-upload"&listFirst(replace(server.lucee.version,".","","all"),"-");
+			var bucketName=cred.PREFIX&"-upload"&listFirst(replace(server.lucee.version,".","","all"),"-")&"-"&createUniqueId();
 			var objectNameFile1="sub/file1.txt";
 			var objectNameFile2="sub/file2.txt";
 			

@@ -62,7 +62,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 	private function testCFC(cred) {
 		try {
 			// create variables
-			var bucketName=cred.PREFIX&"-list-bucket-"&listFirst(replace(server.lucee.version,".","","all"),"-");
+			var bucketName=cred.PREFIX&"-list-bucket-"&listFirst(replace(server.lucee.version,".","","all"),"-")&"-"&createUniqueId();
 			var objectNames=["sub/test1.txt","sub/test2.txt","sub/test3.txt","sub/test4.txt","sub/test5.txt"];
 			
 			// create empty bucket
@@ -106,7 +106,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 	private function testUDF(cred) {
 		try {
 			// create variables
-			var bucketName=cred.PREFIX&"-list-bucket-"&listFirst(replace(server.lucee.version,".","","all"),"-");
+			var bucketName=cred.PREFIX&"-list-bucket-"&listFirst(replace(server.lucee.version,".","","all"),"-")&"-"&createUniqueId();
 			var objectNames=["sub/test1.txt","sub/test2.txt","sub/test3.txt","sub/test4.txt","sub/test5.txt"];
 			
 			// create empty bucket
