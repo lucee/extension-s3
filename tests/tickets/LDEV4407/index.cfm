@@ -1,16 +1,8 @@
 <cfscript>
-	private struct function getCredentials() {
-		var ACCESS_KEY_ID=server.system.environment.S3_ACCESS_ID_TEST?:nullValue();
-		if(isNull(ACCESS_KEY_ID) || isEmpty(ACCESS_KEY_ID)) return {};
-		var SECRET_KEY=server.system.environment.S3_SECRET_KEY_TEST?:nullValue();
-		if(isNull(SECRET_KEY) || isEmpty(SECRET_KEY)) return {};
-
-		return {ACCESS_KEY_ID:ACCESS_KEY_ID,SECRET_KEY:SECRET_KEY};
-	}
 
 
 	function test() {
-		var props  = getCredentials();	
+		var props  = Util::getAWSCredentials();	
 		var id="b"&lcase(left(replace(createUUID(),"-","","all"),10));
 		var  dir="s3://#props.ACCESS_KEY_ID#:#props.SECRET_KEY#@/"&id&"/";
 		var  file=dir&"test.txt";

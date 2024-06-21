@@ -2,7 +2,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 	function run( testResults , testBox ) {
 		describe( title="Test suite for S3GenerateURI()", body=function() {
 			it(title="checking function with type virtualhost",skip=isNotSupported(), body = function( currentSpec ) {
-				var cred=getCredentials();
+				var cred=Util::getAWSCredentials();
 				var  res=S3GenerateURI(
 					path:"s3:///bundle-download/sentry-log4j-1.7.22.jar"
 					,type:"virtualhost"
@@ -13,7 +13,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 				assertEquals("http://bundle-download.s3.eu-west-1.amazonaws.com/sentry-log4j-1.7.22.jar", res);
 			});			
 			it(title="checking function with type path",skip=isNotSupported(), body = function( currentSpec ) {
-				var cred=getCredentials();
+				var cred=Util::getAWSCredentials();
 				var  res=S3GenerateURI(
 					bucketName:"bundle-download"
 					,objectName:"sentry-log4j-1.7.22.jar"
@@ -24,7 +24,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 				assertEquals("https://s3.eu-west-1.amazonaws.com/bundle-download/sentry-log4j-1.7.22.jar", res);
 			});				
 			it(title="checking function with type arn",skip=isNotSupported(), body = function( currentSpec ) {
-				var cred=getCredentials();
+				var cred=Util::getAWSCredentials();
 				var  res=S3GenerateURI(
 					bucketName:"bundle-download"
 					,objectName:"sentry-log4j-1.7.22.jar"
@@ -35,7 +35,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 				assertEquals("arn:aws:s3:::bundle-download/sentry-log4j-1.7.22.jar", res);
 			});					
 			it(title="checking function with type arn",skip=isNotSupported(), body = function( currentSpec ) {
-				var cred=getCredentials();
+				var cred=Util::getAWSCredentials();
 				var  res=S3GenerateURI(
 					bucketName:"bundle-download"
 					,objectName:"sentry-log4j-1.7.22.jar"

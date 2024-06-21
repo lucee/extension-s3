@@ -17,17 +17,10 @@
  *
  ---><cfscript>
 component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
-	//public function beforeTests(){}
 
-	//public function afterTests(){}
-
-
-	private struct function getCredentials() {
-		return server.getTestService("s3");
-	}
 
 	public function setUp(){
-		var s3=getCredentials();
+		var s3=Util::getAWSCredentials();
 		if(!isNull(s3.ACCESS_KEY_ID)) {
 			application action="update" s3={
 				accessKeyId: s3.ACCESS_KEY_ID,
@@ -66,7 +59,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 	}
 
 	private string function getTestBucketUrl() localmode=true {
-		s3Details = getCredentials();
+		s3Details = Util::getAWSCredentials();
 		bucketName = server.getTestService("s3").bucket_prefix & Util::createBucketName("get-meta-data");
 		return "s3://#s3Details.ACCESS_KEY_ID#:#s3Details.SECRET_KEY#@/#bucketName#";
 	}
