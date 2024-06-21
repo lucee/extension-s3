@@ -71,7 +71,7 @@ jobs:
         lucee: 
           - { version: 'light-5.4.6.9', query: '5/all/light' }
           - { version: 'light-6.0.3.1', query: '6.0/all/light' }
-          - { version: 'light-6.1.0.193-RC', query: '6.1/all/light' }
+#          - { version: 'light-6.1.0.193-RC', query: '6.1/all/light' }
     services:
       minio:
         image: fclairamb/minio-github-actions
