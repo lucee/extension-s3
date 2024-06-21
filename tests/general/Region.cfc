@@ -37,8 +37,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 				);
 
 				// if it has a dot it should not start with http://bundle.download.s3.amazonaws.com
-
-				assert(res.startsWith("http://s3.amazonaws.com/bundle.download"));
+				assertEquals("http://s3.amazonaws.com/bundle.download", res);
 			});
 		});
 	}

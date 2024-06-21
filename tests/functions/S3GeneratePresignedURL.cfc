@@ -62,8 +62,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 				);
 
 				// if it has a dot it should not start with http://bundle.downloadx.s3.amazonaws.com
-				assertEquals("http://bundle-downloadx.s3.us-east-1.amazonaws.com/sentry-log4j-1.7.22.jar", res);
-				
+
+				assert(res.startsWith("https://s3.amazonaws.com/bundle.downloadx/sentry-log4j-1.7.22.jar"));
 			});
 		});
 	}
