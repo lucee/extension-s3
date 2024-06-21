@@ -4,7 +4,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 			it(title="checking function with a path", skip=isNotSupported(), body = function( currentSpec ) {
 				var cred=Util::getAWSCredentials();
 				var  res=S3GeneratePresignedURL(
-					path:"s3:///bundle-download/sentry-log4j-1.7.22.jar"
+					path:"s3:///bundle-downloadx/sentry-log4j-1.7.22.jar"
 					,expire:dateAdd("n", 5, now())
 					,accessKeyId:cred.ACCESS_KEY_ID
 					,secretAccessKey:cred.SECRET_KEY
@@ -15,7 +15,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 			it(title="checking function with a bucketname/objectname",skip=isNotSupported(), body = function( currentSpec ) {
 				var cred=Util::getAWSCredentials();
 				var  res=S3GeneratePresignedURL(
-					bucketName:"bundle-download"
+					bucketName:"bundle-downloadx"
 					,objectName:"sentry-log4j-1.7.22.jar"
 					,expire:dateAdd("n", 5, now())
 					,accessKeyId:cred.ACCESS_KEY_ID
@@ -29,7 +29,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 			it( title="should handle dots in bucket names ",skip=isNotSupported(), body=function(currentSpec){
 				var cred=Util::getAWSCredentials();
 				var res = S3GeneratePresignedURL(
-					bucketName:"bundle.download"
+					bucketName:"bundle-downloadx"
 					,objectName:"sentry-log4j-1.7.22.jar"
 					,expire:dateAdd("n", 5, now())
 					,accessKeyId:cred.ACCESS_KEY_ID
