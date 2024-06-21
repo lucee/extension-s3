@@ -27,8 +27,8 @@ component  {
 
 
 	public static boolean function isAWSNotSupported() {
-		res= getAWSCredentials();
-		return isNull(res) || len(res)==0;
+		var res= getAWSCredentials();
+		return isNull(res) || len(res)<2;
 	}
 	public static struct function getAWSCredentials() {
 		var ACCESS_KEY_ID=server.system.environment.S3_AMAZON_ACCESS_KEY_ID?:nullValue();
