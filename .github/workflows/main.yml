@@ -47,9 +47,12 @@ jobs:
     runs-on: ubuntu-latest
     needs: setup
     env:
-      S3_ACCESS_KEY_ID: ${{ secrets.S3_ACCESS_ID_TEST }}
-      S3_SECRET_KEY: ${{ secrets.S3_SECRET_KEY_TEST }}
+      S3_ACCESS_KEY_ID: ${{ secrets.S3_AMAZON_ACCESS_KEY_ID }}
+      S3_SECRET_KEY: ${{ secrets.S3_AMAZON_SECRET_KEY }}
       S3_BUCKET_PREFIX: lucee-ldev-e-
+      S3_AMAZON_ACCESS_KEY_ID: ${{ secrets.S3_AMAZON_ACCESS_KEY_ID }}
+      S3_AMAZON_SECRET_KEY: ${{ secrets.S3_AMAZON_SECRET_KEY }}
+      S3_AMAZON_BUCKET_PREFIX: lucee-ldev-e-
       S3_CUSTOM_ACCESS_KEY_ID: "minioadmin"
       S3_CUSTOM_SECRET_KEY: "minioadmin"
       S3_CUSTOM_HOST: "localhost:9000"

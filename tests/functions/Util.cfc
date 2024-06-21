@@ -39,7 +39,7 @@ component  {
 		var SECRET_KEY=server.system.environment.S3_AMAZON_SECRET_KEY?:nullValue();
 		if(isNull(SECRET_KEY) || isEmpty(SECRET_KEY)) return {};
 		
-		var PREFIX=server.system.environment.S3_BUCKET_PREFIX?:nullValue();
+		var PREFIX=server.system.environment.S3_AMAZON_BUCKET_PREFIX?:nullValue();
 		if(isNull(PREFIX) || isEmpty(PREFIX)) local.prefix="ldev";
 
 		return {ACCESS_KEY_ID:ACCESS_KEY_ID,SECRET_KEY:SECRET_KEY,PREFIX:PREFIX};
