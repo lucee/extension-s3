@@ -32,7 +32,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 	private function testit(cred) {
 		try {
 			// create variables
-			var bucketName=cred.PREFIX&"-list-bucket-"&listFirst(replace(server.lucee.version,".","","all"),"-");
+			var bucketName=cred.PREFIX&"-list-bucket-"&listFirst(replace(server.lucee.version,".","","all"),"-")&"-"&createUniqueId();
 			var objectName="sub/test.txt";
 			
 			Util::deleteIfExists(cred,bucketName,objectName);
@@ -45,7 +45,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 				S3Write( 
 					value:"Susi Sorglos",
 					bucketName:bucketName,  objectName:objectName, 
-					accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST));
+					accessKeyId=cred.ACCESS_KEY_ID, secretAccessKey=cred.SECRET_KEY, host= ( isNull(cred.HOST) ? nullvalue() : cred.HOST ) );
 			}
 
 			var kids=S3ListBucket(bucketName:bucketName, accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY,host:(isNull(cred.HOST)?nullvalue():cred.HOST));
