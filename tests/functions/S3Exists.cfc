@@ -24,7 +24,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 	private function testit(cred) {
 		try {
 			// create variables
-			var bucketName=cred.PREFIX&"-exists"&listFirst(replace(server.lucee.version,".","","all"),"-")&"-"&createUniqueId();
+			var bucketName=Util::createBucketName("exists");
 			var objectName="sub/test.txt";
 			
 			Util::deleteIfExists(cred,bucketName,objectName);

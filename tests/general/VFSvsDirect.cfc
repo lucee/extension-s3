@@ -67,7 +67,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 		// setup env for VFS access
 		setup(cred);
 		
-		var bucketName=cred.PREFIXVersion&"vfs-vs-direct-exists"&getTickCount();
+		var bucketName=Util::createBucketName("vfs-vs-direct-exists");
 		var objectName="test.txt";
 		var path="s3://#bucketName#/#objectName#"; 
 		var pathWithCred="s3://#cred.ACCESS_KEY_ID#:#cred.SECRET_KEY#@";

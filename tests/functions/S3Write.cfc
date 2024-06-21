@@ -29,7 +29,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 
 		try {
 			// create variables
-			var bucketName=cred.PREFIX&"-write"&listFirst(replace(server.lucee.version,".","","all"),"-")&"-"&createUniqueId();
+			var bucketName=Util::createBucketName("write");
 			var objectNameString="sub/string.txt";
 			var objectNameFile="sub/file.txt";
 			

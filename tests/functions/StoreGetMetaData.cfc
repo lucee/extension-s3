@@ -67,7 +67,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 
 	private string function getTestBucketUrl() localmode=true {
 		s3Details = getCredentials();
-		bucketName = server.getTestService("s3").bucket_prefix & lcase("metadata2-#lcase(hash(CreateGUID()))#");
+		bucketName = server.getTestService("s3").bucket_prefix & Util::createBucketName("get-meta-data");
 		return "s3://#s3Details.ACCESS_KEY_ID#:#s3Details.SECRET_KEY#@/#bucketName#";
 	}
 

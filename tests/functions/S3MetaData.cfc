@@ -50,7 +50,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 
 	private function testit(cred) localMode=true {
 		setUp(cred);
-		var bucketName="#server.getTestService("s3").bucket_prefix#metadata-#listFirst(replace(server.lucee.version,".","","all"),"-")#"&"-"&createUniqueId();
+		var bucketName=Util::createBucketName("metadata");
 		var objectName="object";
 		var dir="s3://#bucketName#/#objectName#/";
 		if(DirectoryExists(dir)) directoryDelete(dir,true);

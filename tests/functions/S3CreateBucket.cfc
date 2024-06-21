@@ -25,7 +25,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 
 		try {
 			// create variables
-			var bucketName=cred.PREFIX&"-create-bucket"&listFirst(replace(server.lucee.version,".","","all"),"-")&"-"&createUniqueId();
+			var bucketName=Util::createBucketName("create-bucket");
 			
 			Util::deleteIfExists(cred,bucketName);
 			

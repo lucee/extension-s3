@@ -3,7 +3,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 		describe( title="Test suite for S3Download()",skip=Util::isAWSNotSupported(), body=function() {
 			
 			var cred=Util::getAWSCredentials();
-			var bucketName=cred.PREFIX&"-download"&listFirst(replace(server.lucee.version,".","","all"),"-")&"-"&createUniqueId();
+			var bucketName=Util::createBucketName("download");
 			var objectName="sub/test.txt";
 			var content="Susi
 Sorglos";

@@ -3,7 +3,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 		
 		describe( title="Test suite for big buckets",skip=Util::isAWSNotSupported(), body=function() {
 			var cred=Util::getAWSCredentials()
-			var bucketName=cred.PREFIX&"-big"&listFirst(replace(server.lucee.version,".","","all"),"-");
+			var bucketName=Util::createBucketName("big");
 			
 			// does the bucket exists?
 			if(!S3Exists( 

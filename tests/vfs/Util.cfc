@@ -1,5 +1,8 @@
 component  {
 	
+	static function createBucketName(name) {
+		return "ldev-"&lcase(name)&"-"&listFirst(replace(server.lucee.version,".","","all"),"-")&"-"&lcase(left(createUniqueId(),5));
+	}
 	static function deleteBucketEL(cred,bucketName,objectName) {
 		try {
 			if(S3Exists( 
