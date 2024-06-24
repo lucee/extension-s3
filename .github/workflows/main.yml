@@ -69,12 +69,10 @@ jobs:
       S3_GOOGLE_SECRET_KEY: ${{ secrets.S3_GOOGLE_SECRET_KEY }}
       S3_GOOGLE_HOST: storage.googleapis.com
       S3_GOOGLE_BUCKET_PREFIX: lucee-ldev-e-
+      LUCEE_VERSIONS: ${{ vars.LUCEE_VERSIONS }}
     strategy:
       matrix:
-        lucee: 
-          - { version: 'light-5.4.6.9', query: '5/all/light' }
-          - { version: 'light-6.0.3.1', query: '6.0/all/light' }
-          - { version: 'light-6.1.0.206-SNAPSHOT', query: '6.1/all/light' }
+        lucee: ${{ fromJSON(vars.LUCEE_VERSIONS) }}
     services:
       minio:
         image: fclairamb/minio-github-actions

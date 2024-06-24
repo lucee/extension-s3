@@ -4,7 +4,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.lucee</groupId>
     <artifactId>s3-extension</artifactId>
-    <version>2.0.2.18-RC</version>
+    <version>2.0.2.18-SNAPSHOT</version>
     <packaging>pom</packaging>
     <name>S3 Extension</name>
 
@@ -63,7 +63,7 @@
     </developers>
 
     <description>Core Extension to integrate Amazon Simple Storage Service (S3) Resource into Lucee.</description>
-    <url>https://github.com/lucee/extension-kinesis</url>
+    <url>https://github.com/lucee/extension-s3</url>
 
     <profiles>
         <profile>
