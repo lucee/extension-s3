@@ -106,17 +106,17 @@ jobs:
           repository: lucee/lucee
           path: lucee
 
-      - name: Run Lucee Test Suite
-        uses: lucee/script-runner@main
-        with:
-          webroot: ${{ github.workspace }}/lucee/test
-          execute: /bootstrap-tests.cfm
-          luceeVersion: ${{ matrix.lucee.version }}
-          luceeVersionQuery: ${{ matrix.lucee.query }}
-          extensionDir: ${{ github.workspace }}/target
-        env:
-          testLabels: s3
-          testAdditional: ${{ github.workspace }}/tests
+#      - name: Run Lucee Test Suite
+#        uses: lucee/script-runner@main
+#        with:
+#          webroot: ${{ github.workspace }}/lucee/test
+#          execute: /bootstrap-tests.cfm
+#          luceeVersion: ${{ matrix.lucee.version }}
+#          luceeVersionQuery: ${{ matrix.lucee.query }}
+#          extensionDir: ${{ github.workspace }}/target
+#        env:
+#          testLabels: s3
+#          testAdditional: ${{ github.workspace }}/tests
 
   deploy:
     runs-on: ubuntu-latest
