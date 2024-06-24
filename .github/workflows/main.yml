@@ -140,6 +140,12 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-maven-
 
+      - name: Import GPG key
+        run: |
+          echo "$GPG_PRIVATE_KEY" | base64 --decode | gpg --batch --import
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+
       - name: Build and Deploy with Maven
         env:
           MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
