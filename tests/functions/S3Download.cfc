@@ -35,10 +35,6 @@ Sorglos";
 				assertTrue(isBinary(data));
 				assertEquals(len(data),12);
 				assertEquals(toString(data), content);
-				}
-		finally {
-			Util::deleteBucketEL(cred,bucketName);
-		}
 			});	
 			
 			it(title="download as string", body = function( currentSpec ) {
