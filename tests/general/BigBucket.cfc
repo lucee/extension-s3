@@ -8,10 +8,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 			    var bucketName = Util::createBucketName("big");
 				var cred = Util::getAWSCredentials();
 				try {
-					
-
-
-								// does the bucket exists?
+					// does the bucket exists?
 					if(!S3Exists( 
 						bucketName:bucketName, 
 						accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST))) {
@@ -37,8 +34,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 								accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST));
 						}
 					}
-
-					arguments.spec.body();
+					arguments.spec.body({bucketName:bucketName,cred:cred});
 				}	
 				finally {
 					Util::deleteBucketEL(cred,bucketName);
@@ -48,6 +44,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 
 
 			it(title="checking with S3ListBucket", skip=Util::isAWSNotSupported(), body = function( currentSpec ) {
+				var cred=currentSpec.cred;
+				var bucketName=currentSpec.bucketName;
 				var cred=Util::getAWSCredentials()
 			
 				if(records==0){
@@ -65,6 +63,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 
 
 			it(title="checking with S3Exists", skip=Util::isAWSNotSupported(), body = function( currentSpec ) {
+				var cred=currentSpec.cred;
+				var bucketName=currentSpec.bucketName;
 				var cred=Util::getAWSCredentials()
 			
 				var executionTime=getTickCount();

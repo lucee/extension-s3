@@ -21,7 +21,7 @@ Sorglos";
 							bucketName=bucketName,  objectName=objectName, 
 							accessKeyId=cred.ACCESS_KEY_ID, secretAccessKey=cred.SECRET_KEY, host=(isNull(cred.HOST)?nullvalue():cred.HOST));
 					}
-					arguments.spec.body();
+					arguments.spec.body({bucketName:bucketName,cred:cred});
 				}	
 				finally {
 					Util::deleteBucketEL(cred,bucketName);
@@ -30,6 +30,8 @@ Sorglos";
 
 			
 			it(title="download as binary", body = function( currentSpec ) {
+				var cred=currentSpec.cred;
+				var bucketName=currentSpec.bucketName;
 				createBucket(cred,bucketName);
 				var data=s3Download(bucket:bucketName,object:objectName,accessKeyId:cred.ACCESS_KEY_ID,secretAccessKey:cred.SECRET_KEY);
 				assertTrue(isBinary(data));
@@ -38,6 +40,8 @@ Sorglos";
 			});	
 			
 			it(title="download as string", body = function( currentSpec ) {
+				var cred=currentSpec.cred;
+				var bucketName=currentSpec.bucketName;
 				var data=s3Download(bucket:bucketName,object:objectName,charset:"UTF-8",accessKeyId:cred.ACCESS_KEY_ID,secretAccessKey:cred.SECRET_KEY);
 				assertTrue(isSimpleValue(data));
 				assertEquals(len(data),12);
@@ -46,6 +50,8 @@ Sorglos";
 
 //////// FILE ///////////		
 			it(title="download to file (fileOpen)", body = function( currentSpec ) {
+				var cred=currentSpec.cred;
+				var bucketName=currentSpec.bucketName;
 				var target=getDirectoryFromPath(getCurrentTemplatePath())&"temp.txt";
 				try {
 					s3Download(bucket:bucketName,object:objectName,target:fileOpen(target,"write"),accessKeyId:cred.ACCESS_KEY_ID,secretAccessKey:cred.SECRET_KEY);
@@ -61,6 +67,8 @@ Sorglos";
 
 				
 			it(title="download to file (string path)", body = function( currentSpec ) {
+				var cred=currentSpec.cred;
+				var bucketName=currentSpec.bucketName;
 				var target=getDirectoryFromPath(getCurrentTemplatePath())&"temp.txt";
 				try {
 					s3Download(bucket:bucketName,object:objectName,target:target,accessKeyId:cred.ACCESS_KEY_ID,secretAccessKey:cred.SECRET_KEY);
@@ -76,6 +84,8 @@ Sorglos";
 
 //////// UDF ///////////
 			it(title="download to UDF:line", body = function( currentSpec ) {
+				var cred=currentSpec.cred;
+				var bucketName=currentSpec.bucketName;
 				var data="";
 				s3Download(bucket:bucketName,object:objectName,target:function(line){
 					data&=line;
@@ -88,6 +98,8 @@ Sorglos";
 			});	
 
 			it(title="download to UDF:line with charset", body = function( currentSpec ) {
+				var cred=currentSpec.cred;
+				var bucketName=currentSpec.bucketName;
 				var data="";
 				s3Download(bucket:bucketName,object:objectName,charset:"UTF-8",target:function(line){
 					data&=line;
@@ -100,6 +112,8 @@ Sorglos";
 			});	
 
 			it(title="download to UDF:line with charset", body = function( currentSpec ) {
+				var cred=currentSpec.cred;
+				var bucketName=currentSpec.bucketName;
 				var data="";
 				s3Download(bucket:bucketName,object:objectName,charset:"UTF-8",target:function(string4){
 					data&=string4&":"&len(string4)&";";
@@ -113,6 +127,8 @@ Sor:4;glos:4;");
 			});	
 
 			it(title="download to UDF:string with charset", body = function( currentSpec ) {
+				var cred=currentSpec.cred;
+				var bucketName=currentSpec.bucketName;
 				var data="";
 				s3Download(bucket:bucketName,object:objectName,charset:"UTF-8",target:function(string4){
 					data&=string4&":"&len(string4)&";";
@@ -126,6 +142,8 @@ Sor:4;glos:4;");
 			});	
 
 			it(title="download to UDF:binary", body = function( currentSpec ) {
+				var cred=currentSpec.cred;
+				var bucketName=currentSpec.bucketName;
 				var data="";
 				s3Download(bucket:bucketName,object:objectName,charset:"UTF-8",target:function(binary5){
 					data&=len(binary5)&";";
@@ -141,6 +159,8 @@ Sor:4;glos:4;");
 
 //////// COMPONENT ///////////
 			it(title="download to component:line", body = function( currentSpec ) {
+				var cred=currentSpec.cred;
+				var bucketName=currentSpec.bucketName;
 				var listener=new LineListener();
 				s3Download(bucket:bucketName,object:objectName,target:listener,accessKeyId:cred.ACCESS_KEY_ID,secretAccessKey:cred.SECRET_KEY);
 				var data=listener.getData();
@@ -150,6 +170,8 @@ Sor:4;glos:4;");
 			});	
 
 			it(title="download to component:line with charset", body = function( currentSpec ) {
+				var cred=currentSpec.cred;
+				var bucketName=currentSpec.bucketName;
 				var listener=new LineListener();
 				s3Download(bucket:bucketName,object:objectName,charset:"UTF-8",target:listener,accessKeyId:cred.ACCESS_KEY_ID,secretAccessKey:cred.SECRET_KEY);
 				var data=listener.getData();
@@ -159,6 +181,8 @@ Sor:4;glos:4;");
 			});	
 
 			it(title="download to component:string with charset", body = function( currentSpec ) {
+				var cred=currentSpec.cred;
+				var bucketName=currentSpec.bucketName;
 				var listener=new StringListener();
 				s3Download(bucket:bucketName,object:objectName,charset:"UTF-8",target:listener,accessKeyId:cred.ACCESS_KEY_ID,secretAccessKey:cred.SECRET_KEY);
 				var data=listener.getData();
@@ -167,6 +191,8 @@ Sor:4;glos:4;");
 			});	
 
 			it(title="download to component:binary", body = function( currentSpec ) {
+				var cred=currentSpec.cred;
+				var bucketName=currentSpec.bucketName;
 				var listener=new BinaryListener();
 				s3Download(bucket:bucketName,object:objectName,target:listener,accessKeyId:cred.ACCESS_KEY_ID,secretAccessKey:cred.SECRET_KEY);
 				var data=listener.getData();
