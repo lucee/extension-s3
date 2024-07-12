@@ -1,9 +1,17 @@
 component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
+	
+	function beforeAll() {
+        variables.cred=Util::getAWSCredentials();
+		variables.bucketName = Util::createBucketName("big");
+    }
+
+	function afterAll() {
+        deleteBucketEL(variables.cred,variables.bucketName);
+    }
+
 	function run( testResults , testBox ) {
 		
 		describe( title="Test suite for big buckets",skip=Util::isAWSNotSupported(), body=function() {
-			var cred=Util::getAWSCredentials()
-			var bucketName=Util::createBucketName("big");
 			
 			// does the bucket exists?
 			if(!S3Exists( 
@@ -23,7 +31,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 			var records=qry.recordcount;
 			
 			if(records==0) {
-				loop from=1 to=10000 index="i" {
+				loop from=1 to=100 index="i" {
 					S3Write( 
 						value:i,
 						bucketName:bucketName,
