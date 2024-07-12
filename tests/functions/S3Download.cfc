@@ -167,7 +167,7 @@ Sor:4;glos:4;");
 
 		}
 		finally {
-			deleteBucketEL(cred,bucketName);
+			Util::deleteBucketEL(cred,bucketName);
 		}
 			
 		});
