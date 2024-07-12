@@ -1,31 +1,44 @@
 component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 	
 
+
+
 	function run( testResults , testBox ) {
 		describe( title="Test suite for S3Download()",skip=Util::isAWSNotSupported(), body=function() {
-			var cred = Util::getAWSCredentials();
-			var bucketName = Util::createBucketName("download");
 			var objectName="sub/test.txt";
 			var content="Susi
 Sorglos";
-		
-		try {
+			
+			aroundEach( function( spec, suite ){
+			    var bucketName = Util::createBucketName("download");
+				var cred = Util::getAWSCredentials();
+				try {
+					if(!S3Exists( 
+						bucketName=bucketName,  objectName=objectName, 
+						accessKeyId=cred.ACCESS_KEY_ID, secretAccessKey=cred.SECRET_KEY, host=(isNull(cred.HOST)?nullvalue():cred.HOST))) {
+						S3Write( 
+							value=content,
+							bucketName=bucketName,  objectName=objectName, 
+							accessKeyId=cred.ACCESS_KEY_ID, secretAccessKey=cred.SECRET_KEY, host=(isNull(cred.HOST)?nullvalue():cred.HOST));
+					}
+					arguments.spec.body();
+				}	
+				finally {
+					Util::deleteBucketEL(cred,bucketName);
+				}
+			});
 
-
-			if(!S3Exists( 
-				bucketName=bucketName,  objectName=objectName, 
-				accessKeyId=cred.ACCESS_KEY_ID, secretAccessKey=cred.SECRET_KEY, host=(isNull(cred.HOST)?nullvalue():cred.HOST))) {
-				S3Write( 
-					value=content,
-					bucketName=bucketName,  objectName=objectName, 
-					accessKeyId=cred.ACCESS_KEY_ID, secretAccessKey=cred.SECRET_KEY, host=(isNull(cred.HOST)?nullvalue():cred.HOST));
-			}
 			
 			it(title="download as binary", body = function( currentSpec ) {
+				createBucket(cred,bucketName);
 				var data=s3Download(bucket:bucketName,object:objectName,accessKeyId:cred.ACCESS_KEY_ID,secretAccessKey:cred.SECRET_KEY);
 				assertTrue(isBinary(data));
 				assertEquals(len(data),12);
 				assertEquals(toString(data), content);
+				}
+		finally {
+			Util::deleteBucketEL(cred,bucketName);
+		}
 			});	
 			
 			it(title="download as string", body = function( currentSpec ) {
@@ -164,12 +177,7 @@ Sor:4;glos:4;");
 				assertTrue(isSimpleValue(data));
 				assertEquals(data, "before;4;4;4;after;");
 			});	
-
-		}
-		finally {
-			Util::deleteBucketEL(cred,bucketName);
-		}
-			
+	
 		});
 	}
 }
