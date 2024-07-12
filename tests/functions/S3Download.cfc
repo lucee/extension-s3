@@ -1,22 +1,17 @@
 component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 	
-	function beforeAll() {
-        variables.cred=Util::getAWSCredentials();
-		variables.bucketName = Util::createBucketName("download");
-    }
-
-	function afterAll() {
-        deleteBucketEL(variables.cred,variables.bucketName);
-    }
-
 
 	function run( testResults , testBox ) {
 		describe( title="Test suite for S3Download()",skip=Util::isAWSNotSupported(), body=function() {
-			var cred = variables.cred;
-			var bucketName = variables.bucketName;
+			var cred = Util::getAWSCredentials();
+			var bucketName = Util::createBucketName("download");
 			var objectName="sub/test.txt";
 			var content="Susi
 Sorglos";
+		
+		try {
+
+
 			if(!S3Exists( 
 				bucketName=bucketName,  objectName=objectName, 
 				accessKeyId=cred.ACCESS_KEY_ID, secretAccessKey=cred.SECRET_KEY, host=(isNull(cred.HOST)?nullvalue():cred.HOST))) {
@@ -169,6 +164,11 @@ Sor:4;glos:4;");
 				assertTrue(isSimpleValue(data));
 				assertEquals(data, "before;4;4;4;after;");
 			});	
+
+		}
+		finally {
+			deleteBucketEL(cred,bucketName);
+		}
 			
 		});
 	}
