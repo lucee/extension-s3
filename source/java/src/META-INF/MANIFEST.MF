@@ -2,7 +2,7 @@ Manifest-Version: 1.0
 Export-Package: org.lucee.extension.resource.s3,
  org.lucee.extension.resource.s3.function
 Bundle-ManifestVersion: 2
-Require-Bundle: org.lucee.aws-java-sdk-s3-all;bundle-version=1.12.458,
+Require-Bundle: org.lucee.aws-java-sdk-s3-all;bundle-version=1.12.758,
  org.apache.commons.commons-pool2;bundle-version=2.8.1,
  com.fasterxml.jackson.core.jackson-annotations;bundle-version="[2.15.0,3)",
  com.fasterxml.jackson.core.jackson-core;bundle-version="[2.15.0,3)",
@@ -10,5 +10,4 @@ Require-Bundle: org.lucee.aws-java-sdk-s3-all;bundle-version=1.12.458,
  com.fasterxml.jackson.dataformat.jackson-dataformat-cbor;bundle-version="[2.15.0,3)",
  bouncycastle.prov;bundle-version="[1.38.0,2)",
  bouncycastle.tsp;bundle-version="[1.38.0,2)",
- bouncycastle.mail;bundle-version="[1.38.0,2)",
- software.amazon.ion.java;bundle-version="[1.0.2,2)"
+ bouncycastle.mail;bundle-version="[1.38.0,2)"
