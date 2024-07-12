@@ -25,7 +25,6 @@
 	<classpathentry kind="lib" path="libs/bouncycastle.mail-1.38.0.jar"/>
 	<classpathentry kind="lib" path="libs/bouncycastle.prov-1.38.0.jar"/>
 	<classpathentry kind="lib" path="libs/bouncycastle.tsp-1.38.0.jar"/>
-	<classpathentry kind="lib" path="libs/software.amazon.ion.java-1.0.2.jar"/>
-	<classpathentry kind="lib" path="libs/org.lucee.aws-java-sdk-s3-all-1.12.458.jar"/>
+	<classpathentry kind="lib" path="libs/org.lucee.aws-java-sdk-s3-all-1.12.758.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
