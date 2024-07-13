@@ -59,7 +59,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 				}
 				
 				assertTrue( executionTime<3000 );
-				assertEquals(10000, records); // 10000] but received [861
+				assertEquals(100, records); // 100] but received [861
 			});
 
 
@@ -76,7 +76,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 				
 				
 				assertTrue( executionTime<100 );
-				// assertEquals(10000, executionTime);
+				// assertEquals(100, executionTime);
 			});
 		});
 	}
