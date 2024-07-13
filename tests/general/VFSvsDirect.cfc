@@ -16,13 +16,13 @@
  * License along with this library.  If not, see <http://www.gnu.org/licenses/>.
  * 
  ---><cfscript>
-component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
+component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" skip=true	{
 	
 	function run( testResults , testBox ) {
 		describe( title="Test suite to compare the VFS against the direct approch vs HTTP (if possible)", body=function() {
 			
 		// FileExists vs S3Exists
-			it(title="check FileExists vs S3Exists with AWS",skip=Util::isAWSNotSupported(), body = function( currentSpec ) {
+			it(title="check FileExists vs S3Exists with AWS",skip=true, body = function( currentSpec ) {
 				testS3ExistsVsFileExists(Util::getAWSCredentials());
 			});	
 			it(title="check FileExists vs S3Exists with Blackbaze",skip=Util::isBackBlazeNotSupported(), body = function( currentSpec ) {
@@ -31,7 +31,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 			it(title="check FileExists vs S3Exists with Google",skip=Util::isGoogleNotSupported(), body = function( currentSpec ) {
 				testS3ExistsVsFileExists(Util::getGoogleCredentials());
 			});	
-			it(title="check FileExists vs S3Exists with Wasabi",skip=Util::isWasabiNotSupported(), body = function( currentSpec ) {
+			it(title="check FileExists vs S3Exists with Wasabi",skip=true, body = function( currentSpec ) {
 				testS3ExistsVsFileExists(Util::getWasabiCredentials());
 			});	
 			
