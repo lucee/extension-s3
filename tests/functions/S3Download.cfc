@@ -32,7 +32,6 @@ Sorglos";
 			it(title="download as binary", body = function( currentSpec ) {
 				var cred=currentSpec.cred;
 				var bucketName=currentSpec.bucketName;
-				createBucket(cred,bucketName);
 				var data=s3Download(bucket:bucketName,object:objectName,accessKeyId:cred.ACCESS_KEY_ID,secretAccessKey:cred.SECRET_KEY);
 				assertTrue(isBinary(data));
 				assertEquals(len(data),12);

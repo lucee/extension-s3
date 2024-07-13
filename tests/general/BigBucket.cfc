@@ -34,7 +34,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 								accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST));
 						}
 					}
-					arguments.spec.body({bucketName:bucketName,cred:cred});
+					arguments.spec.body({bucketName:bucketName,cred:cred,records:records});
 				}	
 				finally {
 					Util::deleteBucketEL(cred,bucketName);
@@ -46,6 +46,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 			it(title="checking with S3ListBucket", skip=Util::isAWSNotSupported(), body = function( currentSpec ) {
 				var cred=currentSpec.cred;
 				var bucketName=currentSpec.bucketName;
+				var records=currentSpec.records;
 				var cred=Util::getAWSCredentials()
 			
 				if(records==0){
