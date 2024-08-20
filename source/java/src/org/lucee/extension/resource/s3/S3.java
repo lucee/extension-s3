@@ -1,5 +1,6 @@
 package org.lucee.extension.resource.s3;
 
+import java.io.BufferedInputStream;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -105,6 +106,7 @@ public class S3 {
 	public static final String[] PROVIDERS = new String[] { AWS, WASABI, BACKBLAZE, ".digitaloceanspaces.com", DREAM_IO, GOOGLE };
 
 	private static final ConcurrentHashMap<String, Object> tokens = new ConcurrentHashMap<String, Object>();
+	private static final int READ_LIMIT = 1024 * 1024;
 	private static int errorThreshold = 0;
 	private static int warnThreshold = 0;
 
@@ -1742,7 +1744,10 @@ public class S3 {
 			md.setLastModified(new Date());
 			// create a PutObjectRequest passing the folder name suffixed by /
 			md.setContentLength(bytes.length);
-			PutObjectRequest por = new PutObjectRequest(bucketName, objectName, new ByteArrayInputStream(bytes), md);
+			ByteArrayInputStream bis = new ByteArrayInputStream(bytes);
+			bis.mark(READ_LIMIT);
+			PutObjectRequest por = new PutObjectRequest(bucketName, objectName, bis, md);
+			por.getRequestClientOptions().setReadLimit(READ_LIMIT); // Set the read limit on the client
 
 			if (acl != null) setACL(por, acl);
 			try {
@@ -1774,6 +1779,7 @@ public class S3 {
 			}
 			finally {
 				client.release();
+				Util.closeEL(bis);
 			}
 		}
 	}
@@ -1811,7 +1817,11 @@ public class S3 {
 		}
 		else {
 			ObjectMetadata md = new ObjectMetadata();
-			PutObjectRequest por = new PutObjectRequest(bucketName, objectName, new ByteArrayInputStream(data), md);
+			ByteArrayInputStream bis = new ByteArrayInputStream(data);
+			bis.mark(READ_LIMIT);
+			PutObjectRequest por = new PutObjectRequest(bucketName, objectName, bis, md);
+			por.getRequestClientOptions().setReadLimit(READ_LIMIT); // Set the read limit on the client
+
 			String ct = CFMLEngineFactory.getInstance().getResourceUtil().getMimeType(data, null);
 			if (ct != null) md.setContentType(ct);
 			md.setLastModified(new Date());
@@ -1837,6 +1847,7 @@ public class S3 {
 			}
 			finally {
 				client.release();
+				Util.closeEL(bis);
 			}
 		}
 	}
@@ -1910,11 +1921,15 @@ public class S3 {
 
 		}
 		else {
+
 			// create a PutObjectRequest passing the folder name suffixed by /
-			PutObjectRequest por = new PutObjectRequest(bucketName, objectName, file);
-			if (acl != null) setACL(por, acl);
-			por.setMetadata(md);
+			InputStream is = null;
 			try {
+				PutObjectRequest por = new PutObjectRequest(bucketName, objectName, is = getInputStream(file), md);
+				por.getRequestClientOptions().setReadLimit(READ_LIMIT); // Set the read limit on the client
+				if (acl != null) setACL(por, acl);
+				por.setMetadata(md);
+
 				client.putObject(por);
 				flushExists(bucketName, objectName);
 			}
@@ -1942,6 +1957,7 @@ public class S3 {
 			}
 			finally {
 				client.release();
+				Util.closeEL(is);
 			}
 		}
 	}
@@ -1984,7 +2000,9 @@ public class S3 {
 				// create a PutObjectRequest passing the folder name suffixed by /
 
 				try {
-					PutObjectRequest por = new PutObjectRequest(bucketName, objectName, is = res.getInputStream(), md);
+
+					PutObjectRequest por = new PutObjectRequest(bucketName, objectName, is = getInputStream(res), md);
+					por.getRequestClientOptions().setReadLimit(READ_LIMIT); // Set the read limit on the client
 					if (acl != null) setACL(por, acl);
 
 					client.putObject(por);
@@ -2017,6 +2035,18 @@ public class S3 {
 		catch (AmazonServiceException se) {
 			throw toS3Exception(se);
 		}
+	}
+
+	private InputStream getInputStream(Resource res) throws IOException {
+		BufferedInputStream bis = new BufferedInputStream(res.getInputStream());
+		bis.mark(READ_LIMIT);
+		return bis;
+	}
+
+	private InputStream getInputStream(File file) throws IOException {
+		BufferedInputStream bis = new BufferedInputStream(new FileInputStream(file));
+		bis.mark(1024 * 1024);
+		return bis;
 	}
 
 	public Struct getMetaDataStruct(String bucketName, String objectName) throws S3Exception {
