@@ -191,7 +191,7 @@ public class S3Properties {
 				if (getCustomAttributes == null || ac.getClass() != getCustomAttributes.getDeclaringClass()) {
 					getCustomAttributes = ac.getClass().getMethod("getCustomAttributes", new Class[] {});
 				}
-				Map<Key, Object> attrs = (Map<Key, Object>) getCustomAttributes.invoke(null, new Object[] {});
+				Map<Key, Object> attrs = (Map<Key, Object>) getCustomAttributes.invoke(ac, new Object[] {});
 				if (attrs != null) {
 					Iterator<Entry<Key, Object>> it = attrs.entrySet().iterator();
 					Entry<Key, Object> e;
