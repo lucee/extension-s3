@@ -81,7 +81,16 @@
 			<alias>provider,server</alias>
 			<type>string</type>
 			<required>No</required>
-			<description>the provider to connect, if not set Amazon AWS is used.</description>
+			<description>
+        The hostname of the S3-compatible provider to connect to. Only the hostname should be provided, not the full URL (e.g., omit "https://"). If not set, Amazon AWS (`s3.amazonaws.com`) is used by default.
+
+        **Examples of valid hostnames for different providers**:
+        - **Amazon S3**: `s3.amazonaws.com`
+        - **Wasabi**: `s3.us-west-1.wasabisys.com`
+        - **DigitalOcean Spaces**: `nyc3.digitaloceanspaces.com`
+        - **Google Cloud Storage**: `storage.googleapis.com`
+        - **MinIO (Self-hosted)**: `minio.yourdomain.com`
+    </description>
 	    </argument>
 		<argument>
 			<name>timeout</name>
@@ -150,7 +159,16 @@
 			<alias>provider,server</alias>
 			<type>string</type>
 			<required>No</required>
-			<description>the provider to connect, if not set Amazon AWS is used.</description>
+			<description>
+        The hostname of the S3-compatible provider to connect to. Only the hostname should be provided, not the full URL (e.g., omit "https://"). If not set, Amazon AWS (`s3.amazonaws.com`) is used by default.
+
+        **Examples of valid hostnames for different providers**:
+        - **Amazon S3**: `s3.amazonaws.com`
+        - **Wasabi**: `s3.us-west-1.wasabisys.com`
+        - **DigitalOcean Spaces**: `nyc3.digitaloceanspaces.com`
+        - **Google Cloud Storage**: `storage.googleapis.com`
+        - **MinIO (Self-hosted)**: `minio.yourdomain.com`
+    </description>
 	    </argument>
 		<argument>
 			<name>timeout</name>
@@ -233,7 +251,16 @@
 			<alias>provider,server</alias>
 			<type>string</type>
 			<required>No</required>
-			<description>the provider to connect, if not set Amazon AWS is used.</description>
+			<description>
+        The hostname of the S3-compatible provider to connect to. Only the hostname should be provided, not the full URL (e.g., omit "https://"). If not set, Amazon AWS (`s3.amazonaws.com`) is used by default.
+
+        **Examples of valid hostnames for different providers**:
+        - **Amazon S3**: `s3.amazonaws.com`
+        - **Wasabi**: `s3.us-west-1.wasabisys.com`
+        - **DigitalOcean Spaces**: `nyc3.digitaloceanspaces.com`
+        - **Google Cloud Storage**: `storage.googleapis.com`
+        - **MinIO (Self-hosted)**: `minio.yourdomain.com`
+    </description>
 	    </argument>
 		<argument>
 			<name>timeout</name>
@@ -305,7 +332,16 @@
 			<alias>provider,server</alias>
 			<type>string</type>
 			<required>No</required>
-			<description>the provider to connect, if not set Amazon AWS is used.</description>
+			<description>
+        The hostname of the S3-compatible provider to connect to. Only the hostname should be provided, not the full URL (e.g., omit "https://"). If not set, Amazon AWS (`s3.amazonaws.com`) is used by default.
+
+        **Examples of valid hostnames for different providers**:
+        - **Amazon S3**: `s3.amazonaws.com`
+        - **Wasabi**: `s3.us-west-1.wasabisys.com`
+        - **DigitalOcean Spaces**: `nyc3.digitaloceanspaces.com`
+        - **Google Cloud Storage**: `storage.googleapis.com`
+        - **MinIO (Self-hosted)**: `minio.yourdomain.com`
+    </description>
 	    </argument>
 		<argument>
 			<name>timeout</name>
@@ -388,7 +424,16 @@
 			<alias>provider,server</alias>
 			<type>string</type>
 			<required>No</required>
-			<description>the provider to connect, if not set Amazon AWS is used.</description>
+			<description>
+        The hostname of the S3-compatible provider to connect to. Only the hostname should be provided, not the full URL (e.g., omit "https://"). If not set, Amazon AWS (`s3.amazonaws.com`) is used by default.
+
+        **Examples of valid hostnames for different providers**:
+        - **Amazon S3**: `s3.amazonaws.com`
+        - **Wasabi**: `s3.us-west-1.wasabisys.com`
+        - **DigitalOcean Spaces**: `nyc3.digitaloceanspaces.com`
+        - **Google Cloud Storage**: `storage.googleapis.com`
+        - **MinIO (Self-hosted)**: `minio.yourdomain.com`
+    </description>
 	    </argument>
 		<argument>
 			<name>timeout</name>
@@ -440,7 +485,16 @@
 			<alias>provider,server</alias>
 			<type>string</type>
 			<required>No</required>
-			<description>the provider to connect, if not set Amazon AWS is used.</description>
+			<description>
+        The hostname of the S3-compatible provider to connect to. Only the hostname should be provided, not the full URL (e.g., omit "https://"). If not set, Amazon AWS (`s3.amazonaws.com`) is used by default.
+
+        **Examples of valid hostnames for different providers**:
+        - **Amazon S3**: `s3.amazonaws.com`
+        - **Wasabi**: `s3.us-west-1.wasabisys.com`
+        - **DigitalOcean Spaces**: `nyc3.digitaloceanspaces.com`
+        - **Google Cloud Storage**: `storage.googleapis.com`
+        - **MinIO (Self-hosted)**: `minio.yourdomain.com`
+    </description>
 	    </argument>
 		<argument>
 			<name>timeout</name>
@@ -499,7 +553,16 @@
 			<alias>provider,server</alias>
 			<type>string</type>
 			<required>No</required>
-			<description>the provider to connect, if not set Amazon AWS is used.</description>
+			<description>
+        The hostname of the S3-compatible provider to connect to. Only the hostname should be provided, not the full URL (e.g., omit "https://"). If not set, Amazon AWS (`s3.amazonaws.com`) is used by default.
+
+        **Examples of valid hostnames for different providers**:
+        - **Amazon S3**: `s3.amazonaws.com`
+        - **Wasabi**: `s3.us-west-1.wasabisys.com`
+        - **DigitalOcean Spaces**: `nyc3.digitaloceanspaces.com`
+        - **Google Cloud Storage**: `storage.googleapis.com`
+        - **MinIO (Self-hosted)**: `minio.yourdomain.com`
+    </description>
 	    </argument>
 		<argument>
 			<name>timeout</name>
@@ -550,7 +613,16 @@
 			<alias>provider,server</alias>
 			<type>string</type>
 			<required>No</required>
-			<description>the provider to connect, if not set Amazon AWS is used.</description>
+			<description>
+        The hostname of the S3-compatible provider to connect to. Only the hostname should be provided, not the full URL (e.g., omit "https://"). If not set, Amazon AWS (`s3.amazonaws.com`) is used by default.
+
+        **Examples of valid hostnames for different providers**:
+        - **Amazon S3**: `s3.amazonaws.com`
+        - **Wasabi**: `s3.us-west-1.wasabisys.com`
+        - **DigitalOcean Spaces**: `nyc3.digitaloceanspaces.com`
+        - **Google Cloud Storage**: `storage.googleapis.com`
+        - **MinIO (Self-hosted)**: `minio.yourdomain.com`
+    </description>
 	    </argument>
 		<argument>
 			<name>timeout</name>
@@ -622,7 +694,16 @@
 			<alias>provider,server</alias>
 			<type>string</type>
 			<required>No</required>
-			<description>the provider to connect, if not set Amazon AWS is used.</description>
+			<description>
+        The hostname of the S3-compatible provider to connect to. Only the hostname should be provided, not the full URL (e.g., omit "https://"). If not set, Amazon AWS (`s3.amazonaws.com`) is used by default.
+
+        **Examples of valid hostnames for different providers**:
+        - **Amazon S3**: `s3.amazonaws.com`
+        - **Wasabi**: `s3.us-west-1.wasabisys.com`
+        - **DigitalOcean Spaces**: `nyc3.digitaloceanspaces.com`
+        - **Google Cloud Storage**: `storage.googleapis.com`
+        - **MinIO (Self-hosted)**: `minio.yourdomain.com`
+    </description>
 	    </argument>
 		<argument>
 			<name>timeout</name>
@@ -682,7 +763,16 @@
 			<alias>provider,server</alias>
 			<type>string</type>
 			<required>No</required>
-			<description>the provider to connect, if not set Amazon AWS is used.</description>
+			<description>
+        The hostname of the S3-compatible provider to connect to. Only the hostname should be provided, not the full URL (e.g., omit "https://"). If not set, Amazon AWS (`s3.amazonaws.com`) is used by default.
+
+        **Examples of valid hostnames for different providers**:
+        - **Amazon S3**: `s3.amazonaws.com`
+        - **Wasabi**: `s3.us-west-1.wasabisys.com`
+        - **DigitalOcean Spaces**: `nyc3.digitaloceanspaces.com`
+        - **Google Cloud Storage**: `storage.googleapis.com`
+        - **MinIO (Self-hosted)**: `minio.yourdomain.com`
+    </description>
 	    </argument>
 		<argument>
 			<name>timeout</name>
@@ -768,7 +858,16 @@
 			<alias>provider,server</alias>
 			<type>string</type>
 			<required>No</required>
-			<description>the provider to connect, if not set Amazon AWS is used.</description>
+			<description>
+        The hostname of the S3-compatible provider to connect to. Only the hostname should be provided, not the full URL (e.g., omit "https://"). If not set, Amazon AWS (`s3.amazonaws.com`) is used by default.
+
+        **Examples of valid hostnames for different providers**:
+        - **Amazon S3**: `s3.amazonaws.com`
+        - **Wasabi**: `s3.us-west-1.wasabisys.com`
+        - **DigitalOcean Spaces**: `nyc3.digitaloceanspaces.com`
+        - **Google Cloud Storage**: `storage.googleapis.com`
+        - **MinIO (Self-hosted)**: `minio.yourdomain.com`
+    </description>
 	    </argument>
 		<argument>
 			<name>timeout</name>
@@ -821,7 +920,16 @@
 			<alias>provider,server</alias>
 			<type>string</type>
 			<required>No</required>
-			<description>the provider to connect, if not set Amazon AWS is used.</description>
+			<description>
+        The hostname of the S3-compatible provider to connect to. Only the hostname should be provided, not the full URL (e.g., omit "https://"). If not set, Amazon AWS (`s3.amazonaws.com`) is used by default.
+
+        **Examples of valid hostnames for different providers**:
+        - **Amazon S3**: `s3.amazonaws.com`
+        - **Wasabi**: `s3.us-west-1.wasabisys.com`
+        - **DigitalOcean Spaces**: `nyc3.digitaloceanspaces.com`
+        - **Google Cloud Storage**: `storage.googleapis.com`
+        - **MinIO (Self-hosted)**: `minio.yourdomain.com`
+    </description>
 	    </argument>
 		<argument>
 			<name>timeout</name>
@@ -880,7 +988,16 @@
 			<alias>provider,server</alias>
 			<type>string</type>
 			<required>No</required>
-			<description>the provider to connect, if not set Amazon AWS is used.</description>
+			<description>
+        The hostname of the S3-compatible provider to connect to. Only the hostname should be provided, not the full URL (e.g., omit "https://"). If not set, Amazon AWS (`s3.amazonaws.com`) is used by default.
+
+        **Examples of valid hostnames for different providers**:
+        - **Amazon S3**: `s3.amazonaws.com`
+        - **Wasabi**: `s3.us-west-1.wasabisys.com`
+        - **DigitalOcean Spaces**: `nyc3.digitaloceanspaces.com`
+        - **Google Cloud Storage**: `storage.googleapis.com`
+        - **MinIO (Self-hosted)**: `minio.yourdomain.com`
+    </description>
 	    </argument>
 		<argument>
 			<name>timeout</name>
@@ -961,7 +1078,16 @@
 			<alias>provider,server</alias>
 			<type>string</type>
 			<required>No</required>
-			<description>the provider to connect, if not set Amazon AWS is used.</description>
+			<description>
+        The hostname of the S3-compatible provider to connect to. Only the hostname should be provided, not the full URL (e.g., omit "https://"). If not set, Amazon AWS (`s3.amazonaws.com`) is used by default.
+
+        **Examples of valid hostnames for different providers**:
+        - **Amazon S3**: `s3.amazonaws.com`
+        - **Wasabi**: `s3.us-west-1.wasabisys.com`
+        - **DigitalOcean Spaces**: `nyc3.digitaloceanspaces.com`
+        - **Google Cloud Storage**: `storage.googleapis.com`
+        - **MinIO (Self-hosted)**: `minio.yourdomain.com`
+    </description>
 	    </argument>
 		<argument>
 			<name>timeout</name>
@@ -1037,7 +1163,16 @@
 			<alias>provider,server</alias>
 			<type>string</type>
 			<required>No</required>
-			<description>the provider to connect, if not set Amazon AWS is used.</description>
+			<description>
+        The hostname of the S3-compatible provider to connect to. Only the hostname should be provided, not the full URL (e.g., omit "https://"). If not set, Amazon AWS (`s3.amazonaws.com`) is used by default.
+
+        **Examples of valid hostnames for different providers**:
+        - **Amazon S3**: `s3.amazonaws.com`
+        - **Wasabi**: `s3.us-west-1.wasabisys.com`
+        - **DigitalOcean Spaces**: `nyc3.digitaloceanspaces.com`
+        - **Google Cloud Storage**: `storage.googleapis.com`
+        - **MinIO (Self-hosted)**: `minio.yourdomain.com`
+    </description>
 	    </argument>
 		<argument>
 			<name>timeout</name>
@@ -1076,7 +1211,16 @@
 			<alias>provider,server</alias>
 			<type>string</type>
 			<required>No</required>
-			<description>the provider to connect, if not set Amazon AWS is used.</description>
+			<description>
+        The hostname of the S3-compatible provider to connect to. Only the hostname should be provided, not the full URL (e.g., omit "https://"). If not set, Amazon AWS (`s3.amazonaws.com`) is used by default.
+
+        **Examples of valid hostnames for different providers**:
+        - **Amazon S3**: `s3.amazonaws.com`
+        - **Wasabi**: `s3.us-west-1.wasabisys.com`
+        - **DigitalOcean Spaces**: `nyc3.digitaloceanspaces.com`
+        - **Google Cloud Storage**: `storage.googleapis.com`
+        - **MinIO (Self-hosted)**: `minio.yourdomain.com`
+    </description>
 	    </argument>
 		<argument>
 			<name>timeout</name>
@@ -1128,7 +1272,16 @@
 			<alias>provider,server</alias>
 			<type>string</type>
 			<required>No</required>
-			<description>the provider to connect, if not set Amazon AWS is used.</description>
+			<description>
+        The hostname of the S3-compatible provider to connect to. Only the hostname should be provided, not the full URL (e.g., omit "https://"). If not set, Amazon AWS (`s3.amazonaws.com`) is used by default.
+
+        **Examples of valid hostnames for different providers**:
+        - **Amazon S3**: `s3.amazonaws.com`
+        - **Wasabi**: `s3.us-west-1.wasabisys.com`
+        - **DigitalOcean Spaces**: `nyc3.digitaloceanspaces.com`
+        - **Google Cloud Storage**: `storage.googleapis.com`
+        - **MinIO (Self-hosted)**: `minio.yourdomain.com`
+    </description>
 	    </argument>
 		<argument>
 			<name>timeout</name>
@@ -1210,7 +1363,16 @@
 			<alias>provider,server</alias>
 			<type>string</type>
 			<required>No</required>
-			<description>the provider to connect, if not set Amazon AWS is used.</description>
+			<description>
+        The hostname of the S3-compatible provider to connect to. Only the hostname should be provided, not the full URL (e.g., omit "https://"). If not set, Amazon AWS (`s3.amazonaws.com`) is used by default.
+
+        **Examples of valid hostnames for different providers**:
+        - **Amazon S3**: `s3.amazonaws.com`
+        - **Wasabi**: `s3.us-west-1.wasabisys.com`
+        - **DigitalOcean Spaces**: `nyc3.digitaloceanspaces.com`
+        - **Google Cloud Storage**: `storage.googleapis.com`
+        - **MinIO (Self-hosted)**: `minio.yourdomain.com`
+    </description>
 	    </argument>
 		<argument>
 			<name>timeout</name>
@@ -1292,7 +1454,16 @@
 			<alias>provider,server</alias>
 			<type>string</type>
 			<required>No</required>
-			<description>the provider to connect, if not set Amazon AWS is used.</description>
+			<description>
+        The hostname of the S3-compatible provider to connect to. Only the hostname should be provided, not the full URL (e.g., omit "https://"). If not set, Amazon AWS (`s3.amazonaws.com`) is used by default.
+
+        **Examples of valid hostnames for different providers**:
+        - **Amazon S3**: `s3.amazonaws.com`
+        - **Wasabi**: `s3.us-west-1.wasabisys.com`
+        - **DigitalOcean Spaces**: `nyc3.digitaloceanspaces.com`
+        - **Google Cloud Storage**: `storage.googleapis.com`
+        - **MinIO (Self-hosted)**: `minio.yourdomain.com`
+    </description>
 	    </argument>
 		<argument>
 			<name>timeout</name>
@@ -1421,7 +1592,16 @@
 			<alias>provider,server</alias>
 			<type>string</type>
 			<required>No</required>
-			<description>the provider to connect, if not set Amazon AWS is used.</description>
+			<description>
+        The hostname of the S3-compatible provider to connect to. Only the hostname should be provided, not the full URL (e.g., omit "https://"). If not set, Amazon AWS (`s3.amazonaws.com`) is used by default.
+
+        **Examples of valid hostnames for different providers**:
+        - **Amazon S3**: `s3.amazonaws.com`
+        - **Wasabi**: `s3.us-west-1.wasabisys.com`
+        - **DigitalOcean Spaces**: `nyc3.digitaloceanspaces.com`
+        - **Google Cloud Storage**: `storage.googleapis.com`
+        - **MinIO (Self-hosted)**: `minio.yourdomain.com`
+    </description>
 	    </argument>
 		<argument>
 			<name>timeout</name>
@@ -1499,7 +1679,16 @@
 			<alias>provider,server</alias>
 			<type>string</type>
 			<required>No</required>
-			<description>the provider to connect, if not set Amazon AWS is used.</description>
+			<description>
+        The hostname of the S3-compatible provider to connect to. Only the hostname should be provided, not the full URL (e.g., omit "https://"). If not set, Amazon AWS (`s3.amazonaws.com`) is used by default.
+
+        **Examples of valid hostnames for different providers**:
+        - **Amazon S3**: `s3.amazonaws.com`
+        - **Wasabi**: `s3.us-west-1.wasabisys.com`
+        - **DigitalOcean Spaces**: `nyc3.digitaloceanspaces.com`
+        - **Google Cloud Storage**: `storage.googleapis.com`
+        - **MinIO (Self-hosted)**: `minio.yourdomain.com`
+    </description>
 	    </argument>
 		<argument>
 			<name>timeout</name>
