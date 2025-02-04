@@ -26,9 +26,11 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 			// create variables
 			var bucketName=Util::createBucketName("contenttype");
 			var objectName="content-type.xml";
-
 			fileWrite(objectName, '<?xml version="1.0" encoding="UTF-8"?>
 <test/>');
+			systemOutput("--------- move ----------",1,1);
+			systemOutput(objectName,1,1);
+			systemOutput("s3:///#bucketName#/#objectName#",1,1);
 			fileMove(objectName, "s3:///#bucketName#/#objectName#");
 			assertTrue(s3getmetadata(bucketName,objectName)["contentType"]);
 		}
