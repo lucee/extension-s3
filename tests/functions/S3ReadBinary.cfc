@@ -29,15 +29,11 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 			var source="Susi Sorglos".getBytes();
 
 			// create source bucket
-			if(!S3Exists( 
-				bucketName:bucketName,  objectName:objectName, 
-				accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST))) {
 				S3Write( 
 					value:source,
 					bucketName:bucketName,  objectName:objectName, 
 					accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST));
-			}
-
+			
 			var result=S3ReadBinary( 
 				bucketName:bucketName,  objectName:objectName, 
 				accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST));

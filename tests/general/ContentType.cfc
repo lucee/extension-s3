@@ -26,12 +26,19 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 			// create variables
 			var bucketName=Util::createBucketName("contenttype");
 			var objectName="content-type.xml";
-			fileWrite(objectName, '<?xml version="1.0" encoding="UTF-8"?>
-<test/>');
-			systemOutput("--------- move ----------",1,1);
-			systemOutput(objectName,1,1);
-			systemOutput("s3:///#bucketName#/#objectName#",1,1);
-			fileMove(objectName, "s3:///#bucketName#/#objectName#");
+			var path="s3:///#bucketName#/#objectName#";
+			var pathWithCred="s3://#cred.ACCESS_KEY_ID#:#cred.SECRET_KEY#@#(isNull(cred.HOST)?nullvalue():cred.HOST)#/#bucketName#/#objectName#";
+			
+			// create source bucket
+			if(!S3Exists( 
+				bucketName:bucketName,  objectName:objectName, 
+				accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST))) {
+				S3Write( 
+					value:'<?xml version="1.0" encoding="UTF-8"?>
+<test/>',
+					bucketName:bucketName,  objectName:objectName, 
+					accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST));
+			}
 			assertTrue(s3getmetadata(bucketName,objectName)["contentType"]);
 		}
 		finally {
