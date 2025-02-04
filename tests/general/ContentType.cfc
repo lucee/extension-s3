@@ -29,8 +29,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 			var path="s3:///#bucketName#/#objectName#";
 			var pathWithCred="s3://#cred.ACCESS_KEY_ID#:#cred.SECRET_KEY#@#(isNull(cred.HOST)?nullvalue():cred.HOST)#/#bucketName#/#objectName#";
 			
-			// create source bucket
-			if(!S3Exists( 
+			// create source bucket TODO remove true
+			if(true || !S3Exists( 
 				bucketName:bucketName,  objectName:objectName, 
 				accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST))) {
 				S3Write( 
@@ -39,7 +39,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 					bucketName:bucketName,  objectName:objectName, 
 					accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST));
 			}
-			assertTrue(s3getmetadata(bucketName,objectName)["contentType"]);
+			assertTrue(len(s3getmetadata(bucketName,objectName)["contentType"])>0);
 		}
 		finally {
 			Util::deleteBucketEL(cred,bucketName);
