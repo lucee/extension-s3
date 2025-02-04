@@ -39,7 +39,12 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 					bucketName:bucketName,  objectName:objectName, 
 					accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST));
 			}
-			assertTrue(len(s3getmetadata(bucketName,objectName)["contentType"])>0);
+
+			var md=s3getmetadata(bucketName:bucketName,objectName:objectName, 
+    			accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST));
+
+
+			assertTrue(len(md["contentType"])>0);
 		}
 		finally {
 			Util::deleteBucketEL(cred,bucketName);
