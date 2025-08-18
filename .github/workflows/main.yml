@@ -69,10 +69,10 @@ jobs:
       S3_GOOGLE_SECRET_KEY: ${{ secrets.S3_GOOGLE_SECRET_KEY }}
       S3_GOOGLE_HOST: storage.googleapis.com
       S3_GOOGLE_BUCKET_PREFIX: lucee-ldev-e-
-      LUCEE_TEST_VERSIONS: ${{ vars.LUCEE_TEST_VERSIONS }}
+      LUCEE_TEST_VERSIONS_PLUS: ${{ vars.LUCEE_TEST_VERSIONS_PLUS }}
     strategy:
       matrix:
-        lucee: ${{ fromJSON(vars.LUCEE_TEST_VERSIONS) }}
+        lucee: ${{ fromJSON(vars.LUCEE_TEST_VERSIONS_PLUS) }}
     services:
       minio:
         image: fclairamb/minio-github-actions
