@@ -2063,9 +2063,8 @@ public class S3 {
 			if (objectName != null) {
 				sct.setEL("objectName", objectName);
 
-				S3Object o = client.getObject(bucketName, objectName);
-				ObjectMetadata md = o.getObjectMetadata();
-				if (log != null) log.debug("S3", "get [" + bucketName + "/" + objectName + "]");
+				ObjectMetadata md = client.getObjectMetadata(bucketName, objectName);
+				if (log != null) log.debug("S3", "get meta data [" + bucketName + "/" + objectName + "]");
 
 				Map<String, Object> rmd = md.getRawMetadata();
 				Iterator<Entry<String, Object>> it = rmd.entrySet().iterator();
@@ -2104,7 +2103,7 @@ public class S3 {
 		AmazonS3Client client = getAmazonS3(bucketName, null);
 		try {
 			if (log != null) log.debug("S3", "get [" + bucketName + "/" + objectName + "] for meta data");
-			return client.getObject(bucketName, objectName).getObjectMetadata();
+			return client.getObjectMetadata(bucketName, objectName);
 		}
 		finally {
 			client.release();
