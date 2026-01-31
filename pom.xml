@@ -119,7 +119,7 @@
                                 <ant antfile="build.xml" target="clean">
                                     <property name="bundleversion" value="${project.version}"/>
                                     <property name="bundlename" value="${bundlename}"/>
-                                    <property name="filename" value="${project.artifactId}"/>
+                                    <property name="filename" value="${project.artifactId}"/>                                    
                                     <property name="groupId" value="${project.groupId}"/>
                                     <property name="artifactId" value="${project.artifactId}"/>
                                     <property name="id" value="${id}"/>
