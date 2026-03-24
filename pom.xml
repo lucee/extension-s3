@@ -14,12 +14,11 @@
         <maven.compiler.target>11</maven.compiler.target>
         <id>17AB52DE-B300-A94B-E058BD978511E39E</id>
         <bundlename>org.lucee.s3.extension</bundlename>
-        <luceeCoreVersion>5.0.0.157</luceeCoreVersion>
         <mvnGroupId>org.lucee</mvnGroupId>
         <mvnGroupPath>org/lucee</mvnGroupPath>
         <mvnArtifactId>s3</mvnArtifactId>
         <filename>s3-extension</filename>
-        <luceeCoreVersion>7.1.0.0</luceeCoreVersion>
+        <luceeCoreVersion>7.0.0.211-BETA</luceeCoreVersion>
         <releaseType>server</releaseType>
         <label>S3 Resource Extension</label>
         <class>org.lucee.extension.resource.s3.S3ResourceProvider</class>
