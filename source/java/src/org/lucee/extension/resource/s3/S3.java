@@ -1483,7 +1483,16 @@ public class S3 {
 			}
 
 			/* Get list of versions in a given bucket */
-			VersionListing versions = client.listVersions(new ListVersionsRequest().withBucketName(bucketName));
+
+			VersionListing versions = null;
+			try {
+				versions = client.listVersions(new ListVersionsRequest().withBucketName(bucketName));
+			}
+			catch (AmazonServiceException ase) {
+				if (!"NoSuchBucket".equals(ase.getErrorCode())) {
+					throw ase;
+				}
+			}
 
 			if (versions != null && versions.getVersionSummaries() != null) {
 				int sum = 0;
