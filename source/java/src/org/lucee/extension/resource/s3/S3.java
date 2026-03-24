@@ -33,37 +33,7 @@ import org.lucee.extension.resource.s3.region.RegionFactory;
 import org.lucee.extension.resource.s3.region.RegionFactory.Region;
 import org.lucee.extension.resource.s3.util.XMLUtil;
 
-import com.amazonaws.AmazonServiceException;
-import com.amazonaws.HttpMethod;
-import com.amazonaws.services.s3.model.AccessControlList;
-import com.amazonaws.services.s3.model.AmazonS3Exception;
-import com.amazonaws.services.s3.model.Bucket;
-import com.amazonaws.services.s3.model.CannedAccessControlList;
-import com.amazonaws.services.s3.model.CompleteMultipartUploadRequest;
-import com.amazonaws.services.s3.model.CopyObjectRequest;
-import com.amazonaws.services.s3.model.CreateBucketRequest;
-import com.amazonaws.services.s3.model.DeleteObjectsRequest;
-import com.amazonaws.services.s3.model.DeleteObjectsRequest.KeyVersion;
-import com.amazonaws.services.s3.model.GeneratePresignedUrlRequest;
-import com.amazonaws.services.s3.model.InitiateMultipartUploadRequest;
-import com.amazonaws.services.s3.model.InitiateMultipartUploadResult;
-import com.amazonaws.services.s3.model.ListObjectsRequest;
-import com.amazonaws.services.s3.model.ListVersionsRequest;
-import com.amazonaws.services.s3.model.ObjectListing;
-import com.amazonaws.services.s3.model.ObjectMetadata;
-import com.amazonaws.services.s3.model.Owner;
-import com.amazonaws.services.s3.model.PartETag;
-import com.amazonaws.services.s3.model.PutObjectRequest;
-import com.amazonaws.services.s3.model.ResponseHeaderOverrides;
-import com.amazonaws.services.s3.model.S3Object;
-import com.amazonaws.services.s3.model.S3ObjectSummary;
-import com.amazonaws.services.s3.model.S3VersionSummary;
-import com.amazonaws.services.s3.model.SSEAlgorithm;
-import com.amazonaws.services.s3.model.SSECustomerKey;
-import com.amazonaws.services.s3.model.UploadPartRequest;
-import com.amazonaws.services.s3.model.UploadPartResult;
-import com.amazonaws.services.s3.model.VersionListing;
-
+import jakarta.ws.rs.HttpMethod;
 import lucee.commons.io.log.Log;
 import lucee.commons.io.res.Resource;
 import lucee.loader.engine.CFMLEngine;
@@ -79,6 +49,16 @@ import lucee.runtime.type.Struct;
 import lucee.runtime.util.Cast;
 import lucee.runtime.util.Creation;
 import lucee.runtime.util.Strings;
+import software.amazon.awssdk.services.s3.model.Bucket;
+import software.amazon.awssdk.services.s3.model.CompleteMultipartUploadRequest;
+import software.amazon.awssdk.services.s3.model.CopyObjectRequest;
+import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
+import software.amazon.awssdk.services.s3.model.DeleteObjectsRequest;
+import software.amazon.awssdk.services.s3.model.ListObjectsRequest;
+import software.amazon.awssdk.services.s3.model.Owner;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.S3Object;
+import software.amazon.awssdk.services.s3.model.UploadPartRequest;
 
 public class S3 {
 	private static final short CHECK_EXISTS = 1;
@@ -193,8 +173,7 @@ public class S3 {
 									}
 								}
 							}
-							catch (Exception e) {
-							}
+							catch (Exception e) {}
 						}
 						if (logName == null) {
 							logName = "application";
@@ -248,7 +227,6 @@ public class S3 {
 	}
 
 	public String getAccessKeyId() {
-		com.amazonaws.util.AWSRequestMetrics d;
 		return accessKeyId;
 	}
 
@@ -270,7 +248,7 @@ public class S3 {
 		bucketName = improveBucketName(bucketName);
 		targetRegion = improveLocation(targetRegion);
 
-		CreateBucketRequest cbr = new CreateBucketRequest(bucketName);
+		CreateBucketRequest cbr = CreateBucketRequest.builder().bucket(bucketName).build();
 		if (acl != null) setACL(cbr, acl);
 
 		try {
@@ -284,7 +262,7 @@ public class S3 {
 				b = client.createBucket(cbr);
 				if (log != null) log.debug("S3", "created bucket [" + bucketName + "]");
 			}
-			catch (AmazonServiceException ase) {
+			catch (software.amazon.awssdk.services.s3.model.S3Exception ase) {
 				// TODO better way to handle this situation
 				// The authorization header is malformed; the region 'us-east-1' is wrong; expecting 'us-east-2'
 				if (Util.isEmpty(targetRegion) && "AuthorizationHeaderMalformed".equals(ase.getErrorCode()) && ase.getErrorMessage().indexOf("is wrong; expecting") != -1) {
@@ -2492,8 +2470,7 @@ public class S3 {
 			if (Util.isEmpty(str)) return defaultValue;
 			return toACL(str, defaultValue);
 		}
-		catch (Exception e) {
-		}
+		catch (Exception e) {}
 		return defaultValue;
 	}
 
@@ -2586,8 +2563,7 @@ public class S3 {
 								try {
 									proposedSize = Long.parseLong(xmlProposedSize.trim());
 								}
-								catch (Exception ee) {
-								}
+								catch (Exception ee) {}
 							}
 						}
 					}

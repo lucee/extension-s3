@@ -11,8 +11,6 @@ import java.util.Arrays;
 
 import org.lucee.extension.resource.s3.S3;
 
-import com.amazonaws.services.s3.model.S3Object;
-
 import lucee.commons.io.res.Resource;
 import lucee.commons.lang.types.RefInteger;
 import lucee.loader.engine.CFMLEngine;
@@ -24,6 +22,8 @@ import lucee.runtime.type.Collection.Key;
 import lucee.runtime.type.FunctionArgument;
 import lucee.runtime.type.UDF;
 import lucee.runtime.util.Cast;
+import software.amazon.awssdk.core.ResponseInputStream;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 
 public class S3Download extends S3Function {
 
@@ -92,7 +92,7 @@ public class S3Download extends S3Function {
 		// create S3 Instance
 		try {
 			S3 s3 = S3.getInstance(toS3Properties(pc, accessKeyId, secretAccessKey, host), toTimeout(timeout), pc.getConfig());
-			S3Object obj = s3.getData(bucketName, objectName);
+			ResponseInputStream<GetObjectResponse> obj = s3.getData(bucketName, objectName);
 			Cast caster = eng.getCastUtil();
 			// stream to UDF
 			boolean isUDF;
@@ -103,7 +103,7 @@ public class S3Download extends S3Function {
 					BufferedReader reader = null;
 					try {
 						if (charset == null) charset = pc.getConfig().getResourceCharset();
-						reader = new BufferedReader(new InputStreamReader(obj.getObjectContent(), charset));
+						reader = new BufferedReader(new InputStreamReader(obj, charset));
 						String line;
 						if (!isUDF) {
 							targetCFC.call(pc, BEFORE, new Object[] {});
@@ -137,7 +137,7 @@ public class S3Download extends S3Function {
 							targetCFC.call(pc, BEFORE, new Object[] {});
 						}
 						if (charset == null) charset = pc.getConfig().getResourceCharset();
-						reader = new BufferedReader(new InputStreamReader(obj.getObjectContent(), charset));
+						reader = new BufferedReader(new InputStreamReader(obj, charset));
 						int numCharsRead;
 						while ((numCharsRead = reader.read(buffer, 0, buffer.length)) != -1) {
 							String block = new String(buffer, 0, numCharsRead);
@@ -169,7 +169,7 @@ public class S3Download extends S3Function {
 						if (!isUDF) {
 							targetCFC.call(pc, BEFORE, new Object[] {});
 						}
-						input = new BufferedInputStream(obj.getObjectContent());
+						input = new BufferedInputStream(obj);
 						int bytesRead;
 						while ((bytesRead = input.read(buffer)) != -1) {
 
@@ -198,7 +198,7 @@ public class S3Download extends S3Function {
 			}
 			// store to file
 			else if (targetRes != null) {
-				eng.getIOUtil().copy(obj.getObjectContent(), targetRes, true);
+				eng.getIOUtil().copy(obj, targetRes, true);
 				return null;
 			}
 			// return the value
@@ -206,10 +206,10 @@ public class S3Download extends S3Function {
 				if (charset == null) {
 					// TODO get mimetype info from S3 and decide based on this if we provide a byte array or a string
 					ByteArrayOutputStream baos = new ByteArrayOutputStream();
-					eng.getIOUtil().copy(obj.getObjectContent(), baos, true, true);
+					eng.getIOUtil().copy(obj, baos, true, true);
 					return baos.toByteArray();
 				}
-				return eng.getIOUtil().toString(obj.getObjectContent(), charset);
+				return eng.getIOUtil().toString(obj, charset);
 			}
 		}
 		catch (Exception e) {
