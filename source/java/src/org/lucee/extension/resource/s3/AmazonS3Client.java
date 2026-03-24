@@ -2247,6 +2247,17 @@ public class AmazonS3Client implements AmazonS3 {
 		}
 	}
 
+	@Override
+	public ListBucketsPaginatedResult listBuckets(ListBucketsPaginatedRequest listBucketsPaginatedRequest) throws SdkClientException, AmazonServiceException {
+		try {
+			return client.listBuckets(listBucketsPaginatedRequest);
+		}
+		catch (IllegalStateException ise) {
+			invalidateAmazonS3(ise);
+			return client.listBuckets(listBucketsPaginatedRequest);
+		}
+	}
+
 	private void invalidateAmazonS3(IllegalStateException ise) throws AmazonS3Exception {
 		if (log != null) log.log(Log.LEVEL_WARN, "S3", ise);
 		try {

@@ -4,7 +4,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.lucee</groupId>
     <artifactId>s3-extension</artifactId>
-    <version>2.0.3.1</version>
+    <version>3.0.0.0-ALPHA</version>
     <packaging>pom</packaging>
     <name>S3 Extension</name>
 
@@ -15,9 +15,15 @@
         <id>17AB52DE-B300-A94B-E058BD978511E39E</id>
         <bundlename>org.lucee.s3.extension</bundlename>
         <luceeCoreVersion>5.0.0.157</luceeCoreVersion>
+        <mvnGroupId>org.lucee</mvnGroupId>
+        <mvnGroupPath>org/lucee</mvnGroupPath>
+        <mvnArtifactId>s3</mvnArtifactId>
+        <filename>s3-extension</filename>
+        <luceeCoreVersion>7.1.0.0</luceeCoreVersion>
         <releaseType>server</releaseType>
         <label>S3 Resource Extension</label>
         <class>org.lucee.extension.resource.s3.S3ResourceProvider</class>
+        <camelname>S3</camelname>
         <release.url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</release.url>
         <snapshot.url>https://oss.sonatype.org/content/repositories/snapshots/</snapshot.url>
     </properties>
@@ -53,7 +59,6 @@
 
     <description>Core Extension to integrate Amazon Simple Storage Service (S3) Resource into Lucee.</description>
     <url>https://github.com/lucee/extension-s3</url>
-
     <profiles>
         <profile>
             <id>release-sign-artifacts</id>
@@ -119,7 +124,7 @@
                                 <ant antfile="build.xml" target="clean">
                                     <property name="bundleversion" value="${project.version}"/>
                                     <property name="bundlename" value="${bundlename}"/>
-                                    <property name="filename" value="${project.artifactId}"/>                                    
+                                    <property name="filename" value="${project.artifactId}"/>
                                     <property name="groupId" value="${project.groupId}"/>
                                     <property name="artifactId" value="${project.artifactId}"/>
                                     <property name="id" value="${id}"/>
@@ -128,6 +133,16 @@
                                     <property name="label" value="${label}"/>
                                     <property name="description" value="${project.description}"/>
                                     <property name="class" value="${class}"/>
+                                    <property name="camelname" value="${camelname}"/>
+                                    <property name="maven.goal" value="${goal}"/>
+                                    <property name="mvnGroupId" value="${mvnGroupId}"/>
+                                    <property name="mvnGroupPath" value="${mvnGroupPath}"/>
+                                    <property name="mvnArtifactId" value="${mvnArtifactId}"/>
+                                    <property name="mvnVersion" value="${project.version}"/>
+
+                                    <property name="maven.username" value="${env.MAVEN_USERNAME}"/>
+                                    <property name="maven.password" value="${env.MAVEN_PASSWORD}"/>
+                                    <property name="gpg.passphrase" value="${env.GPG_PASSPHRASE}"/>
                                 </ant>
                                 <condition property="isSnapshot" value="true" else="false">
                                     <matches string="${project.version}" pattern=".*-SNAPSHOT"/>
@@ -141,6 +156,12 @@
                                 <echo message="Deploying to URL: ${deploy.url}" />
                             </target>
                             <exportAntProperties>true</exportAntProperties>
+                              <propertySets>
+                                <propertySet>
+                                  <propertyRef prefix="env."/>
+                                </propertySet>
+                              </propertySets>
+
                         </configuration>
                     </execution>
                 </executions>

@@ -10,3 +10,4 @@ target
 target/*
 *.lock
 *.DS_Store
+temp

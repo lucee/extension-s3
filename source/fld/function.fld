@@ -15,7 +15,7 @@
 	<function>
 		<name>StoreAddACL</name>
 		<status>deprecated</status>
-		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.StoreAddACL</class>
+		<class maven="{maven}">org.lucee.extension.resource.s3.function.StoreAddACL</class>
 		<description>Adds ACL to existing ACL for object or bucket. This function operates identically to "S3AddACL", making it deprecated. The updated function offers greater flexibility in defining the endpoint.</description>
 		<argument>
 			<name>url</name>
@@ -38,7 +38,7 @@
 	<!-- S3AddACL -->
 	<function>
 		<name>S3AddACL</name>
-		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.S3AddACL</class>
+		<class maven="{maven}">org.lucee.extension.resource.s3.function.S3AddACL</class>
 		<description>Adds ACL to existing ACL for object or bucket. You can provide the endpoint as a bucket/object definition (S3AddACL(bucket:"mybucket",object:"myobject.txt",acl:data) ) or as a virtual filesystem path (S3AddACL(path:"s3://mybucket/myobject.txt",acl:data) ).</description>
 		<argument>
 			<name>bucketNameOrPath</name>
@@ -107,7 +107,7 @@
 	<function>
 		<name>StoreGetACL</name>
 		<status>deprecated</status>
-		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.StoreGetACL</class>
+		<class maven="{maven}">org.lucee.extension.resource.s3.function.StoreGetACL</class>
 		<description>Returns an array of structures, with each structure representing an ACL (Access Control List) grant. This function operates identically to "S3GetACL", making it deprecated. The updated function offers greater flexibility in defining the endpoint.</description>
 		<argument>
 			<name>url</name>
@@ -123,7 +123,7 @@
 	<!-- S3GetACL -->
 	<function>
 		<name>S3GetACL</name>
-		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.S3GetACL</class>
+		<class maven="{maven}">org.lucee.extension.resource.s3.function.S3GetACL</class>
 		<description>Returns an array of structures, with each structure representing an ACL (Access Control List) grant. You can provide the endpoint as a bucket/object definition (S3GetACL(bucket:"mybucket",object:"myobject.txt") ) or as a virtual filesystem path (S3GetACL(path:"s3://mybucket/myobject.txt") ).</description>
 		<argument>
 			<name>bucketNameOrPath</name>
@@ -185,7 +185,7 @@
 	<function>
 		<name>StoreSetACL</name>
 		<status>deprecated</status>
-		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.StoreSetACL</class>
+		<class maven="{maven}">org.lucee.extension.resource.s3.function.StoreSetACL</class>
 		<description>Sets the ACL for object or bucket. This function operates identically to "S3SetACL", making it deprecated. The updated function offers greater flexibility in defining the endpoint.</description>
 		<argument>
 			<name>url</name>
@@ -208,7 +208,7 @@
 	<!-- S3SetACL -->
 	<function>
 		<name>S3SetACL</name>
-		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.S3SetACL</class>
+		<class maven="{maven}">org.lucee.extension.resource.s3.function.S3SetACL</class>
 		<description>Sets ACL to existing ACL for object or bucket. You can provide the endpoint as a bucket/object definition (S3SetACL(bucket:"mybucket",object:"myobject.txt",acl:data) ) or as a virtual filesystem path (S3SetACL(path:"s3://mybucket/myobject.txt",acl:data) ).</description>
 		<argument>
 			<name>bucketNameOrPath</name>
@@ -279,7 +279,7 @@
 	<function>
 		<name>StoreGetMetaData</name>
 		<status>deprecated</status>
-		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.StoreGetMetaData</class>
+		<class maven="{maven}">org.lucee.extension.resource.s3.function.StoreGetMetaData</class>
         <introduced>5.0.0.000</introduced>
         <description>Returns the metadata related to the object or bucket. This function operates identically to "S3GetMetaData", making it deprecated. The updated function offers greater flexibility in defining the endpoint.</description>
 		<argument>
@@ -296,7 +296,7 @@
 	<!-- S3GetMetaData -->
 	<function>
 		<name>S3GetMetaData</name>
-		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.S3GetMetaData</class>
+		<class maven="{maven}">org.lucee.extension.resource.s3.function.S3GetMetaData</class>
 		<description>Returns the metadata related to the object or bucket. You can provide the endpoint as a bucket/object definition (S3GetMetaData(bucket:"mybucket",object:"myobject.txt") ) or as a virtual filesystem path (S3GetMetaData(path:"s3://mybucket/myobject.txt") ).</description>
 		<argument>
 			<name>bucketNameOrPath</name>
@@ -359,7 +359,7 @@
 	<function>
 		<name>StoreSetMetaData</name>
 		<status>deprecated</status>
-		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.StoreSetMetaData</class>
+		<class maven="{maven}">org.lucee.extension.resource.s3.function.StoreSetMetaData</class>
         <introduced>5.0.0.000</introduced>
 		<description>Sets the metadata on bucket or object. This function operates identically to "S3SetMetaData", making it deprecated. The updated function offers greater flexibility in defining the endpoint.</description>
 		<argument>
@@ -382,7 +382,7 @@
 	<!-- S3SetMetaData -->
 	<function>
 		<name>S3SetMetaData</name>
-		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.S3SetMetaData</class>
+		<class maven="{maven}">org.lucee.extension.resource.s3.function.S3SetMetaData</class>
 		<description>Sets the metadata on bucket or object. You can provide the endpoint as a bucket/object definition (S3SetMetaData(bucket:"mybucket",object:"myobject.txt",metadata:data) ) or as a virtual filesystem path (S3SetMetaData(path:"s3://mybucket/myobject.txt",metadata:data) ).</description>
 		<argument>
 			<name>bucketNameOrPath</name>
@@ -450,7 +450,7 @@
 	<!-- S3Exists -->
 	<function>
 		<name>S3Exists</name>
-		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.S3Exists</class>
+		<class maven="{maven}">org.lucee.extension.resource.s3.function.S3Exists</class>
 		<description>Checks if given object exists in </description>
 		<argument>
 			<name>bucketName</name>
@@ -511,7 +511,7 @@
 	<!-- S3Read -->
 	<function>
 		<name>S3Read</name>
-		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.S3Read</class>
+		<class maven="{maven}">org.lucee.extension.resource.s3.function.S3Read</class>
 		<description>Reads an object from S3 as a string.</description>
 		<argument>
 			<name>bucketName</name>
@@ -578,7 +578,7 @@
 	<!-- S3ReadBinary -->
 	<function>
 		<name>S3ReadBinary</name>
-		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.S3ReadBinary</class>
+		<class maven="{maven}">org.lucee.extension.resource.s3.function.S3ReadBinary</class>
 		<description>Reads an object from S3 as a binary.</description>
 		<argument>
 			<name>bucketName</name>
@@ -639,7 +639,7 @@
 	<!-- S3Upload -->
 	<function>
 		<name>S3Upload</name>
-		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.S3Upload</class>
+		<class maven="{maven}">org.lucee.extension.resource.s3.function.S3Upload</class>
 		<description>Uploads a file to S3.</description>
 		<argument>
 			<name>bucketName</name>
@@ -721,7 +721,7 @@
 	<!-- S3CreateBucket -->
 	<function>
 		<name>S3CreateBucket</name>
-		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.S3CreateBucket</class>
+		<class maven="{maven}">org.lucee.extension.resource.s3.function.S3CreateBucket</class>
 		<description>Creates a bucket on S3.</description>
 		<argument>
 			<name>bucketName</name>
@@ -788,7 +788,7 @@
 	<!-- S3Write -->
 	<function>
 		<name>S3Write</name>
-		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.S3Write</class>
+		<class maven="{maven}">org.lucee.extension.resource.s3.function.S3Write</class>
 		<description>Writes a value to S3.</description>
 		<argument>
 			<name>bucketName</name>
@@ -884,7 +884,7 @@
 	<!-- S3DeleteBucket -->
 	<function>
 		<name>S3DeleteBucket</name>
-		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.S3DeleteBucket</class>
+		<class maven="{maven}">org.lucee.extension.resource.s3.function.S3DeleteBucket</class>
 		<description>deletes a bucket, this function is deprecated, use instead S3Delete.</description>
 		<status>deprecated</status>
 		<argument>
@@ -946,7 +946,7 @@
 	<!-- S3Delete -->
 	<function>
 		<name>S3Delete</name>
-		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.S3Delete</class>
+		<class maven="{maven}">org.lucee.extension.resource.s3.function.S3Delete</class>
 		<description>deletes a bucket or an object within a bucket.</description>
 		<argument>
 			<name>bucketName</name>
@@ -1015,7 +1015,7 @@
 	<!-- S3Download -->
 	<function>
 		<name>S3Download</name>
-		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.S3Download</class>
+		<class maven="{maven}">org.lucee.extension.resource.s3.function.S3Download</class>
 		 <description>Downloads an object from an S3 bucket. 
 		 	It can save the object to a specified path, return its content directly, or process the content in parts through a provided closure or UDF (User-Defined Function).
 		 </description>
@@ -1106,7 +1106,7 @@
 	<!-- S3ListBucket -->
 	<function>
 		<name>S3ListBucket</name>
-		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.S3ListBucket</class>
+		<class maven="{maven}">org.lucee.extension.resource.s3.function.S3ListBucket</class>
 		<description>List all objects in a bucket</description>
 		<argument>
 			<name>bucketName</name>
@@ -1190,7 +1190,7 @@
 	<!-- S3ListBuckets -->
 	<function>
 		<name>S3ListBuckets</name>
-		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.S3ListBuckets</class>
+		<class maven="{maven}">org.lucee.extension.resource.s3.function.S3ListBuckets</class>
 		<description>List all buckets</description>
 		<argument>
 			<name>accessKeyId</name>
@@ -1237,7 +1237,7 @@
 	<!-- S3ClearBucket -->
 	<function>
 		<name>S3ClearBucket</name>
-		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.S3ClearBucket</class>
+		<class maven="{maven}">org.lucee.extension.resource.s3.function.S3ClearBucket</class>
 		<description>Removes all objects from a bucket, unless maxage is set, in that case only objects that are older than maxage are removed.</description>
 		<argument>
 			<name>bucketName</name>
@@ -1300,7 +1300,7 @@
 	<!-- S3Copy -->
 	<function>
 		<name>S3Copy</name>
-		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.S3Copy</class>
+		<class maven="{maven}">org.lucee.extension.resource.s3.function.S3Copy</class>
 		<description>Copies an object in S3 from one bucket to an other.</description>
 		<argument>
 			<name>srcBucketName</name>
@@ -1391,7 +1391,7 @@
 	<!-- S3Move -->
 	<function>
 		<name>S3Move</name>
-		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.S3Move</class>
+		<class maven="{maven}">org.lucee.extension.resource.s3.function.S3Move</class>
 		<description>Moves an object in S3 from one bucket to an other.</description>
 		<argument>
 			<name>srcBucketName</name>
@@ -1480,7 +1480,7 @@
 	<!-- S3GeneratePresignedURL -->
 	<function>
 		<name>S3GeneratePresignedURL</name>
-		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.S3GeneratePresignedURL</class>
+		<class maven="{maven}">org.lucee.extension.resource.s3.function.S3GeneratePresignedURL</class>
 		<description>Generates a presigned URL pointing to the object given. You can provide the endpoint as a bucket/object definition (S3AddACL(bucket:"mybucket",object:"myobject.txt") ) or as a virtual filesystem path (S3AddACL(path:"s3://mybucket/myobject.txt") ).</description>
 		<argument>
 			<name>bucketNameOrPath</name>
@@ -1617,7 +1617,7 @@
 		<!-- S3GenerateURI -->
 	<function>
 		<name>S3GenerateURI</name>
-		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.S3GenerateURI</class>
+		<class maven="{maven}">org.lucee.extension.resource.s3.function.S3GenerateURI</class>
 		<description>Generates a URI endpoint pointing to the object given. You can provide the endpoint as a bucket/object definition (S3AddACL(bucket:"mybucket",object:"myobject.txt") ) or as a virtual filesystem path (S3AddACL(path:"s3://mybucket/myobject.txt") ).</description>
 		<argument>
 			<name>bucketNameOrPath</name>
@@ -1704,7 +1704,7 @@
 		<!-- S3GetApplicationSettings -->
 	<function>
 		<name>S3GetApplicationSettings</name>
-		<class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.S3GetApplicationSettings</class>
+		<class maven="{maven}">org.lucee.extension.resource.s3.function.S3GetApplicationSettings</class>
 		<description>return the current application settings for S3.</description>
 		<status>hidden</status>
 		<return>
@@ -1716,7 +1716,7 @@
 	<!-- S3GetVersionInfo -->
 <function>
     <name>S3GetVersionInfo</name>
-    <class bundle-name="{bundle-name}" bundle-version="{bundle-version}">org.lucee.extension.resource.s3.function.S3GetVersionInfo</class>
+    <class maven="{maven}">org.lucee.extension.resource.s3.function.S3GetVersionInfo</class>
     <description>Returns version information as a query for a specific object or bucket.</description>
     <argument>
         <name>bucketName</name>
