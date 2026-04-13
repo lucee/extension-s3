@@ -187,6 +187,13 @@ resource: "[{'class':'${class}','maven':'${mvnGroupId}:${mvnArtifactId}:${bundle
         <zip destfile="${dist}/${filename}-${bundleversion}.lex">
             <zipfileset dir="${dist}/extension"/>
         </zip>
+
+        <!-- Lite artifact: same but without bundled Maven dependencies -->
+        <zip destfile="${dist}/${filename}-${bundleversion}.lite.lex">
+            <zipfileset dir="${dist}/extension">
+                <exclude name="maven/**"/>
+            </zipfileset>
+        </zip>
     </target>
 
     <target name="clean" depends="dist" description="clean up" >
