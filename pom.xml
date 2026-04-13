@@ -4,7 +4,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.lucee</groupId>
     <artifactId>s3-extension</artifactId>
-    <version>2.1.0.1-BETA</version>
+    <version>2.1.0.2-BETA</version>
     <packaging>pom</packaging>
     <name>S3 Extension</name>
 
@@ -84,6 +84,7 @@
                                 <configuration>
                                     <files>
                                         <file>${project.build.directory}/${project.artifactId}-${project.version}.lex</file>
+                                        <file>${project.build.directory}/${project.artifactId}-${project.version}.lite.lex</file>
                                     </files>
                                 </configuration>
                             </execution>
