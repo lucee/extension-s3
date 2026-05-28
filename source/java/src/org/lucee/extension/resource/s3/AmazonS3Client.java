@@ -12,7 +12,9 @@ import org.lucee.extension.resource.s3.region.RegionFactory;
 
 import com.amazonaws.AmazonServiceException;
 import com.amazonaws.AmazonWebServiceRequest;
+import com.amazonaws.ClientConfiguration;
 import com.amazonaws.HttpMethod;
+import com.amazonaws.Protocol;
 import com.amazonaws.SdkClientException;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
@@ -87,12 +89,16 @@ public class AmazonS3Client implements AmazonS3 {
 	public AmazonS3 create() throws S3Exception {
 		AmazonS3ClientBuilder builder = AmazonS3ClientBuilder.standard();
 		builder.withCredentials(new AWSStaticCredentialsProvider(new BasicAWSCredentials(accessKeyId, secretAccessKey)));
-		// region or endpoint and region
+
+		if (Boolean.FALSE.equals(ssl)) {
+			builder.withClientConfiguration(new ClientConfiguration().withProtocol(Protocol.HTTP));
+			if (log != null) log.debug("S3", "ssl=false: using plain HTTP for endpoint [" + host + "]");
+		}
+
 		if (host != null && !host.isEmpty() && !host.equalsIgnoreCase(S3.DEFAULT_HOST)) {
-			String endpoint = (Boolean.FALSE.equals(ssl) && !host.startsWith("http"))
-					? "http://" + host
-					: host;
-			builder = builder.withEndpointConfiguration(new EndpointConfiguration(endpoint, region == null ? "us-east-1" : S3.toString(region)));
+			String signingRegion = region == null ? "us-east-1" : S3.toString(region);
+			builder = builder.withEndpointConfiguration(new EndpointConfiguration(host, signingRegion));
+			if (log != null) log.debug("S3", "custom endpoint [" + host + "] signingRegion [" + signingRegion + "]");
 		}
 		else {
 			if (region != null) {
@@ -101,16 +107,18 @@ public class AmazonS3Client implements AmazonS3 {
 			else {
 				builder = builder.withRegion(RegionFactory.US_EAST_1.getName()).withForceGlobalBucketAccessEnabled(true); // The first region to try your request against
 				// If a bucket is in a different region, try again in the correct region
-
 			}
 		}
+
 		if (pathStyleAccess != null) {
 			builder.withPathStyleAccessEnabled(pathStyleAccess);
+			if (log != null) log.debug("S3", "pathStyleAccess=" + pathStyleAccess + " (explicit)");
 		}
 		else if (host != null && !host.isEmpty() && !host.equalsIgnoreCase(S3.DEFAULT_HOST) && !isKnownCloudProvider(host)) {
 			// custom endpoint that is not a recognised cloud provider (e.g. MinIO, Ceph, local S3-compatible store)
 			// → enable path-style automatically so the SDK uses host/bucket instead of bucket.host
 			builder.withPathStyleAccessEnabled(true);
+			if (log != null) log.debug("S3", "pathStyleAccess=true (auto-detected: unrecognised host [" + host + "])");
 		}
 
 		return builder.build();
