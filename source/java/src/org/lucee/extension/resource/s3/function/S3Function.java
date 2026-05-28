@@ -36,6 +36,7 @@ import lucee.runtime.exp.PageException;
 import lucee.runtime.ext.function.BIF;
 import lucee.runtime.listener.ApplicationContext;
 import lucee.runtime.net.s3.Properties;
+import lucee.runtime.type.Struct;
 
 public abstract class S3Function extends BIF {
 
@@ -44,7 +45,7 @@ public abstract class S3Function extends BIF {
 
 	protected static S3Properties toS3Properties(PageContext pc, String accessKeyId, String secretAccessKey, String host) throws PageException, RuntimeException {
 
-		// directly
+		// directly supplied credentials — skip Application.cfc lookup
 		if (!Util.isEmpty(accessKeyId, true) && !Util.isEmpty(secretAccessKey, true)) {
 			S3Properties props = new S3Properties();
 			props.setSecretAccessKey(secretAccessKey);
@@ -57,33 +58,21 @@ public abstract class S3Function extends BIF {
 			return props;
 		}
 
-		// application context
-		ApplicationContext ac = pc.getApplicationContext();
-		if (ac != null) {
-			Properties props = ac.getS3();
-			if (props != null) {
-				accessKeyId = props.getAccessKeyId();
-				secretAccessKey = props.getSecretAccessKey();
-				if (!Util.isEmpty(accessKeyId, true) && !Util.isEmpty(secretAccessKey, true)) {
-					S3Properties s3props = new S3Properties();
-					s3props.setSecretAccessKey(secretAccessKey);
-					s3props.setAccessKeyId(accessKeyId);
-					s3props.setCustomCredentials(false);
-					if (props.getHost() != null) {
-						s3props.setHost(props.getHost());
-						s3props.setCustomHost(true);
-					}
-					else s3props.setCustomHost(false);
-
-					if (props.getDefaultLocation() != null) {
-						s3props.setDefaultLocation(props.getDefaultLocation());
-					}
-
-					return s3props;
+		// application context — load the full S3Properties (includes ssl, pathStyleAccess, etc.)
+		try {
+			Struct appData = S3Properties.getApplicationData(pc);
+			if (appData != null) {
+				S3Properties props = S3Properties.load(pc, appData, null);
+				if (props != null && !Util.isEmpty(props.getAccessKeyId(), true) && !Util.isEmpty(props.getSecretAccessKey(), true)) {
+					return props;
 				}
 			}
 		}
+		catch (Exception e) {
+			// fall through to env var / system property lookup
+		}
 
+		// env var / system property fallback
 		if (Util.isEmpty(secretAccessKey, true)) secretAccessKey = S3Util.getSystemPropOrEnvVar("lucee.s3.secretaccesskey", null);
 		if (Util.isEmpty(secretAccessKey, true)) secretAccessKey = S3Util.getSystemPropOrEnvVar("lucee.s3.secretkey", null);
 
@@ -95,7 +84,13 @@ public abstract class S3Function extends BIF {
 		if (Util.isEmpty(host, true)) host = S3Util.getSystemPropOrEnvVar("lucee.s3.provider", null);
 
 		String strCacheRegion = S3Util.getSystemPropOrEnvVar("lucee.s3.cacheregion", null);
-		Boolean cacheRegion = (Util.isEmpty(strCacheRegion, true)) ? null : CFMLEngineFactory.getInstance().getCastUtil().toBoolean(strCacheRegion.trim(), null);
+		Boolean cacheRegion = Util.isEmpty(strCacheRegion, true) ? null : CFMLEngineFactory.getInstance().getCastUtil().toBoolean(strCacheRegion.trim(), null);
+
+		String strPathStyleAccess = S3Util.getSystemPropOrEnvVar("lucee.s3.pathstyleaccess", null);
+		Boolean pathStyleAccess = Util.isEmpty(strPathStyleAccess, true) ? null : CFMLEngineFactory.getInstance().getCastUtil().toBoolean(strPathStyleAccess.trim(), null);
+
+		String strSsl = S3Util.getSystemPropOrEnvVar("lucee.s3.ssl", null);
+		Boolean ssl = Util.isEmpty(strSsl, true) ? null : CFMLEngineFactory.getInstance().getCastUtil().toBoolean(strSsl.trim(), null);
 
 		if (Util.isEmpty(secretAccessKey, true) || Util.isEmpty(accessKeyId, true)) throw CFMLEngineFactory.getInstance().getExceptionUtil().createApplicationException(
 				"missing S3 credentials",
@@ -111,6 +106,8 @@ public abstract class S3Function extends BIF {
 		}
 		else props.setCustomHost(false);
 		if (cacheRegion != null) props.setCacheRegion(cacheRegion.booleanValue());
+		if (pathStyleAccess != null) props.setPathStyleAccess(pathStyleAccess);
+		if (ssl != null) props.setSsl(ssl);
 
 		return props;
 	}
