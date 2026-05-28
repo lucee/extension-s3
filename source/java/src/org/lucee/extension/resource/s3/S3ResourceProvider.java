@@ -126,6 +126,7 @@ public final class S3ResourceProvider implements ResourceProvider {
 		Object defaultACL;
 		Boolean cacheRegion = null;
 		Boolean pathStyleAccess = null;
+		Boolean ssl = null;
 		Struct appData = null;
 
 		// env var / system prop
@@ -167,6 +168,14 @@ public final class S3ResourceProvider implements ResourceProvider {
 				}
 				catch (Exception e) {}
 			}
+
+			tmp = S3Util.getSystemPropOrEnvVar("lucee.s3.ssl", null);
+			if (!Util.isEmpty(tmp, true)) {
+				try {
+					ssl = Util.toBooleanValue(tmp.trim());
+				}
+				catch (Exception e) {}
+			}
 		}
 
 		// Application Context Data
@@ -195,6 +204,7 @@ public final class S3ResourceProvider implements ResourceProvider {
 				if (!Util.isEmpty(prop.getDefaultLocation())) defaultLocation = prop.getDefaultLocation();
 				if (prop.getACL() != null) defaultACL = prop.getACL();
 				if (prop.getPathStyleAccess() != null) pathStyleAccess = prop.getPathStyleAccess();
+				if (prop.getSsl() != null) ssl = prop.getSsl();
 
 				defaultLocation = S3Util.extractLocationFromHostIfNecessary(defaultLocation, host);
 
@@ -294,6 +304,7 @@ public final class S3ResourceProvider implements ResourceProvider {
 		properties.setMapping(mapping);
 		if (cacheRegion != null) properties.setCacheRegion(cacheRegion);
 		if (pathStyleAccess != null) properties.setPathStyleAccess(pathStyleAccess);
+		if (ssl != null) properties.setSsl(ssl);
 		if (defaultACL != null) properties.setACL(defaultACL);
 		if (defaultLocation != null) properties.setDefaultLocation(defaultLocation);
 		if (!hasCustomHost && !Util.isEmpty(host, true)) properties.setHost(host);

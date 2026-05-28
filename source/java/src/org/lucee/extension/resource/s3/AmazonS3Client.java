@@ -50,17 +50,18 @@ public class AmazonS3Client implements AmazonS3 {
 	private long liveTimeout;
 
 	private Boolean pathStyleAccess;
+	private Boolean ssl;
 
 	public static AmazonS3Client get(String accessKeyId, String secretAccessKey, String host, org.lucee.extension.resource.s3.region.RegionFactory.Region region, long liveTimeout,
-			Boolean pathStyleAccess, Log log) throws S3Exception {
+			Boolean pathStyleAccess, Boolean ssl, Log log) throws S3Exception {
 
-		String key = accessKeyId + ":" + secretAccessKey + ":" + host + ":" + (region == null ? "default-region" : S3.toString(region)) + ":" + pathStyleAccess;
+		String key = accessKeyId + ":" + secretAccessKey + ":" + host + ":" + (region == null ? "default-region" : S3.toString(region)) + ":" + pathStyleAccess + ":" + ssl;
 		AmazonS3Client client = pool.get(key);
 		if (client == null || client.isExpired()) {
 			synchronized (pool) {
 				client = pool.get(key);
 				if (client == null || client.isExpired()) {
-					pool.put(key, client = new AmazonS3Client(accessKeyId, secretAccessKey, host, region, key, liveTimeout, pathStyleAccess, log));
+					pool.put(key, client = new AmazonS3Client(accessKeyId, secretAccessKey, host, region, key, liveTimeout, pathStyleAccess, ssl, log));
 					if (log != null) log.debug("S3", "create client for  [" + accessKeyId + ":...@" + host + "]");
 				}
 			}
@@ -70,12 +71,13 @@ public class AmazonS3Client implements AmazonS3 {
 	}
 
 	private AmazonS3Client(String accessKeyId, String secretAccessKey, String host, org.lucee.extension.resource.s3.region.RegionFactory.Region region, String key,
-			long liveTimeout, Boolean pathStyleAccess, Log log) throws S3Exception {
+			long liveTimeout, Boolean pathStyleAccess, Boolean ssl, Log log) throws S3Exception {
 		this.accessKeyId = accessKeyId;
 		this.secretAccessKey = secretAccessKey;
 		this.host = host;
 		this.region = region;
 		this.pathStyleAccess = pathStyleAccess;
+		this.ssl = ssl;
 		this.log = log;
 		this.created = System.currentTimeMillis();
 		client = create();
@@ -87,10 +89,10 @@ public class AmazonS3Client implements AmazonS3 {
 		builder.withCredentials(new AWSStaticCredentialsProvider(new BasicAWSCredentials(accessKeyId, secretAccessKey)));
 		// region or endpoint and region
 		if (host != null && !host.isEmpty() && !host.equalsIgnoreCase(S3.DEFAULT_HOST)) {
-			// TODO serviceEndpoint - the service endpoint either with or without the protocol (e.g.
-			// https://sns.us-west-1.amazonaws.com or sns.us-west-1.amazonaws.com)
-
-			builder = builder.withEndpointConfiguration(new EndpointConfiguration(host, region == null ? "us-east-1" : S3.toString(region)));
+			String endpoint = (Boolean.FALSE.equals(ssl) && !host.startsWith("http"))
+					? "http://" + host
+					: host;
+			builder = builder.withEndpointConfiguration(new EndpointConfiguration(endpoint, region == null ? "us-east-1" : S3.toString(region)));
 		}
 		else {
 			if (region != null) {
