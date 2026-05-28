@@ -49,10 +49,10 @@ public class AmazonS3Client implements AmazonS3 {
 
 	private long liveTimeout;
 
-	private boolean pathStyleAccess;
+	private Boolean pathStyleAccess;
 
 	public static AmazonS3Client get(String accessKeyId, String secretAccessKey, String host, org.lucee.extension.resource.s3.region.RegionFactory.Region region, long liveTimeout,
-			boolean pathStyleAccess, Log log) throws S3Exception {
+			Boolean pathStyleAccess, Log log) throws S3Exception {
 
 		String key = accessKeyId + ":" + secretAccessKey + ":" + host + ":" + (region == null ? "default-region" : S3.toString(region)) + ":" + pathStyleAccess;
 		AmazonS3Client client = pool.get(key);
@@ -70,7 +70,7 @@ public class AmazonS3Client implements AmazonS3 {
 	}
 
 	private AmazonS3Client(String accessKeyId, String secretAccessKey, String host, org.lucee.extension.resource.s3.region.RegionFactory.Region region, String key,
-			long liveTimeout, boolean pathStyleAccess, Log log) throws S3Exception {
+			long liveTimeout, Boolean pathStyleAccess, Log log) throws S3Exception {
 		this.accessKeyId = accessKeyId;
 		this.secretAccessKey = secretAccessKey;
 		this.host = host;
@@ -102,9 +102,24 @@ public class AmazonS3Client implements AmazonS3 {
 
 			}
 		}
-		if (pathStyleAccess) builder.withPathStyleAccessEnabled(pathStyleAccess);
+		if (pathStyleAccess != null) {
+			builder.withPathStyleAccessEnabled(pathStyleAccess);
+		}
+		else if (host != null && !host.isEmpty() && !host.equalsIgnoreCase(S3.DEFAULT_HOST) && !isKnownCloudProvider(host)) {
+			// custom endpoint that is not a recognised cloud provider (e.g. MinIO, Ceph, local S3-compatible store)
+			// → enable path-style automatically so the SDK uses host/bucket instead of bucket.host
+			builder.withPathStyleAccessEnabled(true);
+		}
 
 		return builder.build();
+	}
+
+	private static boolean isKnownCloudProvider(String host) {
+		String hostLC = host.toLowerCase();
+		for (String provider : S3.PROVIDERS) {
+			if (hostLC.endsWith(provider)) return true;
+		}
+		return false;
 	}
 
 	public boolean isBackBlaze() {

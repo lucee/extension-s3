@@ -118,14 +118,14 @@ public final class S3ResourceProvider implements ResourceProvider {
 		try {
 			pc = CFMLEngineFactory.getInstance().getThreadPageContext();
 		}
-		catch (Exception e) {
-		}
+		catch (Exception e) {}
 
 		boolean hasCustomHost = false;
 		boolean hasCustomCredentials = false;
 		String accessKeyId, host, secretAccessKey, defaultLocation, bucket, mapping = null;
 		Object defaultACL;
 		Boolean cacheRegion = null;
+		Boolean pathStyleAccess = null;
 		Struct appData = null;
 
 		// env var / system prop
@@ -157,8 +157,15 @@ public final class S3ResourceProvider implements ResourceProvider {
 				try {
 					cacheRegion = Util.toBooleanValue(tmp.trim());
 				}
-				catch (Exception e) {
+				catch (Exception e) {}
+			}
+
+			tmp = S3Util.getSystemPropOrEnvVar("lucee.s3.pathstyleaccess", null);
+			if (!Util.isEmpty(tmp, true)) {
+				try {
+					pathStyleAccess = Util.toBooleanValue(tmp.trim());
 				}
+				catch (Exception e) {}
 			}
 		}
 
@@ -170,8 +177,7 @@ public final class S3ResourceProvider implements ResourceProvider {
 				try {
 					appData = S3Properties.getApplicationData(pc);
 				}
-				catch (Exception e) {
-				}
+				catch (Exception e) {}
 				prop = appData != null ? S3Properties.load(pc, appData, null) : null;// pc.getApplicationContext().getS3();
 			}
 
@@ -188,6 +194,7 @@ public final class S3ResourceProvider implements ResourceProvider {
 				}
 				if (!Util.isEmpty(prop.getDefaultLocation())) defaultLocation = prop.getDefaultLocation();
 				if (prop.getACL() != null) defaultACL = prop.getACL();
+				if (prop.getPathStyleAccess() != null) pathStyleAccess = prop.getPathStyleAccess();
 
 				defaultLocation = S3Util.extractLocationFromHostIfNecessary(defaultLocation, host);
 
@@ -286,6 +293,7 @@ public final class S3ResourceProvider implements ResourceProvider {
 		properties.setCustomHost(hasCustomHost);
 		properties.setMapping(mapping);
 		if (cacheRegion != null) properties.setCacheRegion(cacheRegion);
+		if (pathStyleAccess != null) properties.setPathStyleAccess(pathStyleAccess);
 		if (defaultACL != null) properties.setACL(defaultACL);
 		if (defaultLocation != null) properties.setDefaultLocation(defaultLocation);
 		if (!hasCustomHost && !Util.isEmpty(host, true)) properties.setHost(host);

@@ -126,10 +126,11 @@ public class S3 {
 	private final S3Cache cache;
 
 	private final Log log;
+	private final Boolean pathStyleAccess;
 
 	public static S3 getInstance(S3Properties props, long cache, Config config) {
 
-		String keyS3 = props.getAccessKeyId() + ":" + props.getSecretAccessKey() + ":" + props.getHost() + ":" + props.getDefaultLocation() + ":" + cache;
+		String keyS3 = props.getAccessKeyId() + ":" + props.getSecretAccessKey() + ":" + props.getHost() + ":" + props.getDefaultLocation() + ":" + cache + ":" + props.getPathStyleAccess();
 		S3 s3 = instances.get(keyS3);
 		if (s3 == null) {
 			synchronized (instances) {
@@ -161,8 +162,8 @@ public class S3 {
 							}
 						}
 					}
-					instances.put(keyS3, s3 = new S3(c, props.getAccessKeyId(), props.getSecretAccessKey(), props.getHost(), props.getDefaultLocation(), cache,
-							S3.DEFAULT_LIVE_TIMEOUT, props.getCacheRegion(), config));
+				instances.put(keyS3, s3 = new S3(c, props.getAccessKeyId(), props.getSecretAccessKey(), props.getHost(), props.getDefaultLocation(), cache,
+						S3.DEFAULT_LIVE_TIMEOUT, props.getCacheRegion(), props.getPathStyleAccess(), config));
 				}
 			}
 		}
@@ -220,13 +221,14 @@ public class S3 {
 	 * @throws S3Exception
 	 */
 	private S3(S3Cache cache, String accessKeyId, String secretAccessKey, String host, String defaultLocation, long cacheTimeout, long liveTimeout, boolean cacheRegions,
-			Config config) {
+			Boolean pathStyleAccess, Config config) {
 		this.cache = cache;
 		this.accessKeyId = accessKeyId;
 		this.secretAccessKey = secretAccessKey;
 		this.host = host;
 		this.cacheTimeout = cacheTimeout;
 		this.liveTimeout = liveTimeout;
+		this.pathStyleAccess = pathStyleAccess;
 		if (!Util.isEmpty(defaultLocation, true)) {
 			try {
 				defaultRegion = toString(RegionFactory.getInstance(defaultLocation));
@@ -2402,11 +2404,11 @@ public class S3 {
 		}
 	}
 
-	private AmazonS3Client getAmazonS3(String bucketName, String strRegion) throws S3Exception { // TODO remove
-		return getAmazonS3(bucketName, strRegion, false);
+	private AmazonS3Client getAmazonS3(String bucketName, String strRegion) throws S3Exception {
+		return getAmazonS3(bucketName, strRegion, this.pathStyleAccess);
 	}
 
-	private AmazonS3Client getAmazonS3(String bucketName, String strRegion, boolean pathStyleAccess) throws S3Exception {
+	private AmazonS3Client getAmazonS3(String bucketName, String strRegion, Boolean pathStyleAccess) throws S3Exception {
 		if (Util.isEmpty(accessKeyId) || Util.isEmpty(secretAccessKey)) throw new S3Exception("Could not found an accessKeyId/secretAccessKey");
 
 		Region region = toRegion(bucketName, strRegion);
