@@ -96,7 +96,6 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 	}
 
 	private void function prepareBucket( required struct cred, required string bucketName, required string objectName, required string objectContent ) {
-		var s3Host = credHost( cred );
 		try {
 			Util::deleteBucketEL( cred, bucketName );
 		}
@@ -105,7 +104,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 			bucketName=bucketName,
 			accessKeyId=cred.ACCESS_KEY_ID,
 			secretAccessKey=cred.SECRET_KEY,
-			host=s3Host
+			host=credHost( cred )
 		);
 		S3Write(
 			value=objectContent,
@@ -113,7 +112,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 			objectName=objectName,
 			accessKeyId=cred.ACCESS_KEY_ID,
 			secretAccessKey=cred.SECRET_KEY,
-			host=s3Host
+			host=credHost( cred )
 		);
 	}
 
@@ -146,7 +145,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 			for ( var i = 1; i <= spec.parallelCount; i++ ) {
 				var threadName = "ldev6373-#waveId#-#mode#-#i#";
 				arrayAppend( names, threadName );
-				thread action="run" name=threadName mode=mode spec=spec cred=cred s3Host=credHost( cred ) tempDir=tempDir exceptions=exceptions {
+				thread action="run" name=threadName mode=mode spec=spec cred=cred tempDir=tempDir exceptions=exceptions {
 					try {
 						if ( mode == "download" ) {
 							var target = tempDir & "dl-" & createUUID() & ".txt";
@@ -156,7 +155,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 								target=target,
 								accessKeyId=cred.ACCESS_KEY_ID,
 								secretAccessKey=cred.SECRET_KEY,
-								host=s3Host
+								host=credHost( cred )
 							);
 							assertEquals( fileRead( target ), spec.objectContent );
 							if ( fileExists( target ) ) fileDelete( target );
@@ -167,7 +166,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 								objectName=spec.objectName,
 								accessKeyId=cred.ACCESS_KEY_ID,
 								secretAccessKey=cred.SECRET_KEY,
-								host=s3Host
+								host=credHost( cred )
 							);
 							assertEquals( data, spec.objectContent );
 						}
@@ -177,7 +176,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 								objectName=spec.objectName,
 								accessKeyId=cred.ACCESS_KEY_ID,
 								secretAccessKey=cred.SECRET_KEY,
-								host=s3Host
+								host=credHost( cred )
 							);
 							assertEquals( toString( bin ), spec.objectContent );
 						}
