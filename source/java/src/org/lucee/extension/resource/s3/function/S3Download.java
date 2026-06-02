@@ -10,6 +10,7 @@ import java.nio.charset.Charset;
 import java.util.Arrays;
 
 import org.lucee.extension.resource.s3.S3;
+import org.lucee.extension.resource.s3.S3Util;
 
 import com.amazonaws.services.s3.model.S3Object;
 
@@ -90,9 +91,10 @@ public class S3Download extends S3Function {
 		}
 
 		// create S3 Instance
+		S3Object obj = null;
 		try {
 			S3 s3 = S3.getInstance(toS3Properties(pc, accessKeyId, secretAccessKey, host), toTimeout(timeout), pc.getConfig());
-			S3Object obj = s3.getData(bucketName, objectName);
+			obj = s3.getData(bucketName, objectName);
 			Cast caster = eng.getCastUtil();
 			// stream to UDF
 			boolean isUDF;
@@ -214,6 +216,9 @@ public class S3Download extends S3Function {
 		}
 		catch (Exception e) {
 			throw eng.getCastUtil().toPageException(e);
+		}
+		finally {
+			S3Util.closeS3Object(obj);
 		}
 	}
 

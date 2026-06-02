@@ -511,7 +511,7 @@ public class S3 {
 		objectName = improveObjectName(objectName, false);
 
 		try {
-			return getData(bucketName, objectName).getObjectContent();
+			return new org.lucee.extension.resource.s3.util.S3ObjectInputStream(getData(bucketName, objectName));
 		}
 		catch (AmazonServiceException se) {
 			throw toS3Exception(se);
@@ -761,6 +761,7 @@ public class S3 {
 
 	public List<S3Object> listObjects(String bucketName) throws S3Exception {
 		AmazonS3Client client = getAmazonS3(bucketName, null);
+		List<S3Object> list = new ArrayList<>();
 		try {
 
 			ListObjectsRequest lor = new ListObjectsRequest();
@@ -770,7 +771,6 @@ public class S3 {
 			ObjectListing objects = client.listObjects(lor);
 
 			/* Recursively delete all the objects inside given bucket */
-			List<S3Object> list = new ArrayList<>();
 			int sum = 0;
 			while (true) {
 				if (objects != null) {
@@ -797,7 +797,12 @@ public class S3 {
 			return list;
 		}
 		catch (AmazonServiceException ase) {
+			S3Util.closeS3Objects(list);
 			throw toS3Exception(ase);
+		}
+		catch (RuntimeException re) {
+			S3Util.closeS3Objects(list);
+			throw re;
 		}
 		finally {
 			client.release();
