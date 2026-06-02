@@ -129,9 +129,8 @@ public class AmazonS3Client implements AmazonS3 {
 			if (log != null) log.debug("S3", "pathStyleAccess=true (auto-detected: unrecognised host [" + host + "])");
 		}
 
-		AmazonS3 built = builder.build();
-		S3HttpPoolMonitor.register(built, httpPool, log, accessKeyId + ":...@" + host);
-		return built;
+		builder.withRequestHandlers(new S3HttpPoolMonitor(httpPool, log, accessKeyId + ":...@" + host));
+		return builder.build();
 	}
 
 	private static boolean isKnownCloudProvider(String host) {

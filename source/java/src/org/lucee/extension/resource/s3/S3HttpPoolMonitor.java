@@ -4,11 +4,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.http.conn.ConnectionPoolTimeoutException;
 
-import com.amazonaws.AmazonWebServiceClient;
 import com.amazonaws.Request;
 import com.amazonaws.Response;
 import com.amazonaws.handlers.RequestHandler2;
-import com.amazonaws.services.s3.AmazonS3;
 
 import lucee.commons.io.log.Log;
 
@@ -31,12 +29,6 @@ final class S3HttpPoolMonitor extends RequestHandler2 {
 		this.warnUtilization = pool.getWarnUtilization() == null ? S3HttpPoolSettings.DEFAULT_WARN_UTILIZATION : pool.getWarnUtilization().doubleValue();
 		this.log = log;
 		this.clientLabel = clientLabel;
-	}
-
-	static void register(AmazonS3 client, S3HttpPoolSettings pool, Log log, String clientLabel) {
-		if (client instanceof AmazonWebServiceClient) {
-			((AmazonWebServiceClient) client).addRequestHandler(new S3HttpPoolMonitor(pool, log, clientLabel));
-		}
 	}
 
 	@Override
