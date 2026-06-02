@@ -1286,11 +1286,8 @@ public class S3 {
 					cache.exists.put(toKey(bucketName, nameFile), info = new StorageObjectWrapper(this, stoObj = summary, validUntil, log));
 					cache.harakiri.touch();
 				}
-
-				// pseudo directory?
-				// if (info == null) {
-				targetName = summary.getKey();
-				if (nameDir.length() < targetName.length() && targetName.startsWith(nameDir)) {
+				// pseudo directory (only when there is no exact key match for the requested path)
+				else if (nameDir.length() < targetName.length() && targetName.startsWith(nameDir)) {
 					cache.exists.put(toKey(bucketName, nameFile), info = new ParentObject(this, bucketName, nameDir, validUntil, log));
 					cache.harakiri.touch();
 				}
@@ -2113,8 +2110,17 @@ public class S3 {
 		bucketName = improveBucketName(bucketName);
 		objectName = improveObjectName(objectName);
 		S3Info info = get(bucketName, objectName);
-		if (info == null || info.isVirtual()) throw new S3Exception("there is no physical object [" + bucketName + "/" + objectName + "]");
-		return info.getMetaData();
+		if (info != null && !info.isVirtual()) return info.getMetaData();
+		// listObjects prefix lookup can miss a key that head/getObjectMetadata sees (eventual consistency)
+		if (info == null && !Util.isEmpty(objectName)) {
+			try {
+				return getMetaDataStruct(bucketName, objectName);
+			}
+			catch (AmazonServiceException ase) {
+				throw toS3Exception(ase);
+			}
+		}
+		throw new S3Exception("there is no physical object [" + bucketName + "/" + objectName + "]");
 	}
 
 	public ObjectMetadata getObjectMetadata(String bucketName, String objectName) throws S3Exception {
