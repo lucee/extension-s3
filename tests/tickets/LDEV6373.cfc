@@ -3,7 +3,7 @@
  * https://luceeserver.atlassian.net/browse/LDEV-6373
  *
  * Verifies parallel s3Download/s3Read and VFS reads do not leave connections leased
- * (ConnectionPoolTimeoutException under ~50 concurrent uses per JVM).
+ * (ConnectionPoolTimeoutException when concurrent uses exceed the pool limit per JVM).
  */
 component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 
@@ -18,17 +18,10 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 			body=function() {
 
 				aroundEach( function( spec, suite ) {
-					var bucketName = Util::createBucketName( "ldev6373" );
+					var bucketName = Util::createBucketName( "6373" );
 					var cred = Util::getAWSCredentials();
 					try {
-						S3Write(
-							value=objectContent,
-							bucketName=bucketName,
-							objectName=objectName,
-							accessKeyId=cred.ACCESS_KEY_ID,
-							secretAccessKey=cred.SECRET_KEY,
-							host=( isNull( cred.HOST ) ? nullValue() : cred.HOST )
-						);
+						prepareBucket( cred, bucketName, objectName, objectContent );
 						spec.body( {
 							bucketName: bucketName,
 							cred: cred,
@@ -47,8 +40,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 				} );
 
 				it( title="two waves of parallel s3Download reuse the connection pool", body=function( currentSpec ) {
-					runParallel( currentSpec, "download" );
-					runParallel( currentSpec, "download" );
+					runParallel( currentSpec, "download", createUUID() );
+					runParallel( currentSpec, "download", createUUID() );
 				} );
 
 				it( title="parallel s3Read", body=function( currentSpec ) {
@@ -67,18 +60,11 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 			body=function() {
 
 				aroundEach( function( spec, suite ) {
-					var bucketName = Util::createBucketName( "ldev6373vfs" );
+					var bucketName = Util::createBucketName( "6373vfs" );
 					var cred = Util::getAWSCredentials();
 					setupVfs( cred );
 					try {
-						S3Write(
-							value=objectContent,
-							bucketName=bucketName,
-							objectName=objectName,
-							accessKeyId=cred.ACCESS_KEY_ID,
-							secretAccessKey=cred.SECRET_KEY,
-							host=( isNull( cred.HOST ) ? nullValue() : cred.HOST )
-						);
+						prepareBucket( cred, bucketName, objectName, objectContent );
 						spec.body( {
 							bucketName: bucketName,
 							cred: cred,
@@ -97,10 +83,32 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 				} );
 
 				it( title="two waves of parallel VFS fileRead", body=function( currentSpec ) {
-					runParallelVfs( currentSpec );
-					runParallelVfs( currentSpec );
+					runParallelVfs( currentSpec, createUUID() );
+					runParallelVfs( currentSpec, createUUID() );
 				} );
 			}
+		);
+	}
+
+	private void function prepareBucket( required struct cred, required string bucketName, required string objectName, required string objectContent ) {
+		var host = isNull( cred.HOST ) ? nullValue() : cred.HOST;
+		try {
+			Util::deleteBucketEL( cred, bucketName );
+		}
+		catch ( any e ) {}
+		S3CreateBucket(
+			bucketName=bucketName,
+			accessKeyId=cred.ACCESS_KEY_ID,
+			secretAccessKey=cred.SECRET_KEY,
+			host=host
+		);
+		S3Write(
+			value=objectContent,
+			bucketName=bucketName,
+			objectName=objectName,
+			accessKeyId=cred.ACCESS_KEY_ID,
+			secretAccessKey=cred.SECRET_KEY,
+			host=host
 		);
 	}
 
@@ -121,7 +129,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 			|| findNoCase( "ConnectionPoolTimeoutException", msg );
 	}
 
-	private void function runParallel( required struct spec, required string mode ) {
+	private void function runParallel( required struct spec, required string mode, string waveId ) {
+		if ( isNull( waveId ) || isEmpty( waveId ) ) waveId = createUUID();
 		var cred = spec.cred;
 		var names = [];
 		var exceptions = [];
@@ -130,7 +139,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 
 		try {
 			for ( var i = 1; i <= spec.parallelCount; i++ ) {
-				var threadName = "ldev6373-#mode#-#i#";
+				var threadName = "ldev6373-#waveId#-#mode#-#i#";
 				arrayAppend( names, threadName );
 				thread action="run" name=threadName mode=mode spec=spec cred=cred tempDir=tempDir exceptions=exceptions {
 					try {
@@ -190,12 +199,13 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 		}
 	}
 
-	private void function runParallelVfs( required struct spec ) {
+	private void function runParallelVfs( required struct spec, string waveId ) {
+		if ( isNull( waveId ) || isEmpty( waveId ) ) waveId = createUUID();
 		var names = [];
 		var exceptions = [];
 
 		for ( var i = 1; i <= spec.parallelCount; i++ ) {
-			var threadName = "ldev6373-vfs-#i#";
+			var threadName = "ldev6373-vfs-#waveId#-#i#";
 			arrayAppend( names, threadName );
 			thread action="run" name=threadName s3Path=spec.s3Path objectContent=spec.objectContent exceptions=exceptions {
 				try {
