@@ -1,7 +1,11 @@
 package org.lucee.extension.resource.s3;
 
+import java.io.IOException;
 import java.lang.reflect.Method;
 import java.util.Collection;
+import java.util.List;
+
+import com.amazonaws.services.s3.model.S3Object;
 
 import lucee.commons.io.res.Resource;
 import lucee.loader.engine.CFMLEngineFactory;
@@ -91,6 +95,23 @@ public class S3Util {
 		}
 		catch (Exception e) {
 			throw CFMLEngineFactory.getInstance().getCastUtil().toPageException(e);
+		}
+	}
+
+	public static void closeS3Object(S3Object obj) {
+		if (obj == null) return;
+		try {
+			obj.close();
+		}
+		catch (IOException e) {
+			// connection release is best-effort
+		}
+	}
+
+	public static void closeS3Objects(List<S3Object> objects) {
+		if (objects == null || objects.isEmpty()) return;
+		for (S3Object obj: objects) {
+			closeS3Object(obj);
 		}
 	}
 }

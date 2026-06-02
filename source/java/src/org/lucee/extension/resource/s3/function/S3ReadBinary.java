@@ -3,6 +3,7 @@ package org.lucee.extension.resource.s3.function;
 import java.io.ByteArrayOutputStream;
 
 import org.lucee.extension.resource.s3.S3;
+import org.lucee.extension.resource.s3.S3Util;
 
 import com.amazonaws.services.s3.model.S3Object;
 
@@ -23,10 +24,11 @@ public class S3ReadBinary extends S3Function {
 			timeout = eng.getCastUtil().toDoubleValue(host);
 			host = null;
 		}
+		S3Object obj = null;
 		try {
 			// create S3 Instance
 			S3 s3 = S3.getInstance(toS3Properties(pc, accessKeyId, secretAccessKey, host), toTimeout(timeout), pc.getConfig());
-			S3Object obj = s3.getData(bucketName, objectName);
+			obj = s3.getData(bucketName, objectName);
 
 			// copy data
 			ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -36,6 +38,9 @@ public class S3ReadBinary extends S3Function {
 		}
 		catch (Exception e) {
 			throw eng.getCastUtil().toPageException(e);
+		}
+		finally {
+			S3Util.closeS3Object(obj);
 		}
 	}
 
