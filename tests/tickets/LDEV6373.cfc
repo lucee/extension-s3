@@ -7,9 +7,9 @@
  */
 component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 
-	private numeric parallelCount = 40;
-	private string objectName = "ldev-6373-pool-test.txt";
-	private string objectContent = "LDEV-6373 connection pool regression";
+	variables.parallelCount = 40;
+	variables.objectName = "ldev-6373-pool-test.txt";
+	variables.objectContent = "LDEV-6373 connection pool regression";
 
 	function run( testResults , testBox ) {
 		describe(
