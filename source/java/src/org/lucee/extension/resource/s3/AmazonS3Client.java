@@ -53,18 +53,21 @@ public class AmazonS3Client implements AmazonS3 {
 
 	private Boolean pathStyleAccess;
 	private Boolean ssl;
+	private S3HttpPoolSettings httpPool;
 
 	public static AmazonS3Client get(String accessKeyId, String secretAccessKey, String host, org.lucee.extension.resource.s3.region.RegionFactory.Region region, long liveTimeout,
-			Boolean pathStyleAccess, Boolean ssl, Log log) throws S3Exception {
+			Boolean pathStyleAccess, Boolean ssl, S3HttpPoolSettings httpPool, Log log) throws S3Exception {
 
-		String key = accessKeyId + ":" + secretAccessKey + ":" + host + ":" + (region == null ? "default-region" : S3.toString(region)) + ":" + pathStyleAccess + ":" + ssl;
+		S3HttpPoolSettings poolSettings = httpPool == null ? S3HttpPoolSettings.fromEnv() : httpPool;
+		String key = accessKeyId + ":" + secretAccessKey + ":" + host + ":" + (region == null ? "default-region" : S3.toString(region)) + ":" + pathStyleAccess + ":" + ssl + ":"
+				+ poolSettings.toCacheKey();
 		AmazonS3Client client = pool.get(key);
 		if (client == null || client.isExpired()) {
 			synchronized (pool) {
 				client = pool.get(key);
 				if (client == null || client.isExpired()) {
-					pool.put(key, client = new AmazonS3Client(accessKeyId, secretAccessKey, host, region, key, liveTimeout, pathStyleAccess, ssl, log));
-					if (log != null) log.debug("S3", "create client for  [" + accessKeyId + ":...@" + host + "]");
+					pool.put(key, client = new AmazonS3Client(accessKeyId, secretAccessKey, host, region, key, liveTimeout, pathStyleAccess, ssl, poolSettings, log));
+					if (log != null) log.debug("S3", "create client for  [" + accessKeyId + ":...@" + host + "] maxConnections=" + poolSettings.getEffectiveMaxConnections());
 				}
 			}
 
@@ -73,13 +76,14 @@ public class AmazonS3Client implements AmazonS3 {
 	}
 
 	private AmazonS3Client(String accessKeyId, String secretAccessKey, String host, org.lucee.extension.resource.s3.region.RegionFactory.Region region, String key,
-			long liveTimeout, Boolean pathStyleAccess, Boolean ssl, Log log) throws S3Exception {
+			long liveTimeout, Boolean pathStyleAccess, Boolean ssl, S3HttpPoolSettings httpPool, Log log) throws S3Exception {
 		this.accessKeyId = accessKeyId;
 		this.secretAccessKey = secretAccessKey;
 		this.host = host;
 		this.region = region;
 		this.pathStyleAccess = pathStyleAccess;
 		this.ssl = ssl;
+		this.httpPool = httpPool;
 		this.log = log;
 		this.created = System.currentTimeMillis();
 		client = create();
@@ -90,10 +94,14 @@ public class AmazonS3Client implements AmazonS3 {
 		AmazonS3ClientBuilder builder = AmazonS3ClientBuilder.standard();
 		builder.withCredentials(new AWSStaticCredentialsProvider(new BasicAWSCredentials(accessKeyId, secretAccessKey)));
 
+		ClientConfiguration config = new ClientConfiguration();
+		httpPool.apply(config);
+
 		if (Boolean.FALSE.equals(ssl)) {
-			builder.withClientConfiguration(new ClientConfiguration().withProtocol(Protocol.HTTP));
+			config.withProtocol(Protocol.HTTP);
 			if (log != null) log.debug("S3", "ssl=false: using plain HTTP for endpoint [" + host + "]");
 		}
+		builder.withClientConfiguration(config);
 
 		if (host != null && !host.isEmpty() && !host.equalsIgnoreCase(S3.DEFAULT_HOST)) {
 			String signingRegion = region == null ? "us-east-1" : S3.toString(region);
@@ -121,7 +129,9 @@ public class AmazonS3Client implements AmazonS3 {
 			if (log != null) log.debug("S3", "pathStyleAccess=true (auto-detected: unrecognised host [" + host + "])");
 		}
 
-		return builder.build();
+		AmazonS3 built = builder.build();
+		S3HttpPoolMonitor.register(built, httpPool, log, accessKeyId + ":...@" + host);
+		return built;
 	}
 
 	private static boolean isKnownCloudProvider(String host) {
@@ -145,7 +155,7 @@ public class AmazonS3Client implements AmazonS3 {
 	}
 
 	private boolean isExpired() {
-		return (liveTimeout + System.currentTimeMillis()) < created;
+		return liveTimeout > 0 && (System.currentTimeMillis() - created) > liveTimeout;
 	}
 
 	@Override

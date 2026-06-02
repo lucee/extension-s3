@@ -40,6 +40,7 @@ public class S3Properties {
 	private boolean cacheRegion = false;
 	private Boolean pathStyleAccess = null;
 	private Boolean ssl = null;
+	private S3HttpPoolSettings httpPool = S3HttpPoolSettings.fromEnv();
 
 	public void setBucket(String bucket) {
 		if (!Util.isEmpty(bucket, true)) this.bucket = bucket;
@@ -143,12 +144,21 @@ public class S3Properties {
 		this.ssl = ssl;
 	}
 
+	public S3HttpPoolSettings getHttpPool() {
+		return httpPool;
+	}
+
+	public void setHttpPool(S3HttpPoolSettings httpPool) {
+		if (httpPool != null) this.httpPool = httpPool;
+	}
+
 	@Override
 	public String toString() {
 
 		return new StringBuilder().append("host:").append(getHost()).append(";").append("accessKeyId:").append(getAccessKeyId()).append(";").append("secretAccessKey:")
 				.append(getSecretAccessKey()).append(";acl:").append(getACL()).append(";location:").append(getDefaultLocation()).append(";cacheRegion:").append(getCacheRegion())
-				.append(";pathStyleAccess:").append(getPathStyleAccess()).append(";ssl:").append(getSsl()).append(";").toString();
+				.append(";pathStyleAccess:").append(getPathStyleAccess()).append(";ssl:").append(getSsl()).append(";pool:").append(getHttpPool().toCacheKey()).append(";")
+				.toString();
 	}
 
 	public void setACL(Object acl) {
@@ -273,10 +283,12 @@ public class S3Properties {
 		String sk = eng.getCastUtil().toString(sct.get("awsSecretKey", null), null);
 		if (Util.isEmpty(sk)) sk = eng.getCastUtil().toString(sct.get("secretKey", null), null);
 
-		return toS3(eng.getCastUtil().toString(sct.get("accessKeyId", null), null), sk, eng.getCastUtil().toString(sct.get("defaultLocation", null), null), host, bucket,
+		S3Properties s3 = toS3(eng.getCastUtil().toString(sct.get("accessKeyId", null), null), sk, eng.getCastUtil().toString(sct.get("defaultLocation", null), null), host, bucket,
 				eng.getCastUtil().toString(sct.get("acl", null), null), eng.getCastUtil().toBoolean(sct.get("cacheregion", null), null),
 				eng.getCastUtil().toTimespan(sct.get("cache", null), null), eng.getCastUtil().toBoolean(sct.get("pathstyleaccess", null), null),
 				eng.getCastUtil().toBoolean(sct.get("ssl", null), null));
+		s3.setHttpPool(S3HttpPoolSettings.load(eng, sct));
+		return s3;
 
 	}
 

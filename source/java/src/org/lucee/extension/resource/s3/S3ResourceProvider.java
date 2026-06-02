@@ -205,6 +205,7 @@ public final class S3ResourceProvider implements ResourceProvider {
 				if (prop.getACL() != null) defaultACL = prop.getACL();
 				if (prop.getPathStyleAccess() != null) pathStyleAccess = prop.getPathStyleAccess();
 				if (prop.getSsl() != null) ssl = prop.getSsl();
+				properties.setHttpPool(prop.getHttpPool());
 
 				defaultLocation = S3Util.extractLocationFromHostIfNecessary(defaultLocation, host);
 
@@ -254,6 +255,7 @@ public final class S3ResourceProvider implements ResourceProvider {
 					secretAccessKey = prop.getSecretAccessKey();
 					defaultLocation = prop.getDefaultLocation();
 					defaultACL = prop.getACL();
+					properties.setHttpPool(prop.getHttpPool());
 					defaultLocation = S3Util.extractLocationFromHostIfNecessary(defaultLocation, host);
 
 				}

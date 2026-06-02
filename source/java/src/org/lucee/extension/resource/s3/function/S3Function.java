@@ -20,6 +20,7 @@ package org.lucee.extension.resource.s3.function;
 
 import java.nio.charset.Charset;
 
+import org.lucee.extension.resource.s3.S3HttpPoolSettings;
 import org.lucee.extension.resource.s3.S3Properties;
 import org.lucee.extension.resource.s3.S3Resource;
 import org.lucee.extension.resource.s3.S3ResourceProvider;
@@ -55,6 +56,7 @@ public abstract class S3Function extends BIF {
 				props.setCustomHost(true);
 			}
 			props.setCustomCredentials(true);
+			props.setHttpPool(S3HttpPoolSettings.fromEnv());
 			return props;
 		}
 
@@ -108,6 +110,7 @@ public abstract class S3Function extends BIF {
 		if (cacheRegion != null) props.setCacheRegion(cacheRegion.booleanValue());
 		if (pathStyleAccess != null) props.setPathStyleAccess(pathStyleAccess);
 		if (ssl != null) props.setSsl(ssl);
+		props.setHttpPool(S3HttpPoolSettings.fromEnv());
 
 		return props;
 	}

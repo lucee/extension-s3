@@ -128,10 +128,12 @@ public class S3 {
 	private final Log log;
 	private final Boolean pathStyleAccess;
 	private final Boolean ssl;
+	private final S3HttpPoolSettings httpPool;
 
 	public static S3 getInstance(S3Properties props, long cache, Config config) {
 
-		String keyS3 = props.getAccessKeyId() + ":" + props.getSecretAccessKey() + ":" + props.getHost() + ":" + props.getDefaultLocation() + ":" + cache + ":" + props.getPathStyleAccess() + ":" + props.getSsl();
+		String keyS3 = props.getAccessKeyId() + ":" + props.getSecretAccessKey() + ":" + props.getHost() + ":" + props.getDefaultLocation() + ":" + cache + ":" + props.getPathStyleAccess() + ":" + props.getSsl() + ":"
+				+ props.getHttpPool().toCacheKey();
 		S3 s3 = instances.get(keyS3);
 		if (s3 == null) {
 			synchronized (instances) {
@@ -164,7 +166,7 @@ public class S3 {
 						}
 					}
 				instances.put(keyS3, s3 = new S3(c, props.getAccessKeyId(), props.getSecretAccessKey(), props.getHost(), props.getDefaultLocation(), cache,
-						S3.DEFAULT_LIVE_TIMEOUT, props.getCacheRegion(), props.getPathStyleAccess(), props.getSsl(), config));
+						S3.DEFAULT_LIVE_TIMEOUT, props.getCacheRegion(), props.getPathStyleAccess(), props.getSsl(), props.getHttpPool(), config));
 				}
 			}
 		}
@@ -222,7 +224,7 @@ public class S3 {
 	 * @throws S3Exception
 	 */
 	private S3(S3Cache cache, String accessKeyId, String secretAccessKey, String host, String defaultLocation, long cacheTimeout, long liveTimeout, boolean cacheRegions,
-			Boolean pathStyleAccess, Boolean ssl, Config config) {
+			Boolean pathStyleAccess, Boolean ssl, S3HttpPoolSettings httpPool, Config config) {
 		this.cache = cache;
 		this.accessKeyId = accessKeyId;
 		this.secretAccessKey = secretAccessKey;
@@ -231,6 +233,7 @@ public class S3 {
 		this.liveTimeout = liveTimeout;
 		this.pathStyleAccess = pathStyleAccess;
 		this.ssl = ssl;
+		this.httpPool = httpPool == null ? S3HttpPoolSettings.fromEnv() : httpPool;
 		if (!Util.isEmpty(defaultLocation, true)) {
 			try {
 				defaultRegion = toString(RegionFactory.getInstance(defaultLocation));
@@ -2420,7 +2423,7 @@ public class S3 {
 
 		Region region = toRegion(bucketName, strRegion);
 
-		return AmazonS3Client.get(accessKeyId, secretAccessKey, host, region, liveTimeout, pathStyleAccess, ssl, log);
+		return AmazonS3Client.get(accessKeyId, secretAccessKey, host, region, liveTimeout, pathStyleAccess, ssl, httpPool, log);
 	}
 
 	public Region getBucketRegion(String bucketName, boolean loadIfNecessary) throws S3Exception {
