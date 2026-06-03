@@ -25,6 +25,25 @@ lucee.s3.accesskeyid || lucee.s3.accesskey
 lucee.s3.host || lucee.s3.server
 lucee.s3.location || lucee.s3.defaultLocation or lucee.s3.region
 lucee.s3.acl || lucee.s3.accesscontrollist
+lucee.s3.pool.maxconnections (extension default: 128; AWS SDK default: 50)
+lucee.s3.pool.connectiontimeout
+lucee.s3.pool.sockettimeout
+lucee.s3.pool.connectionmaxidlemillis
+lucee.s3.pool.warnutilization
+```
+
+Equivalent environment variables: `LUCEE_S3_POOL_MAXCONNECTIONS`, `LUCEE_S3_POOL_CONNECTIONTIMEOUT`, `LUCEE_S3_POOL_SOCKETTIMEOUT`, `LUCEE_S3_POOL_CONNECTIONMAXIDLEMILLIS`, `LUCEE_S3_POOL_WARNUTILIZATION`.
+
+You can also configure the HTTP connection pool in Application.cfc (one shared AWS SDK client per credential set):
+
+```javascript
+this.vfs.s3.pool = {
+    maxConnections: 200,              // extension default is 128
+    connectionTimeout: 10000,
+    socketTimeout: 50000,
+    connectionMaxIdleMillis: 60000,
+    warnUtilization: 0.8              // log WARN at 80% utilization; 0 to disable
+};
 ```
 
 For further implementation details
