@@ -234,7 +234,9 @@ public class S3 {
 		this.pathStyleAccess = pathStyleAccess;
 		this.ssl = ssl;
 		this.httpPool = httpPool == null ? S3HttpPoolSettings.fromEnv() : httpPool;
-		defaultLocation = S3Util.extractLocationFromHostIfNecessary(defaultLocation, host);
+		if (isCustomEndpoint(host)) {
+			defaultLocation = S3Util.extractLocationFromHostIfNecessary(defaultLocation, host);
+		}
 		if (!Util.isEmpty(defaultLocation, true)) {
 			try {
 				defaultRegion = toString(RegionFactory.getInstance(defaultLocation));
@@ -2475,13 +2477,21 @@ public class S3 {
 			Region cached = cache.bucketRegions.get(improveBucketName(bucketName));
 			if (cached != null && cached != RegionFactory.ERROR) return cached;
 		}
-		if (!Util.isEmpty(defaultRegion, true)) {
+		// Custom S3-compatible endpoint: configured or host-derived region is authoritative
+		if (isCustomEndpoint(host) && !Util.isEmpty(defaultRegion, true)) {
 			return RegionFactory.getInstance(defaultRegion);
 		}
 		if (!Util.isEmpty(bucketName)) {
 			return getBucketRegion(bucketName, true);
 		}
+		if (!Util.isEmpty(defaultRegion, true)) {
+			return RegionFactory.getInstance(defaultRegion);
+		}
 		return null;
+	}
+
+	static boolean isCustomEndpoint(String host) {
+		return !Util.isEmpty(host, true) && !host.equalsIgnoreCase(DEFAULT_HOST);
 	}
 
 	public static String toString(Region region) {
