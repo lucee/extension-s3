@@ -127,9 +127,12 @@ public class S3 {
 
 	private final Log log;
 
+	private final S3HttpPoolSettings httpPool;
+
 	public static S3 getInstance(S3Properties props, long cache, Config config) {
 
-		String keyS3 = props.getAccessKeyId() + ":" + props.getSecretAccessKey() + ":" + props.getHost() + ":" + props.getDefaultLocation() + ":" + cache;
+		String keyS3 = props.getAccessKeyId() + ":" + props.getSecretAccessKey() + ":" + props.getHost() + ":" + props.getDefaultLocation() + ":" + cache + ":"
+				+ props.getHttpPool().toCacheKey();
 		S3 s3 = instances.get(keyS3);
 		if (s3 == null) {
 			synchronized (instances) {
@@ -162,7 +165,7 @@ public class S3 {
 						}
 					}
 					instances.put(keyS3, s3 = new S3(c, props.getAccessKeyId(), props.getSecretAccessKey(), props.getHost(), props.getDefaultLocation(), cache,
-							S3.DEFAULT_LIVE_TIMEOUT, props.getCacheRegion(), config));
+							S3.DEFAULT_LIVE_TIMEOUT, props.getCacheRegion(), props.getHttpPool(), config));
 				}
 			}
 		}
@@ -221,13 +224,14 @@ public class S3 {
 	 * @throws S3Exception
 	 */
 	private S3(S3Cache cache, String accessKeyId, String secretAccessKey, String host, String defaultLocation, long cacheTimeout, long liveTimeout, boolean cacheRegions,
-			Config config) {
+			S3HttpPoolSettings httpPool, Config config) {
 		this.cache = cache;
 		this.accessKeyId = accessKeyId;
 		this.secretAccessKey = secretAccessKey;
 		this.host = host;
 		this.cacheTimeout = cacheTimeout;
 		this.liveTimeout = liveTimeout;
+		this.httpPool = httpPool == null ? S3HttpPoolSettings.fromEnv() : httpPool;
 		if (!Util.isEmpty(defaultLocation, true)) {
 			try {
 				defaultRegion = toString(RegionFactory.getInstance(defaultLocation));
@@ -1281,10 +1285,8 @@ public class S3 {
 					cache.harakiri.touch();
 				}
 
-				// pseudo directory?
-				// if (info == null) {
-				targetName = summary.getKey();
-				if (nameDir.length() < targetName.length() && targetName.startsWith(nameDir)) {
+				// pseudo directory (only when there is no exact key match for the requested path)
+				else if (nameDir.length() < targetName.length() && targetName.startsWith(nameDir)) {
 					cache.exists.put(toKey(bucketName, nameFile), info = new ParentObject(this, bucketName, nameDir, validUntil, log));
 					cache.harakiri.touch();
 				}
@@ -2098,8 +2100,16 @@ public class S3 {
 		bucketName = improveBucketName(bucketName);
 		objectName = improveObjectName(objectName);
 		S3Info info = get(bucketName, objectName);
-		if (info == null || info.isVirtual()) throw new S3Exception("there is no physical object [" + bucketName + "/" + objectName + "]");
-		return info.getMetaData();
+		if (info != null && !info.isVirtual()) return info.getMetaData();
+		if (info == null && !Util.isEmpty(objectName)) {
+			try {
+				return getMetaDataStruct(bucketName, objectName);
+			}
+			catch (AmazonServiceException ase) {
+				throw toS3Exception(ase);
+			}
+		}
+		throw new S3Exception("there is no physical object [" + bucketName + "/" + objectName + "]");
 	}
 
 	public ObjectMetadata getObjectMetadata(String bucketName, String objectName) throws S3Exception {
@@ -2403,7 +2413,7 @@ public class S3 {
 
 		Region region = toRegion(bucketName, strRegion);
 
-		return AmazonS3Client.get(accessKeyId, secretAccessKey, host, region, liveTimeout, pathStyleAccess, log);
+		return AmazonS3Client.get(accessKeyId, secretAccessKey, host, region, liveTimeout, pathStyleAccess, httpPool, log);
 	}
 
 	public Region getBucketRegion(String bucketName, boolean loadIfNecessary) throws S3Exception {

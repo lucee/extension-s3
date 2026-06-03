@@ -38,6 +38,7 @@ public class S3Properties {
 	private long cache;
 	private String mapping;
 	private boolean cacheRegion = false;
+	private S3HttpPoolSettings httpPool = S3HttpPoolSettings.fromEnv();
 
 	public void setBucket(String bucket) {
 		if (!Util.isEmpty(bucket, true)) this.bucket = bucket;
@@ -125,12 +126,20 @@ public class S3Properties {
 		this.cacheRegion = cacheRegion;
 	}
 
+	public S3HttpPoolSettings getHttpPool() {
+		return httpPool;
+	}
+
+	public void setHttpPool(S3HttpPoolSettings httpPool) {
+		if (httpPool != null) this.httpPool = httpPool;
+	}
+
 	@Override
 	public String toString() {
 
 		return new StringBuilder().append("host:").append(getHost()).append(";").append("accessKeyId:").append(getAccessKeyId()).append(";").append("secretAccessKey:")
 				.append(getSecretAccessKey()).append(";acl:").append(getACL()).append(";location:").append(getDefaultLocation()).append(";cacheRegion:").append(getCacheRegion())
-				.append(";").toString();
+				.append(";pool:").append(getHttpPool().toCacheKey()).append(";").toString();
 	}
 
 	public void setACL(Object acl) {
@@ -257,12 +266,12 @@ public class S3Properties {
 
 		return toS3(eng.getCastUtil().toString(sct.get("accessKeyId", null), null), sk, eng.getCastUtil().toString(sct.get("defaultLocation", null), null), host, bucket,
 				eng.getCastUtil().toString(sct.get("acl", null), null), eng.getCastUtil().toBoolean(sct.get("cacheregion", null), null),
-				eng.getCastUtil().toTimespan(sct.get("cache", null), null));
+				eng.getCastUtil().toTimespan(sct.get("cache", null), null), S3HttpPoolSettings.load(eng, sct));
 
 	}
 
-	private static S3Properties toS3(String accessKeyId, String awsSecretKey, String defaultLocation, String host, String bucket, String acl, Boolean cacheRegion, TimeSpan cache)
-			throws S3Exception {
+	private static S3Properties toS3(String accessKeyId, String awsSecretKey, String defaultLocation, String host, String bucket, String acl, Boolean cacheRegion, TimeSpan cache,
+			S3HttpPoolSettings httpPool) throws S3Exception {
 
 		S3Properties s3 = new S3Properties();
 		defaultLocation = S3Util.extractLocationFromHostIfNecessary(defaultLocation, host);
@@ -275,6 +284,7 @@ public class S3Properties {
 		if (!Util.isEmpty(acl)) s3.setACL(AccessControlListUtil.toAccessControlList(acl));
 		if (cacheRegion != null) s3.setCacheRegion(cacheRegion.booleanValue());
 		if (cache != null) s3.setCache(cache.getMillis());
+		if (httpPool != null) s3.setHttpPool(httpPool);
 
 		return s3;
 	}

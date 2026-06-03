@@ -12,6 +12,7 @@ import org.lucee.extension.resource.s3.region.RegionFactory;
 
 import com.amazonaws.AmazonServiceException;
 import com.amazonaws.AmazonWebServiceRequest;
+import com.amazonaws.ClientConfiguration;
 import com.amazonaws.HttpMethod;
 import com.amazonaws.SdkClientException;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
@@ -50,18 +51,21 @@ public class AmazonS3Client implements AmazonS3 {
 	private long liveTimeout;
 
 	private boolean pathStyleAccess;
+	private S3HttpPoolSettings httpPool;
 
 	public static AmazonS3Client get(String accessKeyId, String secretAccessKey, String host, org.lucee.extension.resource.s3.region.RegionFactory.Region region, long liveTimeout,
-			boolean pathStyleAccess, Log log) throws S3Exception {
+			boolean pathStyleAccess, S3HttpPoolSettings httpPool, Log log) throws S3Exception {
 
-		String key = accessKeyId + ":" + secretAccessKey + ":" + host + ":" + (region == null ? "default-region" : S3.toString(region)) + ":" + pathStyleAccess;
+		S3HttpPoolSettings poolSettings = httpPool == null ? S3HttpPoolSettings.fromEnv() : httpPool;
+		String key = accessKeyId + ":" + secretAccessKey + ":" + host + ":" + (region == null ? "default-region" : S3.toString(region)) + ":" + pathStyleAccess + ":"
+				+ poolSettings.toCacheKey();
 		AmazonS3Client client = pool.get(key);
 		if (client == null || client.isExpired()) {
 			synchronized (pool) {
 				client = pool.get(key);
 				if (client == null || client.isExpired()) {
-					pool.put(key, client = new AmazonS3Client(accessKeyId, secretAccessKey, host, region, key, liveTimeout, pathStyleAccess, log));
-					if (log != null) log.debug("S3", "create client for  [" + accessKeyId + ":...@" + host + "]");
+					pool.put(key, client = new AmazonS3Client(accessKeyId, secretAccessKey, host, region, key, liveTimeout, pathStyleAccess, poolSettings, log));
+					if (log != null) log.debug("S3", "create client for  [" + accessKeyId + ":...@" + host + "] maxConnections=" + poolSettings.getEffectiveMaxConnections());
 				}
 			}
 
@@ -70,12 +74,13 @@ public class AmazonS3Client implements AmazonS3 {
 	}
 
 	private AmazonS3Client(String accessKeyId, String secretAccessKey, String host, org.lucee.extension.resource.s3.region.RegionFactory.Region region, String key,
-			long liveTimeout, boolean pathStyleAccess, Log log) throws S3Exception {
+			long liveTimeout, boolean pathStyleAccess, S3HttpPoolSettings httpPool, Log log) throws S3Exception {
 		this.accessKeyId = accessKeyId;
 		this.secretAccessKey = secretAccessKey;
 		this.host = host;
 		this.region = region;
 		this.pathStyleAccess = pathStyleAccess;
+		this.httpPool = httpPool;
 		this.log = log;
 		this.created = System.currentTimeMillis();
 		client = create();
@@ -85,11 +90,12 @@ public class AmazonS3Client implements AmazonS3 {
 	public AmazonS3 create() throws S3Exception {
 		AmazonS3ClientBuilder builder = AmazonS3ClientBuilder.standard();
 		builder.withCredentials(new AWSStaticCredentialsProvider(new BasicAWSCredentials(accessKeyId, secretAccessKey)));
-		// region or endpoint and region
-		if (host != null && !host.isEmpty() && !host.equalsIgnoreCase(S3.DEFAULT_HOST)) {
-			// TODO serviceEndpoint - the service endpoint either with or without the protocol (e.g.
-			// https://sns.us-west-1.amazonaws.com or sns.us-west-1.amazonaws.com)
 
+		ClientConfiguration config = new ClientConfiguration();
+		httpPool.apply(config);
+		builder.withClientConfiguration(config);
+
+		if (host != null && !host.isEmpty() && !host.equalsIgnoreCase(S3.DEFAULT_HOST)) {
 			builder = builder.withEndpointConfiguration(new EndpointConfiguration(host, region == null ? "us-east-1" : S3.toString(region)));
 		}
 		else {
@@ -97,13 +103,12 @@ public class AmazonS3Client implements AmazonS3 {
 				builder = builder.withRegion(region.getName());
 			}
 			else {
-				builder = builder.withRegion(RegionFactory.US_EAST_1.getName()).withForceGlobalBucketAccessEnabled(true); // The first region to try your request against
-				// If a bucket is in a different region, try again in the correct region
-
+				builder = builder.withRegion(RegionFactory.US_EAST_1.getName()).withForceGlobalBucketAccessEnabled(true);
 			}
 		}
 		if (pathStyleAccess) builder.withPathStyleAccessEnabled(pathStyleAccess);
 
+		builder.withRequestHandlers(new S3HttpPoolMonitor(httpPool, log, accessKeyId + ":...@" + host));
 		return builder.build();
 	}
 
@@ -120,7 +125,7 @@ public class AmazonS3Client implements AmazonS3 {
 	}
 
 	private boolean isExpired() {
-		return (liveTimeout + System.currentTimeMillis()) < created;
+		return liveTimeout > 0 && (System.currentTimeMillis() - created) > liveTimeout;
 	}
 
 	@Override

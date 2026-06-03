@@ -188,6 +188,7 @@ public final class S3ResourceProvider implements ResourceProvider {
 				}
 				if (!Util.isEmpty(prop.getDefaultLocation())) defaultLocation = prop.getDefaultLocation();
 				if (prop.getACL() != null) defaultACL = prop.getACL();
+				properties.setHttpPool(prop.getHttpPool());
 
 				defaultLocation = S3Util.extractLocationFromHostIfNecessary(defaultLocation, host);
 

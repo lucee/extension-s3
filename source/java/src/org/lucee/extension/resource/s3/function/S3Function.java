@@ -20,6 +20,7 @@ package org.lucee.extension.resource.s3.function;
 
 import java.nio.charset.Charset;
 
+import org.lucee.extension.resource.s3.S3HttpPoolSettings;
 import org.lucee.extension.resource.s3.S3Properties;
 import org.lucee.extension.resource.s3.S3Resource;
 import org.lucee.extension.resource.s3.S3ResourceProvider;
@@ -34,8 +35,7 @@ import lucee.loader.util.Util;
 import lucee.runtime.PageContext;
 import lucee.runtime.exp.PageException;
 import lucee.runtime.ext.function.BIF;
-import lucee.runtime.listener.ApplicationContext;
-import lucee.runtime.net.s3.Properties;
+import lucee.runtime.type.Struct;
 
 public abstract class S3Function extends BIF {
 
@@ -44,7 +44,6 @@ public abstract class S3Function extends BIF {
 
 	protected static S3Properties toS3Properties(PageContext pc, String accessKeyId, String secretAccessKey, String host) throws PageException, RuntimeException {
 
-		// directly
 		if (!Util.isEmpty(accessKeyId, true) && !Util.isEmpty(secretAccessKey, true)) {
 			S3Properties props = new S3Properties();
 			props.setSecretAccessKey(secretAccessKey);
@@ -54,34 +53,20 @@ public abstract class S3Function extends BIF {
 				props.setCustomHost(true);
 			}
 			props.setCustomCredentials(true);
+			props.setHttpPool(S3HttpPoolSettings.fromEnv());
 			return props;
 		}
 
-		// application context
-		ApplicationContext ac = pc.getApplicationContext();
-		if (ac != null) {
-			Properties props = ac.getS3();
-			if (props != null) {
-				accessKeyId = props.getAccessKeyId();
-				secretAccessKey = props.getSecretAccessKey();
-				if (!Util.isEmpty(accessKeyId, true) && !Util.isEmpty(secretAccessKey, true)) {
-					S3Properties s3props = new S3Properties();
-					s3props.setSecretAccessKey(secretAccessKey);
-					s3props.setAccessKeyId(accessKeyId);
-					s3props.setCustomCredentials(false);
-					if (props.getHost() != null) {
-						s3props.setHost(props.getHost());
-						s3props.setCustomHost(true);
-					}
-					else s3props.setCustomHost(false);
-
-					if (props.getDefaultLocation() != null) {
-						s3props.setDefaultLocation(props.getDefaultLocation());
-					}
-
-					return s3props;
+		try {
+			Struct appData = S3Properties.getApplicationData(pc);
+			if (appData != null) {
+				S3Properties props = S3Properties.load(pc, appData, null);
+				if (props != null && !Util.isEmpty(props.getAccessKeyId(), true) && !Util.isEmpty(props.getSecretAccessKey(), true)) {
+					return props;
 				}
 			}
+		}
+		catch (Exception e) {
 		}
 
 		if (Util.isEmpty(secretAccessKey, true)) secretAccessKey = S3Util.getSystemPropOrEnvVar("lucee.s3.secretaccesskey", null);
@@ -111,6 +96,7 @@ public abstract class S3Function extends BIF {
 		}
 		else props.setCustomHost(false);
 		if (cacheRegion != null) props.setCacheRegion(cacheRegion.booleanValue());
+		props.setHttpPool(S3HttpPoolSettings.fromEnv());
 
 		return props;
 	}
