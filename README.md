@@ -79,6 +79,8 @@ component {
 
 Pool messages are written to the S3 log channel (`s3` or `application`). When the pool is exhausted you get an ERROR with `Timeout waiting for connection from pool`; high utilization logs WARN at most once per minute.
 
+Region is derived from `defaultLocation`, from the endpoint host (e.g. `s3.eu-central-1.wasabisys.com` → `eu-central-1`), or from a cached bucket lookup — avoiding a `getBucketLocation` call on every request when a region is already known. Expired SDK clients are shut down when replaced so their HTTP connections are released back to the OS.
+
 ### Inline URL Credentials
 
 Credentials can be embedded directly in the path:

@@ -64,10 +64,14 @@ public class AmazonS3Client implements AmazonS3 {
 		AmazonS3Client client = pool.get(key);
 		if (client == null || client.isExpired()) {
 			synchronized (pool) {
-				client = pool.get(key);
-				if (client == null || client.isExpired()) {
+				AmazonS3Client existing = pool.get(key);
+				if (existing == null || existing.isExpired()) {
+					if (existing != null) existing.shutdownQuietly();
 					pool.put(key, client = new AmazonS3Client(accessKeyId, secretAccessKey, host, region, key, liveTimeout, pathStyleAccess, ssl, poolSettings, log));
 					if (log != null) log.debug("S3", "create client for  [" + accessKeyId + ":...@" + host + "] maxConnections=" + poolSettings.getEffectiveMaxConnections());
+				}
+				else {
+					client = existing;
 				}
 			}
 
@@ -2289,6 +2293,16 @@ public class AmazonS3Client implements AmazonS3 {
 		catch (IllegalStateException ise) {
 			invalidateAmazonS3(ise);
 			return client.listBuckets(listBucketsPaginatedRequest);
+		}
+	}
+
+	private void shutdownQuietly() {
+		if (client == null) return;
+		try {
+			client.shutdown();
+		}
+		catch (Exception e) {
+			if (log != null) log.error("S3", e);
 		}
 	}
 
