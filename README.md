@@ -50,7 +50,7 @@ component {
 
     // HTTP connection pool (AWS SDK, per shared client / credential set)
     this.vfs.s3.pool = {
-        maxConnections: 200,              // extension default is 64 (AWS SDK default is 50)
+        maxConnections: 200,              // extension default is 128 (AWS SDK default is 50)
         connectionTimeout: 10000,         // ms to wait for a pool slot (default 10000)
         socketTimeout: 50000,             // ms read timeout on an active connection
         connectionMaxIdleMillis: 60000,   // discard idle pooled connections
@@ -71,7 +71,7 @@ component {
 | `LUCEE_S3_CACHEREGION`        | `lucee.s3.cacheregion`           | Cache bucket region lookups (`true`/`false`)     |
 | `LUCEE_S3_PATHSTYLEACCESS`    | `lucee.s3.pathstyleaccess`       | Force path-style URLs (`true`/`false`)           |
 | `LUCEE_S3_SSL`                | `lucee.s3.ssl`                   | Use HTTPS (`true`, default) or plain HTTP (`false`) |
-| `LUCEE_S3_POOL_MAXCONNECTIONS` | `lucee.s3.pool.maxconnections`  | Max concurrent HTTP connections per S3 client (extension default: 64; AWS SDK default: 50) |
+| `LUCEE_S3_POOL_MAXCONNECTIONS` | `lucee.s3.pool.maxconnections`  | Max concurrent HTTP connections per S3 client (extension default: 128; AWS SDK default: 50) |
 | `LUCEE_S3_POOL_CONNECTIONTIMEOUT` | `lucee.s3.pool.connectiontimeout` | Ms to wait for a connection from the pool (default: 10000) |
 | `LUCEE_S3_POOL_SOCKETTIMEOUT` | `lucee.s3.pool.sockettimeout`    | Socket read timeout in ms (default: 50000) |
 | `LUCEE_S3_POOL_CONNECTIONMAXIDLEMILLIS` | `lucee.s3.pool.connectionmaxidlemillis` | Idle connection TTL in ms (default: 60000) |

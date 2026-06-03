@@ -13,8 +13,8 @@ public class S3HttpPoolSettings {
 
 	/** AWS SDK default; kept for reference. */
 	public static final int SDK_DEFAULT_MAX_CONNECTIONS = ClientConfiguration.DEFAULT_MAX_CONNECTIONS;
-	/** Used when [pool.maxConnections] is not configured (SDK default is 50). */
-	public static final int DEFAULT_MAX_CONNECTIONS = 64;
+	/** Used when [pool.maxConnections] is not configured (extension default is 128; AWS SDK default is 50). */
+	public static final int DEFAULT_MAX_CONNECTIONS = 128;
 	public static final double DEFAULT_WARN_UTILIZATION = 0.8D;
 
 	private Integer maxConnections;
