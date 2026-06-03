@@ -2,8 +2,6 @@ package org.lucee.extension.resource.s3;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
-import org.apache.http.conn.ConnectionPoolTimeoutException;
-
 import com.amazonaws.Request;
 import com.amazonaws.Response;
 import com.amazonaws.handlers.RequestHandler2;
@@ -73,7 +71,7 @@ final class S3HttpPoolMonitor extends RequestHandler2 {
 
 	static boolean isPoolTimeout(Throwable e) {
 		while (e != null) {
-			if (e instanceof ConnectionPoolTimeoutException) return true;
+			if (e.getClass().getName().indexOf("ConnectionPoolTimeoutException") != -1) return true;
 			String msg = e.getMessage();
 			if (msg != null && msg.indexOf("Timeout waiting for connection from pool") != -1) return true;
 			e = e.getCause();
