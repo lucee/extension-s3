@@ -11,3 +11,4 @@ target/*
 *.lock
 *.DS_Store
 temp
+/maven-deploy.sh
