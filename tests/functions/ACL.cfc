@@ -179,7 +179,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 				awsSecretKey: cred.SECRET_KEY,
 				host:isNull(cred.HOST)?nullValue(): cred.HOST
 			};
-			cred.PREFIXVersion=cred.PREFIX&""&listFirst(replace(server.lucee.version,".","","all"),"-");
+			cred.PREFIXVersion=cred.PREFIX&""&listFirst(replace(server.lucee.version,".","","all"),"-")&lcase(left(replace(createUUID(),"-","","all"),6)); // random part: parallel CI jobs on the same Lucee build must not share a bucket
 			return true;
 		}
 		return false;
