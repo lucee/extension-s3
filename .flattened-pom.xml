@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd" xmlns="http://maven.apache.org/POM/4.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>org.lucee</groupId>
+  <artifactId>s3-extension</artifactId>
+  <version>2.1.0.11-SNAPSHOT</version>
+  <packaging>pom</packaging>
+  <name>S3 Extension</name>
+  <description>Core Extension to integrate Amazon Simple Storage Service (S3) Resource into Lucee.</description>
+  <url>https://github.com/lucee/extension-s3</url>
+  <licenses>
+    <license>
+      <name>The GNU Lesser General Public License, Version 2.1</name>
+      <url>http://www.gnu.org/licenses/lgpl-2.1.txt</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+  <developers>
+    <developer>
+      <id>micstriit</id>
+      <name>Michael Offner</name>
+      <email>michael@lucee.org</email>
+      <organization>Lucee Association Switzerland</organization>
+      <organizationUrl>http://lucee.org</organizationUrl>
+      <roles>
+        <role>Project-Administrator</role>
+        <role>Developer</role>
+      </roles>
+      <timezone>+1</timezone>
+    </developer>
+  </developers>
+  <scm>
+    <connection>scm:git:git://github.com/lucee/extension-s3.git</connection>
+    <developerConnection>scm:git:git@github.com:lucee/extension-s3.git</developerConnection>
+    <tag>2.1.0.11-SNAPSHOT</tag>
+    <url>https://github.com/lucee/extension-s3</url>
+  </scm>
+  <properties>
+    <mvnArtifactId>s3</mvnArtifactId>
+    <buildDate>2026-10-16 13:14:59</buildDate>
+    <camelname>S3</camelname>
+    <mvnGroupId>org.lucee</mvnGroupId>
+    <maven.build.timestamp.format>yyyy-MM-dd HH:mm:ss</maven.build.timestamp.format>
+    <releaseType>server</releaseType>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <id>17AB52DE-B300-A94B-E058BD978511E39E</id>
+    <class>org.lucee.extension.resource.s3.S3ResourceProvider</class>
+    <image>https://raw.githubusercontent.com/lucee/extension-s3/master/source/images/logo.png</image>
+    <maven.compiler.source>11</maven.compiler.source>
+    <label>S3 Resource Extension</label>
+    <snapshot.url>https://oss.sonatype.org/content/repositories/snapshots/</snapshot.url>
+    <release.url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</release.url>
+    <bundlename>org.lucee.s3.extension</bundlename>
+    <luceeCoreVersion>7.0.0.211-BETA</luceeCoreVersion>
+    <maven.compiler.target>11</maven.compiler.target>
+    <filename>s3-extension</filename>
+    <mvnGroupPath>org/lucee</mvnGroupPath>
+  </properties>
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.sonatype.central</groupId>
+        <artifactId>central-publishing-maven-plugin</artifactId>
+        <version>0.8.0</version>
+        <extensions>true</extensions>
+      </plugin>
+    </plugins>
+  </build>
+</project>
