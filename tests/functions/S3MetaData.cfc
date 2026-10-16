@@ -66,9 +66,9 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 			assertEquals("Susanne",md.susi);
 		}
 		finally {
-    		if(DirectoryExists(dir))
-    			directoryDelete(dir,true);
-    	}  
+			// delete the whole bucket (incl. objects), not only the object dir, otherwise the bucket leaks
+			Util::deleteBucketEL(cred,bucketName);
+		}
 	}
 } 
 </cfscript>
