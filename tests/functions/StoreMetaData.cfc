@@ -24,13 +24,9 @@ component extends="org.lucee.cfml.test.LuceeTestCase"	{
 	//public function afterTests(){}
 
 
-	private struct function getCredencials() {
-		return server.getTestService("s3");
-	}
-	  
 	public function setUp(){
-		var s3=getCredencials();
-		if(!isNull(s3.accessKeyId)) {
+		var s3=Util::getAWSCredentials();
+		if(!isNull(s3.ACCESS_KEY_ID)) {
 			application action="update" s3={
 				accessKeyId: s3.ACCESS_KEY_ID,
 				awsSecretKey: s3.SECRET_KEY
