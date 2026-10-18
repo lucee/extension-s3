@@ -156,11 +156,19 @@ public abstract class S3Function extends BIF {
 
 			if (objectName != null && objectName.endsWith("/")) objectName = objectName.substring(0, objectName.length() - 1);
 
-			// explicit credentals overrule in path credentials!
-			if (!Util.isEmpty(accessKeyId)) {
+			// explicit credentials overrule the path and the Application.cfc settings. Only the bucket and object
+			// come from the path; region, pathStyleAccess, ssl, ... loaded from Application.cfc belong to other
+			// credentials (possibly another provider) and must not be mixed in, same as toS3Properties() does.
+			if (!Util.isEmpty(accessKeyId, true) && !Util.isEmpty(secretAccessKey, true)) {
+				props = new S3Properties();
 				props.setAccessKeyId(accessKeyId);
 				props.setSecretAccessKey(secretAccessKey);
-				props.setHost(host);
+				if (!Util.isEmpty(host, true)) {
+					props.setHost(host);
+					props.setCustomHost(true);
+				}
+				props.setCustomCredentials(true);
+				props.setHttpPool(S3HttpPoolSettings.fromEnv());
 			}
 		}
 		return new PropsAndEndpoint(props, bucketName, objectName);

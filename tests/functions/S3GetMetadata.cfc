@@ -55,9 +55,20 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 			assertEquals(objectName, meta.objectName);
 
 			
-			var meta=S3GetMetadata( 
-				path:path,
-				accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST));
+			// Application.cfc settings of another provider must not leak into a call with explicit credentials
+			// (earlier test bundles leave e.g. a Wasabi host/region in the application context)
+			application action="update" s3={
+				accessKeyId: "not-used", awsSecretKey: "not-used",
+				host: "s3.eu-central-1.wasabisys.com", defaultLocation: "eu-central-1", pathStyleAccess: true
+			};
+			try {
+				var meta=S3GetMetadata( 
+					path:path,
+					accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST));
+			}
+			finally {
+				application action="update" s3={};
+			}
 			
 			assertEquals(bucketName, meta.bucketName);
 			assertEquals(objectName, meta.objectName);
