@@ -1263,9 +1263,12 @@ public class S3 {
 			catch (Exception e) {
 				if (e instanceof AmazonS3Exception) {
 					AmazonS3Exception ase = (AmazonS3Exception) e;
-					if ("NoSuchBucket".equals(ase.getErrorCode()) || "404".equals(ase.getStatusCode())) return null;
+					if ("NoSuchBucket".equals(ase.getErrorCode()) || ase.getStatusCode() == 404) return null;
 				}
+				// LDEV-6680 any other problem (pool timeout, no response, ...) does not mean the object is missing,
+				// so we do not answer "does not exist" and we never cache it as NotExisting
 				if (log != null) log.error("s3", e);
+				throw toS3Exception(e);
 			}
 
 			/* Recursively delete all the objects inside given bucket */
