@@ -81,6 +81,9 @@ import lucee.runtime.util.Creation;
 import lucee.runtime.util.Strings;
 
 public class S3 {
+	/** maximum number of keys S3 accepts in one delete request */
+	private static final int DELETE_BATCH_SIZE = 1000;
+
 	private static final short CHECK_EXISTS = 1;
 	private static final short CHECK_IS_DIR = 2;
 	private static final short CHECK_IS_FILE = 4;
@@ -1677,6 +1680,133 @@ public class S3 {
 			throws S3Exception {
 		copyObject(srcBucketName, srcObjectName, trgBucketName, trgObjectName, acl, targetRegion);
 		delete(srcBucketName, srcObjectName, true);
+	}
+
+	/**
+	 * Copies a directory with everything below it to a new location with a minimum of requests: one
+	 * listing of the source (instead of looking up every single object on its own) and one copy request
+	 * for every object.
+	 * 
+	 * @param srcBucketName source bucket name
+	 * @param srcObjectName source directory
+	 * @param trgBucketName target bucket name
+	 * @param trgObjectName target directory
+	 * @param acl Access Control list (can be null)
+	 * @param targetRegion region of the target bucket (only necessary if it does not exist yet)
+	 * @return the keys of the source objects that have been copied
+	 * @throws S3Exception
+	 */
+	public List<String> copyDirectory(String srcBucketName, String srcObjectName, String trgBucketName, String trgObjectName, Object acl, String targetRegion)
+			throws S3Exception {
+		srcBucketName = improveBucketName(srcBucketName);
+		trgBucketName = improveBucketName(trgBucketName);
+		final String srcDir = improveObjectName(srcObjectName, true);
+		final String trgDir = improveObjectName(trgObjectName, true);
+
+		List<String> keys = listKeys(srcBucketName, srcDir);
+		if (keys.isEmpty()) throw new S3Exception("can't copy directory [" + srcBucketName + "/" + srcDir + "], directory does not exist");
+
+		// the parent of the target (and the bucket) must exist, the same as when the target gets created
+		// as a directory
+		if (!srcBucketName.equals(trgBucketName) && !exists(trgBucketName)) createDirectory(trgBucketName, acl, targetRegion);
+		createParentDirectory(trgBucketName, trgDir, false);
+
+		flushExists(srcBucketName, srcDir);
+		flushExists(trgBucketName, trgDir);
+
+		AmazonS3Client trgClient = getAmazonS3(null, targetRegion);
+		String src = null;
+		String trg = null;
+		try {
+			for (String key: keys) {
+				src = key;
+				trg = trgDir + key.substring(srcDir.length());
+				CopyObjectRequest cor = new CopyObjectRequest(srcBucketName, src, trgBucketName, trg);
+				if (acl != null) setACL(cor, acl);
+				trgClient.copyObject(cor);
+			}
+			if (log != null) log.debug("S3", "copy directory (" + keys.size() + " objects) from [" + srcBucketName + "/" + srcDir + "] to [" + trgBucketName + "/" + trgDir + "]");
+		}
+		catch (AmazonServiceException se) {
+			throw new S3Exception("could not copy [" + srcBucketName + "/" + src + "] to [" + trgBucketName + "/" + trg + "]  ", se);
+		}
+		finally {
+			trgClient.release();
+			flushExists(srcBucketName, srcDir);
+			flushExists(trgBucketName, trgDir);
+		}
+		return keys;
+	}
+
+	/**
+	 * Moves a directory with everything below it to a new location with a minimum of requests: one
+	 * listing of the source, one copy request for every object and one delete request for every 1000
+	 * objects. The source is only removed when everything has been copied.
+	 * 
+	 * @param srcBucketName source bucket name
+	 * @param srcObjectName source directory
+	 * @param trgBucketName target bucket name
+	 * @param trgObjectName target directory
+	 * @param acl Access Control list (can be null)
+	 * @param targetRegion region of the target bucket (only necessary if it does not exist yet)
+	 * @throws S3Exception
+	 */
+	public void moveDirectory(String srcBucketName, String srcObjectName, String trgBucketName, String trgObjectName, Object acl, String targetRegion) throws S3Exception {
+		List<String> keys = copyDirectory(srcBucketName, srcObjectName, trgBucketName, trgObjectName, acl, targetRegion);
+
+		srcBucketName = improveBucketName(srcBucketName);
+		final String srcDir = improveObjectName(srcObjectName, true);
+
+		AmazonS3Client client = getAmazonS3(srcBucketName, null);
+		try {
+			for (int from = 0; from < keys.size(); from += DELETE_BATCH_SIZE) {
+				List<KeyVersion> batch = new ArrayList<>();
+				for (String key: keys.subList(from, Math.min(from + DELETE_BATCH_SIZE, keys.size()))) {
+					batch.add(new KeyVersion(key));
+				}
+				client.deleteObjects(new DeleteObjectsRequest(srcBucketName).withKeys(batch).withQuiet(true));
+			}
+			if (log != null) log.debug("S3", "deleted directory (" + keys.size() + " objects) [" + srcBucketName + "/" + srcDir + "]");
+			flushExists(srcBucketName, srcDir);
+			// the parent was maybe only a pseudo directory, so we make sure it still exists
+			createParentDirectory(srcBucketName, srcDir, true);
+		}
+		catch (AmazonServiceException se) {
+			throw toS3Exception(se);
+		}
+		finally {
+			flushExists(srcBucketName, srcDir);
+			client.release();
+		}
+	}
+
+	/**
+	 * list the keys of all objects below the given directory (name needs to end with a slash)
+	 */
+	private List<String> listKeys(String bucketName, String dirName) throws S3Exception {
+		List<String> keys = new ArrayList<>();
+		AmazonS3Client client = getAmazonS3(bucketName, null);
+		try {
+			ObjectListing objects = client.listObjects(bucketName, dirName);
+			while (objects != null) {
+				if (objects.getObjectSummaries() != null) {
+					for (S3ObjectSummary summary: objects.getObjectSummaries()) {
+						if (summary.getKey().startsWith(dirName)) keys.add(summary.getKey());
+					}
+					if (keys.size() >= warnThreshold) logThreshold(keys.size(), bucketName + "/" + dirName);
+				}
+				if (!objects.isTruncated()) break;
+				objects = client.listNextBatchOfObjects(objects);
+			}
+			if (log != null) log.debug("S3", "list objects (" + keys.size() + ") for [" + bucketName + "/" + dirName + "]");
+		}
+		catch (AmazonServiceException se) {
+			throw toS3Exception(se);
+		}
+		finally {
+			client.release();
+		}
+		return keys;
 	}
 
 	private void flushExists(String bucketName, boolean flushRegionCache) throws S3Exception {
