@@ -30,6 +30,34 @@ component  {
 		}
 	}
 
+	/**
+	 * true when the ACL (array of structs as returned by S3GetACL) contains a grant of the given
+	 * permission to the given group, for example hasGrant(acl,"authenticated","READ")
+	 */
+	static function hasGrant(required array acl, required string group, required string permission) {
+		loop array=arguments.acl item="local.grant" {
+			if((grant.group?:"")==arguments.group && (grant.permission?:"")==arguments.permission) return true;
+		}
+		return false;
+	}
+
+	/**
+	 * Calls fn, which has to fail, and returns the error message. Fails the test when fn does not throw.
+	 */
+	static function messageOfFailure(required function fn) {
+		var failed=false;
+		var msg="";
+		try {
+			arguments.fn();
+		}
+		catch(e) {
+			failed=true;
+			msg=e.message?:"";
+		}
+		if(!failed) throw "expected the call to throw an exception, but it did not";
+		return msg;
+	}
+
 	static function deleteBucketEL(cred,bucketName,objectName) {
 		// callers pass "s3://name" or "name"; S3Exists/S3Delete need the plain bucket name
 		if(left(bucketName,5)=="s3://") arguments.bucketName=mid(bucketName,6);

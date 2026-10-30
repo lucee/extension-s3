@@ -1,9 +1,8 @@
 package org.lucee.extension.resource.s3.function;
 
+import org.lucee.extension.resource.s3.AccessControlListUtil;
 import org.lucee.extension.resource.s3.S3;
 import org.lucee.extension.resource.s3.S3Exception;
-
-import com.amazonaws.services.s3.model.CannedAccessControlList;
 
 import lucee.loader.engine.CFMLEngine;
 import lucee.loader.engine.CFMLEngineFactory;
@@ -26,13 +25,10 @@ public class S3Move extends S3Function {
 		}
 		if (Util.isEmpty(trgObjectName, true)) trgObjectName = srcObjectName;
 
-		CannedAccessControlList acl = null;
+		// canned name (string) or array of grant structs, same as S3Copy
+		Object acl = null;
 		try {
-			if (objACL != null) {
-				CFMLEngine engine = CFMLEngineFactory.getInstance();
-				Cast cast = engine.getCastUtil();
-				acl = S3.toACL(cast.toString(objACL));
-			}
+			acl = objACL != null ? AccessControlListUtil.toAccessControlList(objACL) : null;
 		}
 		catch (S3Exception s3e) {
 			throw eng.getCastUtil().toPageException(s3e);
