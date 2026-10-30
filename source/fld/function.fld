@@ -1335,7 +1335,7 @@
 			<alias>aclObject</alias>
 			<type>object</type>
 			<required>No</required>
-			<description>an array of struct where each struct represents an ACL grant</description>
+			<description>either a canned ACL name (private, public-read, public-read-write, authenticated-read) or an array of struct where each struct represents an ACL grant</description>
 	    </argument>
 		<argument>
 			<name>location</name>
@@ -1426,7 +1426,7 @@
 			<alias>aclObject</alias>
 			<type>object</type>
 			<required>No</required>
-			<description>an array of struct where each struct represents an ACL grant</description>
+			<description>either a canned ACL name (private, public-read, public-read-write, authenticated-read) or an array of struct where each struct represents an ACL grant</description>
 	    </argument>
 		<argument>
 			<name>location</name>

@@ -1668,14 +1668,14 @@ public class S3 {
 	 * @param srcObjectName source object name to copy
 	 * @param trgBucketName target bucket name to copy
 	 * @param trgObjectName target object name to copy
-	 * @param acl Access Control list (can be null)
+	 * @param acl Access Control list, a CannedAccessControlList or an AccessControlList (can be null)
 	 * @param targetRegion region of the target bucket (only necessary if it differs from source and
 	 *            does not exist yet)
 	 * @throws S3Exception
 	 */
-	public void moveObject(String srcBucketName, String srcObjectName, String trgBucketName, String trgObjectName, CannedAccessControlList cacl, String targetRegion)
+	public void moveObject(String srcBucketName, String srcObjectName, String trgBucketName, String trgObjectName, Object acl, String targetRegion)
 			throws S3Exception {
-		copyObject(srcBucketName, srcObjectName, trgBucketName, trgObjectName, cacl, targetRegion);
+		copyObject(srcBucketName, srcObjectName, trgBucketName, trgObjectName, acl, targetRegion);
 		delete(srcBucketName, srcObjectName, true);
 	}
 
