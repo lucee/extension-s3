@@ -110,7 +110,7 @@ public final class S3ResourceProvider implements ResourceProvider {
 		 * props.getCustomHost());
 		 */
 
-		return new S3Resource(engine, S3.getInstance(props, cache, engine.getThreadConfig()), props, location.getValue(), this, path);
+		return S3ResourceFactory.INSTANCE.create(engine, S3.getInstance(props, cache, engine.getThreadConfig()), props, location.getValue(), this, path);
 	}
 
 	public static String loadWithNewPattern(S3Properties properties, RefString storage, String path, boolean errorWhenNoCred) {

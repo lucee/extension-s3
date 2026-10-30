@@ -36,7 +36,7 @@ public class S3ResourceS3InfoListener implements S3InfoListener {
 	@Override
 	public void invoke(List<S3Info> infos) {
 		for (S3Info info: infos) {
-			S3Resource res = new S3Resource(engine, s3, props, location, provider, info.getBucketName(), S3.improveObjectName(info.getObjectName(), false));
+			S3Resource res = S3ResourceFactory.INSTANCE.create(engine, s3, props, location, provider, info.getBucketName(), S3.improveObjectName(info.getObjectName(), false));
 			if (nameFilter != null && !nameFilter.accept(res.getParentResource(), res.getName())) continue;
 			if (filter != null && !filter.accept(res)) continue;
 			records.put(res.getAbsolutePath(), res);

@@ -39,7 +39,7 @@ import lucee.runtime.exp.PageException;
 import lucee.runtime.type.Array;
 import lucee.runtime.type.Struct;
 
-public final class S3Resource extends ResourceSupport {
+public class S3Resource extends ResourceSupport {
 
 	private static final long serialVersionUID = 2265457088552587701L;
 
@@ -225,12 +225,12 @@ public final class S3Resource extends ResourceSupport {
 	@Override
 	public Resource getParentResource() {
 		if (isRoot()) return null;
-		return new S3Resource(engine, s3, props, isBucket() ? null : location, provider, getInnerParent());// MUST direkter machen
+		return S3ResourceFactory.INSTANCE.create(engine, s3, props, isBucket() ? null : location, provider, getInnerParent());// MUST direkter machen
 	}
 
 	public S3Resource getBucket() {
 		if (isRoot()) return null;
-		return new S3Resource(engine, s3, props, isBucket() ? null : location, provider, "/" + bucketName);
+		return S3ResourceFactory.INSTANCE.create(engine, s3, props, isBucket() ? null : location, provider, "/" + bucketName);
 	}
 
 	public boolean isRoot() {
@@ -282,7 +282,7 @@ public final class S3Resource extends ResourceSupport {
 	public Resource getRealResource(String realpath) {
 		realpath = engine.getResourceUtil().merge(getInnerPath(), realpath);
 		if (realpath.startsWith("../")) return null;
-		return new S3Resource(engine, s3, props, location, provider, realpath);
+		return S3ResourceFactory.INSTANCE.create(engine, s3, props, location, provider, realpath);
 	}
 
 	@Override
@@ -385,7 +385,7 @@ public final class S3Resource extends ResourceSupport {
 					int index = 0;
 					while (it.hasNext()) {
 						si = it.next();
-						children[index] = new S3Resource(engine, s3, props, location, provider, si.getBucketName(), buckets ? "" : S3.improveObjectName(si.getObjectName(), false));
+						children[index] = S3ResourceFactory.INSTANCE.create(engine, s3, props, location, provider, si.getBucketName(), buckets ? "" : S3.improveObjectName(si.getObjectName(), false));
 						index++;
 					}
 				}
@@ -538,6 +538,48 @@ public final class S3Resource extends ResourceSupport {
 
 		}
 		super.copyTo(to, append);
+	}
+
+	/**
+	 * the target as S3 resource, if it can be handled together with this resource as a whole directory
+	 * on the S3 side, otherwise null. This is the case when it is a directory (or does not exist yet)
+	 * below a bucket, the same account is used and the two directories do not overlap.
+	 */
+	private S3Resource getDirectoryTarget(Resource target) {
+		if (!(target instanceof S3Resource)) return null;
+		S3Resource t = (S3Resource) target;
+		if (isRoot() || isBucket() || t.isRoot() || t.isBucket()) return null;
+		if (!s3.getAccessKeyId().equals(t.s3.getAccessKeyId()) || !s3.getSecretAccessKey().equals(t.s3.getSecretAccessKey())) return null;
+		if (bucketName.equals(t.bucketName)) {
+			String src = objectName + "/";
+			String trg = t.objectName + "/";
+			if (src.startsWith(trg) || trg.startsWith(src)) return null;
+		}
+		if (!isDirectory() || t.isFile()) return null;
+		return t;
+	}
+
+	/**
+	 * copy this directory with all its content to the target using a minimum of requests, returns false
+	 * if the case is not supported (nothing is done then)
+	 */
+	boolean copyDirectoryTo(Resource target, ResourceFilter filter) throws IOException {
+		if (filter != null) return false; // a filter has to be applied per object, so we let the default do that
+		S3Resource t = getDirectoryTarget(target);
+		if (t == null) return false;
+		s3.copyDirectory(bucketName, objectName, t.bucketName, t.objectName, toACL(t.acl), t.location);
+		return true;
+	}
+
+	/**
+	 * move this directory with all its content to the target using a minimum of requests, returns false
+	 * if the case is not supported (nothing is done then)
+	 */
+	boolean moveDirectoryTo(Resource target) throws IOException {
+		S3Resource t = getDirectoryTarget(target);
+		if (t == null) return false;
+		s3.moveDirectory(bucketName, objectName, t.bucketName, t.objectName, toACL(t.acl), t.location);
+		return true;
 	}
 
 	@Override
