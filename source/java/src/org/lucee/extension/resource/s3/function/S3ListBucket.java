@@ -21,7 +21,7 @@ public class S3ListBucket extends S3Function {
 	public Object invoke(PageContext pc, Object[] args) throws PageException {
 		CFMLEngine eng = CFMLEngineFactory.getInstance();
 		Cast cast = eng.getCastUtil();
-		if (args.length < 1 || args.length > 7) throw eng.getExceptionUtil().createFunctionException(pc, "S3ListBucket", 1, 7, args.length);
+		if (args.length < 1 || args.length > 8) throw eng.getExceptionUtil().createFunctionException(pc, "S3ListBucket", 1, 8, args.length);
 
 		// required
 		String bucketName = cast.toString(args[0]);
@@ -33,6 +33,7 @@ public class S3ListBucket extends S3Function {
 		String secretAccessKey = args.length > 4 && args[4] != null ? cast.toString(args[4]) : null;
 		String host = args.length > 5 && args[5] != null ? cast.toString(args[5]) : null;
 		double timeout = args.length > 6 && !isEmpty(args[6]) ? cast.toDoubleValue(args[6]) : 0;
+		String prefix = args.length > 7 && args[7] != null ? cast.toString(args[7]) : null;
 
 		// validate
 
@@ -41,12 +42,12 @@ public class S3ListBucket extends S3Function {
 
 			// no listener
 			if (listener == null) {
-				return s3.listObjectsAsQuery(bucketName, blockSize, null);
+				return s3.listObjectsAsQuery(bucketName, prefix, blockSize, null);
 			}
 			else {
 				ListListener list = toListener(eng, pc, listener);
 				list.before();
-				s3.listObjectsAsQuery(bucketName, blockSize, toListener(eng, pc, listener));
+				s3.listObjectsAsQuery(bucketName, prefix, blockSize, toListener(eng, pc, listener));
 				list.after();
 			}
 		}

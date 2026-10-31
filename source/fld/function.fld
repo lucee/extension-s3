@@ -1181,6 +1181,12 @@
 			<default>10000</default>
 			<description>timeout for this execution</description>
 	    </argument>
+		<argument>
+			<name>prefix</name>
+			<type>string</type>
+			<required>No</required>
+			<description>Only list objects whose key starts with this prefix, for example "images/originals/". The filtering is done by S3, so a large bucket is not listed completely. If not set or empty, all objects in the bucket are listed.</description>
+	    </argument>
 		<return>
 			<type>query</type>
 		</return>

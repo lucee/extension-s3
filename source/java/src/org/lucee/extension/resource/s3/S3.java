@@ -873,6 +873,19 @@ public class S3 {
 	}
 
 	public Query listObjectsAsQuery(String bucketName, int maxKeys, ListListener listener) throws S3Exception, PageException {
+		return listObjectsAsQuery(bucketName, null, maxKeys, listener);
+	}
+
+	/**
+	 * list the objects of a bucket
+	 * 
+	 * @param bucketName name of the bucket
+	 * @param prefix only list objects whose key starts with this prefix, evaluated by S3 itself (LDEV-5170).
+	 *            null or an empty string lists the whole bucket.
+	 * @param maxKeys number of keys per request (1-1000)
+	 * @param listener optional listener that gets the result block by block
+	 */
+	public Query listObjectsAsQuery(String bucketName, String prefix, int maxKeys, ListListener listener) throws S3Exception, PageException {
 		AmazonS3Client client = getAmazonS3(bucketName, null);
 		try {
 			CFMLEngine eng = CFMLEngineFactory.getInstance();
@@ -885,6 +898,7 @@ public class S3 {
 			Query qry = listener == null ? eng.getCreationUtil().createQuery(new Key[] { objectName, size, lastModified, owner }, 0, "buckets") : null;
 			ListObjectsRequest lor = new ListObjectsRequest();
 			lor.setBucketName(bucketName);
+			if (!Util.isEmpty(prefix)) lor.setPrefix(prefix);
 
 			if (maxKeys < 1 || maxKeys > 1000) throw new S3Exception("invalid maxKeys [" + maxKeys + "] must be an number between 1 and 1000");
 			lor.setMaxKeys(maxKeys);
@@ -921,7 +935,7 @@ public class S3 {
 						break;
 					}
 				}
-				if (log != null) log.debug("S3", "list objects as query (" + sum + ") for [" + bucketName + "/" + "]");
+				if (log != null) log.debug("S3", "list objects as query (" + sum + ") for [" + bucketName + "/" + (Util.isEmpty(prefix) ? "" : prefix) + "]");
 			}
 			return listener == null ? qry : null;
 		}
