@@ -571,6 +571,30 @@
 			<default>10000</default>
 			<description>timeout for this execution</description>
 	    </argument>
+		<argument>
+			<name>ifMatch</name>
+			<type>string</type>
+			<required>No</required>
+			<description>Only read the object if its ETag matches this value (HTTP header If-Match). The ETag can be defined with or without the quotes, you get it for example with S3GetMetaData (key [etag]). If the condition is not met nothing is read and an exception of type [s3.preconditionfailed] is thrown. Without this argument the object is always read.</description>
+	    </argument>
+		<argument>
+			<name>ifNoneMatch</name>
+			<type>string</type>
+			<required>No</required>
+			<description>Only read the object if its ETag does not match this value (HTTP header If-None-Match). The ETag can be defined with or without the quotes, you get it for example with S3GetMetaData (key [etag]). If the condition is not met nothing is read and an exception of type [s3.preconditionfailed] is thrown. Without this argument the object is always read.</description>
+	    </argument>
+		<argument>
+			<name>ifModifiedSince</name>
+			<type>any</type>
+			<required>No</required>
+			<description>Only read the object if it was modified after this date (HTTP header If-Modified-Since). If the condition is not met nothing is read and an exception of type [s3.preconditionfailed] is thrown. Without this argument the object is always read.</description>
+	    </argument>
+		<argument>
+			<name>ifUnmodifiedSince</name>
+			<type>any</type>
+			<required>No</required>
+			<description>Only read the object if it was not modified after this date (HTTP header If-Unmodified-Since). If the condition is not met nothing is read and an exception of type [s3.preconditionfailed] is thrown. Without this argument the object is always read.</description>
+	    </argument>
 		<return>
 			<type>string</type>
 		</return>
@@ -630,6 +654,30 @@
 			<required>No</required>
 			<default>10000</default>
 			<description>timeout for this execution</description>
+	    </argument>
+		<argument>
+			<name>ifMatch</name>
+			<type>string</type>
+			<required>No</required>
+			<description>Only read the object if its ETag matches this value (HTTP header If-Match). The ETag can be defined with or without the quotes, you get it for example with S3GetMetaData (key [etag]). If the condition is not met nothing is read and an exception of type [s3.preconditionfailed] is thrown. Without this argument the object is always read.</description>
+	    </argument>
+		<argument>
+			<name>ifNoneMatch</name>
+			<type>string</type>
+			<required>No</required>
+			<description>Only read the object if its ETag does not match this value (HTTP header If-None-Match). The ETag can be defined with or without the quotes, you get it for example with S3GetMetaData (key [etag]). If the condition is not met nothing is read and an exception of type [s3.preconditionfailed] is thrown. Without this argument the object is always read.</description>
+	    </argument>
+		<argument>
+			<name>ifModifiedSince</name>
+			<type>any</type>
+			<required>No</required>
+			<description>Only read the object if it was modified after this date (HTTP header If-Modified-Since). If the condition is not met nothing is read and an exception of type [s3.preconditionfailed] is thrown. Without this argument the object is always read.</description>
+	    </argument>
+		<argument>
+			<name>ifUnmodifiedSince</name>
+			<type>any</type>
+			<required>No</required>
+			<description>Only read the object if it was not modified after this date (HTTP header If-Unmodified-Since). If the condition is not met nothing is read and an exception of type [s3.preconditionfailed] is thrown. Without this argument the object is always read.</description>
 	    </argument>
 		<return>
 			<type>binary</type>
@@ -711,6 +759,18 @@
 			<required>No</required>
 			<default>10000</default>
 			<description>timeout for this execution</description>
+	    </argument>
+		<argument>
+			<name>ifMatch</name>
+			<type>string</type>
+			<required>No</required>
+			<description>Only write if the ETag of the existing object matches this value (HTTP header If-Match), to not overwrite an object that was changed in the meantime. The ETag can be defined with or without the quotes, you get it for example with S3GetMetaData (key [etag]). If the condition is not met nothing is written and an exception of type [s3.preconditionfailed] is thrown. Without this argument the object is always written.</description>
+	    </argument>
+		<argument>
+			<name>ifNoneMatch</name>
+			<type>string</type>
+			<required>No</required>
+			<description>Only write if the object does not exist yet when set to [*] (HTTP header If-None-Match), to not overwrite an existing object. If the condition is not met nothing is written and an exception of type [s3.preconditionfailed] is thrown. Without this argument the object is always written. Not every S3 compatible provider supports conditional writes.</description>
 	    </argument>
 		<return>
 			<type>void</type>
@@ -875,6 +935,18 @@
 			<required>No</required>
 			<default>10000</default>
 			<description>timeout for this execution</description>
+	    </argument>
+		<argument>
+			<name>ifMatch</name>
+			<type>string</type>
+			<required>No</required>
+			<description>Only write if the ETag of the existing object matches this value (HTTP header If-Match), to not overwrite an object that was changed in the meantime. The ETag can be defined with or without the quotes, you get it for example with S3GetMetaData (key [etag]). If the condition is not met nothing is written and an exception of type [s3.preconditionfailed] is thrown. Without this argument the object is always written.</description>
+	    </argument>
+		<argument>
+			<name>ifNoneMatch</name>
+			<type>string</type>
+			<required>No</required>
+			<description>Only write if the object does not exist yet when set to [*] (HTTP header If-None-Match), to not overwrite an existing object. If the condition is not met nothing is written and an exception of type [s3.preconditionfailed] is thrown. Without this argument the object is always written. Not every S3 compatible provider supports conditional writes.</description>
 	    </argument>
 		<return>
 			<type>void</type>
@@ -1095,6 +1167,30 @@
 			<required>No</required>
 			<default>10000</default>
 			<description>timeout for this execution</description>
+	    </argument>
+		<argument>
+			<name>ifMatch</name>
+			<type>string</type>
+			<required>No</required>
+			<description>Only read the object if its ETag matches this value (HTTP header If-Match). The ETag can be defined with or without the quotes, you get it for example with S3GetMetaData (key [etag]). If the condition is not met nothing is read and an exception of type [s3.preconditionfailed] is thrown. Without this argument the object is always read.</description>
+	    </argument>
+		<argument>
+			<name>ifNoneMatch</name>
+			<type>string</type>
+			<required>No</required>
+			<description>Only read the object if its ETag does not match this value (HTTP header If-None-Match). The ETag can be defined with or without the quotes, you get it for example with S3GetMetaData (key [etag]). If the condition is not met nothing is read and an exception of type [s3.preconditionfailed] is thrown. Without this argument the object is always read.</description>
+	    </argument>
+		<argument>
+			<name>ifModifiedSince</name>
+			<type>any</type>
+			<required>No</required>
+			<description>Only read the object if it was modified after this date (HTTP header If-Modified-Since). If the condition is not met nothing is read and an exception of type [s3.preconditionfailed] is thrown. Without this argument the object is always read.</description>
+	    </argument>
+		<argument>
+			<name>ifUnmodifiedSince</name>
+			<type>any</type>
+			<required>No</required>
+			<description>Only read the object if it was not modified after this date (HTTP header If-Unmodified-Since). If the condition is not met nothing is read and an exception of type [s3.preconditionfailed] is thrown. Without this argument the object is always read.</description>
 	    </argument>
 		<return>
 			<type>any</type>
@@ -1380,6 +1476,30 @@
 			<required>No</required>
 			<default>10000</default>
 			<description>timeout for this execution</description>
+	    </argument>
+		<argument>
+			<name>ifMatch</name>
+			<type>string</type>
+			<required>No</required>
+			<description>Only copy if the ETag of the source object matches this value (HTTP header x-amz-copy-source-if-match). The ETag can be defined with or without the quotes, you get it for example with S3GetMetaData (key [etag]). If the condition is not met nothing is copied and an exception of type [s3.preconditionfailed] is thrown. Without this argument the object is always copied.</description>
+	    </argument>
+		<argument>
+			<name>ifNoneMatch</name>
+			<type>string</type>
+			<required>No</required>
+			<description>Only copy if the ETag of the source object does not match this value (HTTP header x-amz-copy-source-if-none-match). The ETag can be defined with or without the quotes, you get it for example with S3GetMetaData (key [etag]). If the condition is not met nothing is copied and an exception of type [s3.preconditionfailed] is thrown. Without this argument the object is always copied.</description>
+	    </argument>
+		<argument>
+			<name>ifModifiedSince</name>
+			<type>any</type>
+			<required>No</required>
+			<description>Only copy if the source object was modified after this date (HTTP header x-amz-copy-source-if-modified-since). If the condition is not met nothing is copied and an exception of type [s3.preconditionfailed] is thrown. Without this argument the object is always copied.</description>
+	    </argument>
+		<argument>
+			<name>ifUnmodifiedSince</name>
+			<type>any</type>
+			<required>No</required>
+			<description>Only copy if the source object was not modified after this date (HTTP header x-amz-copy-source-if-unmodified-since). If the condition is not met nothing is copied and an exception of type [s3.preconditionfailed] is thrown. Without this argument the object is always copied.</description>
 	    </argument>
 		<return>
 			<type>void</type>

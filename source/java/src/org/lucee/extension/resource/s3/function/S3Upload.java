@@ -2,6 +2,7 @@ package org.lucee.extension.resource.s3.function;
 
 import org.lucee.extension.resource.s3.AccessControlListUtil;
 import org.lucee.extension.resource.s3.S3;
+import org.lucee.extension.resource.s3.S3Conditions;
 
 import lucee.commons.io.res.Resource;
 import lucee.loader.engine.CFMLEngine;
@@ -18,7 +19,7 @@ public class S3Upload extends S3Function {
 	public Object invoke(PageContext pc, Object[] args) throws PageException {
 		CFMLEngine eng = CFMLEngineFactory.getInstance();
 		Cast cast = eng.getCastUtil();
-		if (args.length > 9 || args.length < 3) throw eng.getExceptionUtil().createFunctionException(pc, "S3Upload", 3, 9, args.length);
+		if (args.length > 11 || args.length < 3) throw eng.getExceptionUtil().createFunctionException(pc, "S3Upload", 3, 11, args.length);
 
 		// required
 		String bucketName = cast.toString(args[0]);
@@ -34,16 +35,17 @@ public class S3Upload extends S3Function {
 		String secretAccessKey = args.length > 6 && args[6] != null ? cast.toString(args[6]) : null;
 		String host = args.length > 7 && args[7] != null ? cast.toString(args[7]) : null;
 		double timeout = args.length > 8 && !isEmpty(args[8]) ? cast.toDoubleValue(args[8]) : 0;
+		S3Conditions conditions = toConditions(pc, args.length > 9 ? args[9] : null, args.length > 10 ? args[10] : null, null, null);
 
 		// validate
 		Object acl = null;
 		try {
 			acl = objACL != null ? AccessControlListUtil.toAccessControlList(objACL) : null;
 			S3 s3 = S3.getInstance(toS3Properties(pc, accessKeyId, secretAccessKey, host), toTimeout(timeout), pc.getConfig());
-			s3.write(bucketName, objectName, source, acl, location);
+			s3.write(bucketName, objectName, source, acl, location, conditions);
 		}
 		catch (Exception e) {
-			throw eng.getCastUtil().toPageException(e);
+			throw toPageException(e);
 		}
 		return null;
 	}

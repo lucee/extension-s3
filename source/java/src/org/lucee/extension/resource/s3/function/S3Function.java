@@ -19,8 +19,11 @@
 package org.lucee.extension.resource.s3.function;
 
 import java.nio.charset.Charset;
+import java.util.Date;
 
 import org.lucee.extension.resource.s3.S3HttpPoolSettings;
+import org.lucee.extension.resource.s3.S3Conditions;
+import org.lucee.extension.resource.s3.S3PreconditionFailedException;
 import org.lucee.extension.resource.s3.S3Properties;
 import org.lucee.extension.resource.s3.S3Resource;
 import org.lucee.extension.resource.s3.S3ResourceProvider;
@@ -113,6 +116,45 @@ public abstract class S3Function extends BIF {
 		props.setHttpPool(S3HttpPoolSettings.fromEnv());
 
 		return props;
+	}
+
+	/**
+	 * converts the arguments ifMatch, ifNoneMatch, ifModifiedSince and ifUnmodifiedSince to the
+	 * conditions of a conditional request
+	 * 
+	 * @return the conditions or null if none is defined
+	 */
+	protected static S3Conditions toConditions(PageContext pc, Object ifMatch, Object ifNoneMatch, Object ifModifiedSince, Object ifUnmodifiedSince) throws PageException {
+		CFMLEngine eng = CFMLEngineFactory.getInstance();
+		return S3Conditions.of(toETag(eng, ifMatch), toETag(eng, ifNoneMatch), toDate(pc, eng, "ifModifiedSince", ifModifiedSince), toDate(pc, eng, "ifUnmodifiedSince", ifUnmodifiedSince));
+	}
+
+	private static String toETag(CFMLEngine eng, Object obj) throws PageException {
+		if (obj == null) return null;
+		String str = eng.getCastUtil().toString(obj);
+		return Util.isEmpty(str, true) ? null : str;
+	}
+
+	private static Date toDate(PageContext pc, CFMLEngine eng, String name, Object obj) throws PageException {
+		if (obj == null || (obj instanceof CharSequence && Util.isEmpty(obj.toString(), true))) return null;
+		try {
+			return new Date(eng.getCastUtil().toDate(obj, pc.getTimeZone()).getTime());
+		}
+		catch (PageException pe) {
+			throw eng.getExceptionUtil().createApplicationException("argument [" + name + "] must be a date, the value [" + obj + "] cannot be cast to a date");
+		}
+	}
+
+	/**
+	 * a condition that is not met is reported with its own exception type
+	 * ({@link S3PreconditionFailedException#TYPE}), so it can be told apart from any other S3 failure
+	 */
+	protected static PageException toPageException(Exception e) {
+		CFMLEngine eng = CFMLEngineFactory.getInstance();
+		if (e instanceof S3PreconditionFailedException) {
+			return eng.getExceptionUtil().createCustomTypeException(e.getMessage(), "", S3PreconditionFailedException.ERROR_CODE, S3PreconditionFailedException.TYPE);
+		}
+		return eng.getCastUtil().toPageException(e);
 	}
 
 	protected static long toTimeout(double timeout) {
