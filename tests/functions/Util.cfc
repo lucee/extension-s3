@@ -58,6 +58,23 @@ component  {
 		return msg;
 	}
 
+	/**
+	 * Calls fn, which has to fail, and returns the type of the error. Fails the test when fn does not throw.
+	 */
+	static function typeOfFailure(required function fn) {
+		var failed=false;
+		var type="";
+		try {
+			arguments.fn();
+		}
+		catch(e) {
+			failed=true;
+			type=e.type?:"";
+		}
+		if(!failed) throw "expected the call to throw an exception, but it did not";
+		return type;
+	}
+
 	static function deleteBucketEL(cred,bucketName,objectName) {
 		// callers pass "s3://name" or "name"; S3Exists/S3Delete need the plain bucket name
 		if(left(bucketName,5)=="s3://") arguments.bucketName=mid(bucketName,6);

@@ -10,6 +10,7 @@ import java.nio.charset.Charset;
 import java.util.Arrays;
 
 import org.lucee.extension.resource.s3.S3;
+import org.lucee.extension.resource.s3.S3Conditions;
 import org.lucee.extension.resource.s3.S3Util;
 
 import com.amazonaws.services.s3.model.S3Object;
@@ -42,7 +43,7 @@ public class S3Download extends S3Function {
 	public Object invoke(PageContext pc, Object[] args) throws PageException {
 		CFMLEngine eng = CFMLEngineFactory.getInstance();
 		Cast cast = eng.getCastUtil();
-		if (args.length > 8 || args.length < 2) throw eng.getExceptionUtil().createFunctionException(pc, "S3Download", 2, 8, args.length);
+		if (args.length > 12 || args.length < 2) throw eng.getExceptionUtil().createFunctionException(pc, "S3Download", 2, 12, args.length);
 
 		// required
 		String bucketName = cast.toString(args[0]);
@@ -55,6 +56,8 @@ public class S3Download extends S3Function {
 		String secretAccessKey = args.length > 5 && args[5] != null ? cast.toString(args[5]) : null;
 		String host = args.length > 6 && args[6] != null ? cast.toString(args[6]) : null;
 		double timeout = args.length > 7 && !isEmpty(args[7]) ? cast.toDoubleValue(args[7]) : 0;
+		S3Conditions conditions = toConditions(pc, args.length > 8 ? args[8] : null, args.length > 9 ? args[9] : null, args.length > 10 ? args[10] : null,
+				args.length > 11 ? args[11] : null);
 
 		// validate
 		UDF targetUDF = null;
@@ -94,7 +97,7 @@ public class S3Download extends S3Function {
 		S3Object obj = null;
 		try {
 			S3 s3 = S3.getInstance(toS3Properties(pc, accessKeyId, secretAccessKey, host), toTimeout(timeout), pc.getConfig());
-			obj = s3.getData(bucketName, objectName);
+			obj = s3.getData(bucketName, objectName, conditions);
 			Cast caster = eng.getCastUtil();
 			// stream to UDF
 			boolean isUDF;
@@ -215,7 +218,7 @@ public class S3Download extends S3Function {
 			}
 		}
 		catch (Exception e) {
-			throw eng.getCastUtil().toPageException(e);
+			throw toPageException(e);
 		}
 		finally {
 			S3Util.closeS3Object(obj);

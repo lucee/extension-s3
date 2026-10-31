@@ -45,6 +45,7 @@ import com.amazonaws.services.s3.model.CreateBucketRequest;
 import com.amazonaws.services.s3.model.DeleteObjectsRequest;
 import com.amazonaws.services.s3.model.DeleteObjectsRequest.KeyVersion;
 import com.amazonaws.services.s3.model.GeneratePresignedUrlRequest;
+import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.InitiateMultipartUploadRequest;
 import com.amazonaws.services.s3.model.InitiateMultipartUploadResult;
 import com.amazonaws.services.s3.model.ListObjectsRequest;
@@ -457,13 +458,29 @@ public class S3 {
 	}
 
 	public S3Object getData(String bucketName, String objectName) throws S3Exception {
+		return getData(bucketName, objectName, null);
+	}
+
+	/**
+	 * @param conditions optional conditions (ifMatch, ifNoneMatch, ifModifiedSince, ifUnmodifiedSince)
+	 *            for the read
+	 * @throws S3PreconditionFailedException if the conditions are not met
+	 */
+	public S3Object getData(String bucketName, String objectName, S3Conditions conditions) throws S3Exception {
 		bucketName = improveBucketName(bucketName);
 		objectName = improveObjectName(objectName);
 
 		AmazonS3Client client = getAmazonS3(bucketName, null);
 		try {
 			if (log != null) log.debug("S3", "get data from [" + bucketName + "/" + objectName + "]");
-			return client.getObject(bucketName, objectName);
+			if (conditions == null) return client.getObject(bucketName, objectName);
+
+			GetObjectRequest gor = new GetObjectRequest(bucketName, objectName);
+			conditions.apply(gor);
+			S3Object obj = client.getObject(gor);
+			// the SDK returns null when the conditions are not met (304 or 412)
+			if (obj == null) throw conditions.toException("read", bucketName + "/" + objectName);
+			return obj;
 		}
 		catch (AmazonServiceException se) {
 			throw toS3Exception(se);
@@ -1568,6 +1585,16 @@ public class S3 {
 	 * @throws S3Exception
 	 */
 	public void copyObject(String srcBucketName, String srcObjectName, String trgBucketName, String trgObjectName, Object acl, String targetRegion) throws S3Exception {
+		copyObject(srcBucketName, srcObjectName, trgBucketName, trgObjectName, acl, targetRegion, null);
+	}
+
+	/**
+	 * @param conditions optional conditions (ifMatch, ifNoneMatch, ifModifiedSince, ifUnmodifiedSince),
+	 *            they are conditions for the source object
+	 * @throws S3PreconditionFailedException if the conditions are not met
+	 */
+	public void copyObject(String srcBucketName, String srcObjectName, String trgBucketName, String trgObjectName, Object acl, String targetRegion, S3Conditions conditions)
+			throws S3Exception {
 		srcBucketName = improveBucketName(srcBucketName);
 		srcObjectName = improveObjectName(srcObjectName, false);
 		trgBucketName = improveBucketName(trgBucketName);
@@ -1585,13 +1612,18 @@ public class S3 {
 			CopyObjectRequest cor = new CopyObjectRequest(srcBucketName, srcObjectName, trgBucketName, trgObjectName);
 
 			if (acl != null) setACL(cor, acl);
+			if (conditions != null) conditions.apply(cor);
 			try {
-				trgClient.copyObject(cor);
+				// the SDK returns null when the conditions are not met
+				if (trgClient.copyObject(cor) == null && conditions != null) throw conditions.toException("copy", srcBucketName + "/" + srcObjectName);
 				if (log != null) log.debug("S3", "copy object from [" + srcBucketName + "/" + srcObjectName + " to " + trgBucketName + "/" + trgObjectName + "]");
 			}
 			catch (AmazonServiceException se) {
+				if (isPreconditionFailed(se)) {
+					throw toS3Exception(se, null);
+				}
 				// could be an Pseudo folder
-				if (se.getErrorCode().equals("NoSuchKey")) {
+				else if (se.getErrorCode().equals("NoSuchKey")) {
 					S3Info src = get(srcBucketName, srcObjectName);
 					if (src.isVirtual()) {
 						throw new S3Exception("Cannot copy virtual folder", se);
@@ -1633,7 +1665,7 @@ public class S3 {
 							clientTarget.createBucket(cbr);
 						}
 
-						trgClient.copyObject(cor);
+						if (trgClient.copyObject(cor) == null && conditions != null) throw conditions.toException("copy", srcBucketName + "/" + srcObjectName);
 						if (log != null)
 							log.debug("S3", "copy object from [" + srcBucketName + "/" + srcObjectName + " to " + trgBucketName + "/" + trgObjectName + "] (fallback)");
 					}
@@ -1648,6 +1680,7 @@ public class S3 {
 			}
 		}
 		catch (AmazonServiceException se) {
+			if (isPreconditionFailed(se)) throw toS3Exception(se, null);
 			throw new S3Exception("could not copy [" + srcBucketName + "/" + srcObjectName + "] to [" + trgBucketName + "/" + trgObjectName + "]  ", se);
 		}
 		finally {
@@ -1870,6 +1903,16 @@ public class S3 {
 	 */
 
 	public void write(String bucketName, String objectName, String data, String mimeType, Charset charset, Object acl, String region) throws IOException {
+		write(bucketName, objectName, data, mimeType, charset, acl, region, null);
+	}
+
+	/**
+	 * @param conditions optional conditions (only ifMatch and ifNoneMatch), if they are not met nothing
+	 *            is written and a S3PreconditionFailedException is thrown
+	 */
+	public void write(String bucketName, String objectName, String data, String mimeType, Charset charset, Object acl, String region, S3Conditions conditions)
+			throws IOException {
+		if (conditions != null) conditions.validateForWrite();
 		bucketName = improveBucketName(bucketName);
 		objectName = improveObjectName(objectName, false);
 		flushExists(bucketName, objectName);
@@ -1884,7 +1927,7 @@ public class S3 {
 			File tmp = File.createTempFile("writeString-", ".txt");
 			try {
 				Util.copy(new ByteArrayInputStream(bytes), new FileOutputStream(tmp), true, true);
-				write(bucketName, objectName, tmp, acl, region);
+				write(bucketName, objectName, tmp, acl, region, conditions);
 				return;
 			}
 			finally {
@@ -1903,6 +1946,7 @@ public class S3 {
 			por.getRequestClientOptions().setReadLimit(READ_LIMIT); // Set the read limit on the client
 
 			if (acl != null) setACL(por, acl);
+			if (conditions != null) conditions.applyAsHeaders(por);
 			try {
 				// send request to S3 to create folder
 				try {
@@ -1914,14 +1958,14 @@ public class S3 {
 						S3Exception s3e = toS3Exception(ase);
 						if (s3e.getProposedSize() != 0 && s3e.getProposedSize() < maxSize) {
 							maxSize = s3e.getProposedSize();
-							write(bucketName, objectName, data, mimeType, charset, acl, region);
+							write(bucketName, objectName, data, mimeType, charset, acl, region, conditions);
 							return;
 						}
 						throw s3e;
 					}
 					if (ase.getErrorCode().equals("NoSuchBucket")) {
 						createDirectory(bucketName, acl, region);
-						write(bucketName, objectName, data, mimeType, charset, acl, region);
+						write(bucketName, objectName, data, mimeType, charset, acl, region, conditions);
 						return;
 					}
 					else throw toS3Exception(ase);
@@ -1949,6 +1993,15 @@ public class S3 {
 	 */
 
 	public void write(String bucketName, String objectName, byte[] data, String mimeType, Object acl, String region) throws IOException {
+		write(bucketName, objectName, data, mimeType, acl, region, null);
+	}
+
+	/**
+	 * @param conditions optional conditions (only ifMatch and ifNoneMatch), if they are not met nothing
+	 *            is written and a S3PreconditionFailedException is thrown
+	 */
+	public void write(String bucketName, String objectName, byte[] data, String mimeType, Object acl, String region, S3Conditions conditions) throws IOException {
+		if (conditions != null) conditions.validateForWrite();
 		bucketName = improveBucketName(bucketName);
 		objectName = improveObjectName(objectName, false);
 		if (log != null) log.debug("S3", "write byte array (" + (data == null ? 0 : data.length) + ") to [" + bucketName + "/" + objectName + "]");
@@ -1961,7 +2014,7 @@ public class S3 {
 			File tmp = File.createTempFile("writeBytes-", ".txt");
 			try {
 				Util.copy(new ByteArrayInputStream(data), new FileOutputStream(tmp), true, true);
-				write(bucketName, objectName, tmp, acl, region);
+				write(bucketName, objectName, tmp, acl, region, conditions);
 				return;
 			}
 			finally {
@@ -1979,6 +2032,7 @@ public class S3 {
 			if (ct != null) md.setContentType(ct);
 			md.setLastModified(new Date());
 			if (acl != null) setACL(por, acl);
+			if (conditions != null) conditions.applyAsHeaders(por);
 			try {
 				// send request to S3 to create folder
 				try {
@@ -2006,6 +2060,15 @@ public class S3 {
 	}
 
 	public void write(String bucketName, String objectName, File file, Object acl, String region) throws IOException {
+		write(bucketName, objectName, file, acl, region, null);
+	}
+
+	/**
+	 * @param conditions optional conditions (only ifMatch and ifNoneMatch), if they are not met nothing
+	 *            is written and a S3PreconditionFailedException is thrown
+	 */
+	public void write(String bucketName, String objectName, File file, Object acl, String region, S3Conditions conditions) throws IOException {
+		if (conditions != null) conditions.validateForWrite();
 		bucketName = improveBucketName(bucketName);
 		objectName = improveObjectName(objectName, false);
 		if (log != null) log.debug("S3", "write file [" + file + "] to [" + bucketName + "/" + objectName + "]");
@@ -2054,6 +2117,7 @@ public class S3 {
 
 				// Complete the multipart upload.
 				CompleteMultipartUploadRequest compRequest = new CompleteMultipartUploadRequest(bucketName, objectName, initResponse.getUploadId(), partETags);
+				if (conditions != null) conditions.applyAsHeaders(compRequest);
 				client.completeMultipartUpload(compRequest);
 				if (acl != null) {
 					setAccessControlList(client, bucketName, objectName, acl);
@@ -2063,7 +2127,7 @@ public class S3 {
 			catch (AmazonServiceException ase) {
 				if (ase.getErrorCode().equals("NoSuchBucket")) {
 					createDirectory(bucketName, acl, region);
-					write(bucketName, objectName, file, acl, region);
+					write(bucketName, objectName, file, acl, region, conditions);
 					return;
 				}
 				else throw toS3Exception(ase);
@@ -2081,6 +2145,7 @@ public class S3 {
 				PutObjectRequest por = new PutObjectRequest(bucketName, objectName, is = getInputStream(file), md);
 				por.getRequestClientOptions().setReadLimit(READ_LIMIT); // Set the read limit on the client
 				if (acl != null) setACL(por, acl);
+				if (conditions != null) conditions.applyAsHeaders(por);
 				por.setMetadata(md);
 
 				client.putObject(por);
@@ -2096,14 +2161,14 @@ public class S3 {
 					S3Exception s3e = toS3Exception(ase);
 					if (s3e.getProposedSize() != 0 && s3e.getProposedSize() < maxSize) {
 						maxSize = s3e.getProposedSize();
-						write(bucketName, objectName, file, acl, region);
+						write(bucketName, objectName, file, acl, region, conditions);
 						return;
 					}
 					throw s3e;
 				}
 				if (ase.getErrorCode().equals("NoSuchBucket")) {
 					createDirectory(bucketName, acl, region);
-					write(bucketName, objectName, file, acl, region);
+					write(bucketName, objectName, file, acl, region, conditions);
 					return;
 				}
 				else throw toS3Exception(ase);
@@ -2116,9 +2181,18 @@ public class S3 {
 	}
 
 	public void write(String bucketName, String objectName, Resource res, Object acl, String region) throws IOException {
+		write(bucketName, objectName, res, acl, region, null);
+	}
+
+	/**
+	 * @param conditions optional conditions (only ifMatch and ifNoneMatch), if they are not met nothing
+	 *            is written and a S3PreconditionFailedException is thrown
+	 */
+	public void write(String bucketName, String objectName, Resource res, Object acl, String region, S3Conditions conditions) throws IOException {
+		if (conditions != null) conditions.validateForWrite();
 
 		if (res instanceof File) {
-			write(bucketName, objectName, (File) res, acl, region);
+			write(bucketName, objectName, (File) res, acl, region, conditions);
 			return;
 		}
 		if (log != null) log.debug("S3", "write resource [" + res + "] to [" + bucketName + "/" + objectName + "]");
@@ -2137,7 +2211,7 @@ public class S3 {
 				File tmp = File.createTempFile("writeResource-", ".txt");
 				try {
 					Util.copy(res.getInputStream(), new FileOutputStream(tmp), true, true);
-					write(bucketName, objectName, tmp, acl, region);
+					write(bucketName, objectName, tmp, acl, region, conditions);
 					return;
 				}
 				finally {
@@ -2157,6 +2231,7 @@ public class S3 {
 					PutObjectRequest por = new PutObjectRequest(bucketName, objectName, is = getInputStream(res), md);
 					por.getRequestClientOptions().setReadLimit(READ_LIMIT); // Set the read limit on the client
 					if (acl != null) setACL(por, acl);
+					if (conditions != null) conditions.applyAsHeaders(por);
 
 					client.putObject(por);
 					flushExists(bucketName, objectName);
@@ -2166,14 +2241,14 @@ public class S3 {
 						S3Exception s3e = toS3Exception(ase);
 						if (s3e.getProposedSize() != 0 && s3e.getProposedSize() < maxSize) {
 							maxSize = s3e.getProposedSize();
-							write(bucketName, objectName, res, acl, region);
+							write(bucketName, objectName, res, acl, region, conditions);
 							return;
 						}
 						throw s3e;
 					}
 					if (ase.getErrorCode().equals("NoSuchBucket")) {
 						createDirectory(bucketName, acl, region);
-						write(bucketName, objectName, res, acl, region);
+						write(bucketName, objectName, res, acl, region, conditions);
 						return;
 					}
 					else throw toS3Exception(ase);
@@ -2799,12 +2874,21 @@ public class S3 {
 			}
 		}
 
-		S3Exception s3e = new S3Exception(msg);
+		S3Exception s3e = isPreconditionFailed(se) ? new S3PreconditionFailedException("precondition failed, " + msg) : new S3Exception(msg);
 		s3e.initCause(se);
 		s3e.setStackTrace(se.getStackTrace());
 		s3e.setErrorCode(ec);
 		if (proposedSize > 0) s3e.setProposedSize(proposedSize);
 		return s3e;
+	}
+
+	/**
+	 * S3 rejects a request with a not met condition (If-Match, If-None-Match, ...) with 412
+	 * PreconditionFailed, a write that collides with a concurrent write with 409
+	 * ConditionalRequestConflict
+	 */
+	private static boolean isPreconditionFailed(AmazonServiceException se) {
+		return se.getStatusCode() == 412 || "PreconditionFailed".equals(se.getErrorCode()) || "ConditionalRequestConflict".equals(se.getErrorCode());
 	}
 
 	public static String improveBucketName(String bucketName) throws S3Exception {

@@ -2,6 +2,7 @@ package org.lucee.extension.resource.s3.function;
 
 import org.lucee.extension.resource.s3.AccessControlListUtil;
 import org.lucee.extension.resource.s3.S3;
+import org.lucee.extension.resource.s3.S3Conditions;
 import org.lucee.extension.resource.s3.S3Exception;
 
 import lucee.loader.engine.CFMLEngine;
@@ -17,6 +18,11 @@ public class S3Copy extends S3Function {
 
 	public static Object call(PageContext pc, String srcBucketName, String srcObjectName, String trgBucketName, String trgObjectName, Object objACL, String location,
 			String accessKeyId, String secretAccessKey, String host, double timeout) throws PageException {
+		return call(pc, srcBucketName, srcObjectName, trgBucketName, trgObjectName, objACL, location, accessKeyId, secretAccessKey, host, timeout, null);
+	}
+
+	public static Object call(PageContext pc, String srcBucketName, String srcObjectName, String trgBucketName, String trgObjectName, Object objACL, String location,
+			String accessKeyId, String secretAccessKey, String host, double timeout, S3Conditions conditions) throws PageException {
 		CFMLEngine eng = CFMLEngineFactory.getInstance();
 
 		// for backward compatibility, when host was not existing
@@ -39,10 +45,10 @@ public class S3Copy extends S3Function {
 		try {
 			// create S3 Instance
 			S3 s3 = S3.getInstance(toS3Properties(pc, accessKeyId, secretAccessKey, host), toTimeout(timeout), pc.getConfig());
-			s3.copyObject(srcBucketName, srcObjectName, trgBucketName, trgObjectName, acl, location);
+			s3.copyObject(srcBucketName, srcObjectName, trgBucketName, trgObjectName, acl, location, conditions);
 		}
 		catch (Exception e) {
-			throw eng.getCastUtil().toPageException(e);
+			throw toPageException(e);
 		}
 		return null;
 	}
@@ -51,21 +57,19 @@ public class S3Copy extends S3Function {
 	public Object invoke(PageContext pc, Object[] args) throws PageException {
 		CFMLEngine engine = CFMLEngineFactory.getInstance();
 		Cast cast = engine.getCastUtil();
+		if (args.length > 14 || args.length < 3) throw engine.getExceptionUtil().createFunctionException(pc, "S3Copy", 3, 14, args.length);
 
-		if (args.length == 10) return call(pc, cast.toString(args[0]), cast.toString(args[1]), cast.toString(args[2]), cast.toString(args[3]), args[4], cast.toString(args[5]),
-				cast.toString(args[6]), cast.toString(args[7]), cast.toString(args[8]), cast.toDoubleValue(args[9]));
-		if (args.length == 9) return call(pc, cast.toString(args[0]), cast.toString(args[1]), cast.toString(args[2]), cast.toString(args[3]), args[4], cast.toString(args[5]),
-				cast.toString(args[6]), cast.toString(args[7]), cast.toString(args[8]), 0);
-		if (args.length == 8) return call(pc, cast.toString(args[0]), cast.toString(args[1]), cast.toString(args[2]), cast.toString(args[3]), args[4], cast.toString(args[5]),
-				cast.toString(args[6]), cast.toString(args[7]), null, 0);
-		if (args.length == 7) return call(pc, cast.toString(args[0]), cast.toString(args[1]), cast.toString(args[2]), cast.toString(args[3]), args[4], cast.toString(args[5]),
-				cast.toString(args[6]), null, null, 0);
-		if (args.length == 6)
-			return call(pc, cast.toString(args[0]), cast.toString(args[1]), cast.toString(args[2]), cast.toString(args[3]), args[4], cast.toString(args[5]), null, null, null, 0);
-		if (args.length == 5) return call(pc, cast.toString(args[0]), cast.toString(args[1]), cast.toString(args[2]), cast.toString(args[3]), args[4], null, null, null, null, 0);
-		if (args.length == 4) return call(pc, cast.toString(args[0]), cast.toString(args[1]), cast.toString(args[2]), cast.toString(args[3]), null, null, null, null, null, 0);
-		if (args.length == 3) return call(pc, cast.toString(args[0]), cast.toString(args[1]), cast.toString(args[2]), null, null, null, null, null, null, 0);
+		String trgObjectName = args.length > 3 && args[3] != null ? cast.toString(args[3]) : null;
+		Object objACL = args.length > 4 ? args[4] : null;
+		String location = args.length > 5 && args[5] != null ? cast.toString(args[5]) : null;
+		String accessKeyId = args.length > 6 && args[6] != null ? cast.toString(args[6]) : null;
+		String secretAccessKey = args.length > 7 && args[7] != null ? cast.toString(args[7]) : null;
+		String host = args.length > 8 && args[8] != null ? cast.toString(args[8]) : null;
+		double timeout = args.length > 9 && args[9] != null ? cast.toDoubleValue(args[9]) : 0;
+		S3Conditions conditions = toConditions(pc, args.length > 10 ? args[10] : null, args.length > 11 ? args[11] : null, args.length > 12 ? args[12] : null,
+				args.length > 13 ? args[13] : null);
 
-		throw engine.getExceptionUtil().createFunctionException(pc, "S3Copy", 3, 10, args.length);
+		return call(pc, cast.toString(args[0]), cast.toString(args[1]), cast.toString(args[2]), trgObjectName, objACL, location, accessKeyId, secretAccessKey, host, timeout,
+				conditions);
 	}
 }
