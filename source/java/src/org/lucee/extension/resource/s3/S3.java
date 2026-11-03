@@ -2370,18 +2370,37 @@ public class S3 {
 				else newMetadata.addUserMetadata(key, e.getValue());
 			}
 
-			CopyObjectRequest request = new CopyObjectRequest(bucketName, on, bucketName, on).withNewObjectMetadata(newMetadata);
 			String storageClass = current.getStorageClass();
-			if (!Util.isEmpty(storageClass)) request.setStorageClass(storageClass);
 			String kmsKeyId = (String) current.getRawMetadataValue(Headers.SERVER_SIDE_ENCRYPTION_AWS_KMS_KEYID);
-			if (!Util.isEmpty(kmsKeyId)) request.setSSEAwsKeyManagementParams(new SSEAwsKeyManagementParams(kmsKeyId));
-			addAclToKeep(client, request, bucketName, on);
+			Object acl = aclToKeep(client, bucketName, on);
 
-			try {
-				client.copyObject(request);
+			if (on.endsWith("/") && current.getContentLength() == 0) {
+				// a folder placeholder has no content, so it is written again (not every server can copy such an object onto itself)
+				newMetadata.setContentLength(0);
+				PutObjectRequest por = new PutObjectRequest(bucketName, on, new ByteArrayInputStream(new byte[0]), newMetadata);
+				if (!Util.isEmpty(storageClass)) por.setStorageClass(storageClass);
+				if (!Util.isEmpty(kmsKeyId)) por.setSSEAwsKeyManagementParams(new SSEAwsKeyManagementParams(kmsKeyId));
+				if (acl instanceof CannedAccessControlList) por.setCannedAcl((CannedAccessControlList) acl);
+				else if (acl instanceof AccessControlList) por.setAccessControlList((AccessControlList) acl);
+				try {
+					client.putObject(por);
+				}
+				catch (AmazonServiceException se) {
+					throw toS3Exception(se);
+				}
 			}
-			catch (AmazonServiceException se) {
-				throw toS3Exception(se);
+			else {
+				CopyObjectRequest request = new CopyObjectRequest(bucketName, on, bucketName, on).withNewObjectMetadata(newMetadata);
+				if (!Util.isEmpty(storageClass)) request.setStorageClass(storageClass);
+				if (!Util.isEmpty(kmsKeyId)) request.setSSEAwsKeyManagementParams(new SSEAwsKeyManagementParams(kmsKeyId));
+				if (acl instanceof CannedAccessControlList) request.setCannedAccessControlList((CannedAccessControlList) acl);
+				else if (acl instanceof AccessControlList) request.setAccessControlList((AccessControlList) acl);
+				try {
+					client.copyObject(request);
+				}
+				catch (AmazonServiceException se) {
+					throw toS3Exception(se);
+				}
 			}
 			flushExists(bucketName, on);
 		}
@@ -2414,7 +2433,11 @@ public class S3 {
 	 * reject. The common ACLs are sent as canned ACL (supported by all S3 compatible servers), everything else as
 	 * the list of grants.
 	 */
-	private void addAclToKeep(AmazonS3Client client, CopyObjectRequest request, String bucketName, String objectName) {
+	/**
+	 * @return the ACL of the object as a canned ACL or an access control list, null if the object has the default ACL or the ACL cannot
+	 *         be read
+	 */
+	private Object aclToKeep(AmazonS3Client client, String bucketName, String objectName) {
 		AccessControlList acl;
 		try {
 			acl = client.getObjectAcl(bucketName, objectName);
@@ -2424,11 +2447,11 @@ public class S3 {
 			// behaves like before and the object gets the default ACL
 			if (ase.getStatusCode() == 501 || ase.getStatusCode() == 403) {
 				if (log != null) log.warn("S3", "could not read the ACL of [" + bucketName + "/" + objectName + "], the ACL is not kept: " + ase.getMessage());
-				return;
+				return null;
 			}
 			throw ase;
 		}
-		if (acl == null) return;
+		if (acl == null) return null;
 		String ownerId = acl.getOwner() == null ? null : acl.getOwner().getId();
 		boolean other = false, allRead = false, allWrite = false, authRead = false;
 		for (Grant grant: acl.getGrantsAsList()) {
@@ -2441,11 +2464,11 @@ public class S3 {
 			else if (permission == Permission.Read && GroupGrantee.AuthenticatedUsers.getIdentifier().equals(id)) authRead = true;
 			else other = true;
 		}
-		if (!other && !allRead && !allWrite && !authRead) return; // default ACL
-		if (!other && allRead && allWrite && !authRead) request.setCannedAccessControlList(CannedAccessControlList.PublicReadWrite);
-		else if (!other && allRead && !allWrite && !authRead) request.setCannedAccessControlList(CannedAccessControlList.PublicRead);
-		else if (!other && authRead && !allRead && !allWrite) request.setCannedAccessControlList(CannedAccessControlList.AuthenticatedRead);
-		else request.setAccessControlList(acl);
+		if (!other && !allRead && !allWrite && !authRead) return null; // default ACL
+		if (!other && allRead && allWrite && !authRead) return CannedAccessControlList.PublicReadWrite;
+		else if (!other && allRead && !allWrite && !authRead) return CannedAccessControlList.PublicRead;
+		else if (!other && authRead && !allRead && !allWrite) return CannedAccessControlList.AuthenticatedRead;
+		return acl;
 	}
 
 	private String toMetaDataKey(String key) {
