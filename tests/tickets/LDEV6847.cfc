@@ -33,7 +33,13 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 					expect( s3Exists( bucketName=bucket ) ).toBeTrue();
 				}
 				finally {
-					if ( s3Exists( bucketName=bucket ) ) s3Delete( bucketName=bucket, force=true );
+					// best effort: deleting with force lists the versions, which not every S3 server supports (MinIO answers NotImplemented)
+					try {
+						if ( s3Exists( bucketName=bucket ) ) s3Delete( bucketName=bucket, force=true );
+					}
+					catch ( any e ) {
+						systemOutput( "LDEV6847 cleanup failed: " & e.message, true );
+					}
 				}
 			});
 
