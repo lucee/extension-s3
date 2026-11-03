@@ -42,6 +42,16 @@ component  {
 	}
 
 	/**
+	 * Wasabi cannot be given a grant to a group: when the bucket is created with such a grant it answers
+	 * "InvalidArgument: Grantee URI not recognized" for the AuthenticatedUsers group as well as for the AllUsers group
+	 * (http://acs.amazonaws.com/groups/global/...), it only knows canned ACLs. The tests that set grants to a group
+	 * skip that step for Wasabi, the canned ACL step is still run.
+	 */
+	static boolean function isGroupGrantSupported(required struct cred) {
+		return !findNoCase("wasabisys.com", cred.HOST?:"");
+	}
+
+	/**
 	 * Calls fn, which has to fail, and returns the error message. Fails the test when fn does not throw.
 	 */
 	static function messageOfFailure(required function fn) {
