@@ -1360,6 +1360,13 @@ public class S3 {
 	}
 
 	public void delete(String bucketName, boolean force) throws S3Exception {
+		delete(bucketName, force, false);
+	}
+
+	/**
+	 * @param ignoreMissing if true, a bucket that does not exist is not an error
+	 */
+	public void delete(String bucketName, boolean force, boolean ignoreMissing) throws S3Exception {
 		// com.amazonaws.services.s3.model.AmazonS3Exception: The bucket you tried to delete is not empty
 
 		bucketName = improveBucketName(bucketName);
@@ -1379,7 +1386,13 @@ public class S3 {
 
 		}
 		catch (AmazonServiceException se) {
+			if (ignoreMissing && "NoSuchBucket".equals(se.getErrorCode())) return;
 			throw toS3Exception(se);
+		}
+		catch (S3Exception se) {
+			// clear() reports the missing bucket as S3Exception
+			if (ignoreMissing && "NoSuchBucket".equals(se.getErrorCode())) return;
+			throw se;
 		}
 		finally {
 			client.release();
@@ -1387,8 +1400,16 @@ public class S3 {
 	}
 
 	public void delete(String bucketName, String objectName, boolean force) throws S3Exception {
+		delete(bucketName, objectName, force, false);
+	}
+
+	/**
+	 * @param ignoreMissing if true, an object (or bucket) that does not exist is not an error, like the
+	 *            DeleteObject operation of S3 itself
+	 */
+	public void delete(String bucketName, String objectName, boolean force, boolean ignoreMissing) throws S3Exception {
 		if (Util.isEmpty(objectName, true)) {
-			delete(bucketName, force);
+			delete(bucketName, force, ignoreMissing);
 			return;
 		}
 		bucketName = improveBucketName(bucketName);
@@ -1432,6 +1453,7 @@ public class S3 {
 				if (log != null) log.debug("S3", "list objects (" + sum + ") for [" + bucketName + "/" + nameFile + "]");
 			}
 			else {
+				if (ignoreMissing) return;
 				throw new S3Exception("can't delete file/directory " + bucketName + "/" + objectName + ", file/directory does not exist");
 			}
 
@@ -1454,7 +1476,7 @@ public class S3 {
 				// we create parent because before it maybe was a pseudi dir
 				createParentDirectory(bucketName, objectName, true);
 			}
-			else throw new S3Exception("can't delete file/directory " + bucketName + "/" + objectName + ", file/directory does not exist");
+			else if (!ignoreMissing) throw new S3Exception("can't delete file/directory " + bucketName + "/" + objectName + ", file/directory does not exist");
 		}
 		catch (AmazonServiceException se) {
 			throw toS3Exception(se);
