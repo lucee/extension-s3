@@ -19,7 +19,11 @@
 package org.lucee.extension.resource.s3.function;
 
 import java.nio.charset.Charset;
+import java.util.Date;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
+import org.lucee.extension.resource.s3.ObjectOptions;
 import org.lucee.extension.resource.s3.S3Exception;
 import org.lucee.extension.resource.s3.S3HttpPoolSettings;
 import org.lucee.extension.resource.s3.S3Properties;
@@ -38,12 +42,168 @@ import lucee.runtime.exp.PageException;
 import lucee.runtime.ext.function.BIF;
 import lucee.runtime.listener.ApplicationContext;
 import lucee.runtime.net.s3.Properties;
+import lucee.runtime.type.Collection;
 import lucee.runtime.type.Struct;
+import lucee.runtime.util.Cast;
 
 public abstract class S3Function extends BIF {
 
 	private static final long serialVersionUID = 5591490809164267541L;
 	private static final long DEFAULT_TIMEOUT = 10000L;
+
+	/**
+	 * converts the argument "range" of s3Read, s3ReadBinary and s3Download to {start, end}, end is
+	 * Long.MAX_VALUE for an open range.
+	 * 
+	 * @param range a string like "0-1023", "1024-" (a leading "bytes=" is accepted) or a struct with the
+	 *            keys start (optional, default 0) and end (optional)
+	 * @return null if no range is defined
+	 */
+	protected static long[] toRange(Object range) throws PageException {
+		if (range == null) return null;
+		CFMLEngine eng = CFMLEngineFactory.getInstance();
+		Cast cast = eng.getCastUtil();
+
+		long start;
+		long end = Long.MAX_VALUE;
+		if (range instanceof Struct) {
+			Struct sct = (Struct) range;
+			Object s = sct.get(cast.toKey("start"), null);
+			Object e = sct.get(cast.toKey("end"), null);
+			if (s == null && e == null) throw eng.getExceptionUtil().createApplicationException("the struct for the argument [range] needs the key [start] and/or [end]");
+			start = s == null || Util.isEmpty(cast.toString(s, ""), true) ? 0 : toRangeValue(cast, s, "start");
+			if (e != null && !Util.isEmpty(cast.toString(e, ""), true)) end = toRangeValue(cast, e, "end");
+		}
+		else {
+			String str = cast.toString(range).trim();
+			if (str.isEmpty()) return null;
+			if (str.regionMatches(true, 0, "bytes=", 0, 6)) str = str.substring(6).trim();
+			int index = str.indexOf('-');
+			if (index < 1) throw eng.getExceptionUtil().createApplicationException("invalid value [" + range + "] for the argument [range], use a format like [0-1023] or [1024-]");
+			start = toRangeValue(cast, str.substring(0, index).trim(), "start");
+			String strEnd = str.substring(index + 1).trim();
+			if (!strEnd.isEmpty()) end = toRangeValue(cast, strEnd, "end");
+		}
+		if (end < start) throw eng.getExceptionUtil().createApplicationException("invalid value for the argument [range], the end [" + end + "] is smaller than the start [" + start + "]");
+		return new long[] { start, end };
+	}
+
+	private static long toRangeValue(Cast cast, Object value, String name) throws PageException {
+		double d = cast.toDoubleValue(value, Double.NaN);
+		if (Double.isNaN(d) || d < 0 || d != Math.floor(d))
+			throw CFMLEngineFactory.getInstance().getExceptionUtil().createApplicationException("invalid value [" + value + "] for the [" + name + "] of the argument [range], it needs to be a whole number of 0 or more");
+		return (long) d;
+	}
+
+	/**
+	 * Converts the arguments "metadata", "headers" and "storageClass" of the write and copy functions
+	 * to object options.
+	 * 
+	 * @param pos position (1 based) of the argument "metadata", "headers" and "storageClass" are the
+	 *            following arguments
+	 * @return the options or null if none of the arguments is defined
+	 */
+	static ObjectOptions toObjectOptions(PageContext pc, String functionName, int pos, Object metadata, Object headers, Object storageClass) throws PageException {
+		CFMLEngine eng = CFMLEngineFactory.getInstance();
+		Cast cast = eng.getCastUtil();
+		ObjectOptions opts = null;
+
+		if (!isNullOrBlank(metadata)) {
+			Struct sct = cast.toStruct(metadata, null);
+			if (sct == null) throw eng.getExceptionUtil().createFunctionException(pc, functionName, pos, "metadata", "metadata must be a struct", null);
+			Map<String, String> map = new LinkedHashMap<String, String>();
+			for (Collection.Key k: sct.keys()) {
+				Object v = sct.get(k, null);
+				if (v == null) throw eng.getExceptionUtil().createFunctionException(pc, functionName, pos, "metadata", "the value of the key [" + k.getString() + "] is null", null);
+				map.put(k.getString(), cast.toString(v));
+			}
+			opts = new ObjectOptions();
+			try {
+				opts.setUserMetadata(map);
+			}
+			catch (IllegalArgumentException iae) {
+				throw eng.getExceptionUtil().createFunctionException(pc, functionName, pos, "metadata", iae.getMessage(), null);
+			}
+		}
+
+		if (!isNullOrBlank(headers)) {
+			Struct sct = cast.toStruct(headers, null);
+			if (sct == null) throw eng.getExceptionUtil().createFunctionException(pc, functionName, pos + 1, "headers", "headers must be a struct", null);
+			if (opts == null) opts = new ObjectOptions();
+			for (Collection.Key k: sct.keys()) {
+				Object v = sct.get(k, null);
+				if (v == null) throw eng.getExceptionUtil().createFunctionException(pc, functionName, pos + 1, "headers", "the value of the key [" + k.getString() + "] is null", null);
+				String name = k.getString().toLowerCase().replace("-", "").replace("_", "");
+				if ("contenttype".equals(name)) opts.setContentType(cast.toString(v));
+				else if ("cachecontrol".equals(name)) opts.setCacheControl(cast.toString(v));
+				else if ("contentdisposition".equals(name)) opts.setContentDisposition(cast.toString(v));
+				else if ("contentencoding".equals(name)) opts.setContentEncoding(cast.toString(v));
+				else if ("contentlanguage".equals(name)) opts.setContentLanguage(cast.toString(v));
+				else if ("expires".equals(name)) {
+					Date date = cast.toDateTime(v, pc.getTimeZone(), null);
+					if (date == null)
+						throw eng.getExceptionUtil().createFunctionException(pc, functionName, pos + 1, "headers", "the value of the key [" + k.getString() + "] is not a valid date", null);
+					opts.setExpires(new Date(date.getTime()));
+				}
+				else throw eng.getExceptionUtil().createFunctionException(pc, functionName, pos + 1, "headers", "the header [" + k.getString()
+						+ "] is not supported, supported headers are [Cache-Control, Content-Disposition, Content-Encoding, Content-Language, Content-Type, Expires], use the argument \"metadata\" for custom metadata",
+						null);
+			}
+		}
+
+		if (!isNullOrBlank(storageClass)) {
+			String sc = cast.toString(storageClass).trim().toUpperCase();
+			if (opts == null) opts = new ObjectOptions();
+			opts.setStorageClass(sc);
+		}
+		return opts;
+	}
+
+	/**
+	 * Takes the mime type of the function (if any) and the content type of the headers (if any) and
+	 * returns the options that define the content type: for text, the mime type is stored together with
+	 * the charset, for everything else it is stored as is.
+	 * 
+	 * @param mimeType value of the argument "mimeType", can be null
+	 * @param opts options from the arguments "metadata", "headers" and "storageClass", can be null
+	 * @param text is the content text, so that a charset gets added to the mime type
+	 * @return an array with the options and the mime type to use for text (null if not defined)
+	 */
+	static Object[] resolveContentType(PageContext pc, String functionName, int mimeTypePos, String mimeType, ObjectOptions opts, boolean text) throws PageException {
+		CFMLEngine eng = CFMLEngineFactory.getInstance();
+		if (eng.getStringUtil().isEmpty(mimeType, true)) mimeType = null;
+		else mimeType = mimeType.trim();
+		String headerType = opts == null ? null : opts.getContentType();
+
+		if (mimeType != null && headerType != null && !mimeType.equalsIgnoreCase(headerType.trim())) {
+			throw eng.getExceptionUtil().createFunctionException(pc, functionName, mimeTypePos, "mimeType",
+					"the argument [mimeType] and the header [Content-Type] define different content types, define only one of them", null);
+		}
+		if (mimeType == null && headerType != null && text && headerType.toLowerCase().indexOf("charset") == -1) {
+			// the charset is added to the mime type
+			mimeType = headerType.trim();
+			opts = opts.copy();
+			opts.setContentType(null);
+		}
+		else if (mimeType != null && !text) {
+			// a mime type is not applied to anything but text by the extension, so we handle it as content type
+			if (opts == null) opts = new ObjectOptions();
+			else opts = opts.copy();
+			opts.setContentType(mimeType);
+			mimeType = null;
+		}
+		else if (mimeType != null && headerType != null) {
+			opts = opts.copy();
+			opts.setContentType(null);
+		}
+		return new Object[] { opts, mimeType };
+	}
+
+	private static boolean isNullOrBlank(Object obj) {
+		if (obj == null) return true;
+		if (obj instanceof CharSequence) return obj.toString().trim().length() == 0;
+		return false;
+	}
 
 	protected static S3Properties toS3Properties(PageContext pc, String accessKeyId, String secretAccessKey, String host) throws PageException, RuntimeException {
 

@@ -128,6 +128,7 @@ The extension also provides native `s3*()` functions for S3-specific operations:
 // buckets
 buckets = s3listBuckets();
 objects = s3listBucket("my-bucket");
+images  = s3listBucket(bucketName="my-bucket", prefix="images/"); // only keys that start with the prefix, filtered by S3
 
 // read / write
 content = s3read("my-bucket", "hello.txt");
@@ -142,6 +143,7 @@ s3delete("my-bucket", "hello.txt");
 // metadata / ACL
 meta = s3getMetaData("my-bucket", "hello.txt");
 s3setMetaData("my-bucket", "hello.txt", { "x-custom-tag": "value" });
+s3setMetaData(bucketName="my-bucket", objectName="hello.txt", metadata={ "other-tag": "v" }, merge=true); // keeps the existing user metadata and adds/overwrites the given keys (default: replace)
 acl  = s3getACL("my-bucket", "hello.txt");
 
 // URLs

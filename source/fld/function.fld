@@ -442,6 +442,13 @@
 			<default>10000</default>
 			<description>timeout for this execution</description>
 	    </argument>
+		<argument>
+			<name>merge</name>
+			<type>boolean</type>
+			<required>No</required>
+			<default>false</default>
+			<description>If false (the default), the user metadata of the object is replaced by the given metadata. If true, the existing user metadata is kept, the given entries are added to it and replace an existing entry with the same name. The system metadata (Content-Type, Cache-Control, ...) and the ACL of the object are kept in both cases.</description>
+	    </argument>
 		<return>
 			<type>void</type>
 		</return>
@@ -571,6 +578,18 @@
 			<default>10000</default>
 			<description>timeout for this execution</description>
 	    </argument>
+		<argument>
+			<name>range</name>
+			<type>any</type>
+			<required>No</required>
+			<description>Only read part of the object (HTTP range request). A string like "0-1023" (the first 1024 bytes), "1024-" (everything from byte 1024 on), or a struct with the keys start (default 0) and end (optional). Both values are inclusive and zero based. By default the whole object is read.</description>
+	    </argument>
+		<argument>
+			<name>versionId</name>
+			<type>string</type>
+			<required>No</required>
+			<description>Read this version of the object, see s3GetVersionInfo() for the version ids of an object in a bucket with versioning. By default the latest version is read.</description>
+	    </argument>
 		<return>
 			<type>string</type>
 		</return>
@@ -630,6 +649,18 @@
 			<required>No</required>
 			<default>10000</default>
 			<description>timeout for this execution</description>
+	    </argument>
+		<argument>
+			<name>range</name>
+			<type>any</type>
+			<required>No</required>
+			<description>Only read part of the object (HTTP range request). A string like "0-1023" (the first 1024 bytes), "1024-" (everything from byte 1024 on), or a struct with the keys start (default 0) and end (optional). Both values are inclusive and zero based. By default the whole object is read.</description>
+	    </argument>
+		<argument>
+			<name>versionId</name>
+			<type>string</type>
+			<required>No</required>
+			<description>Read this version of the object, see s3GetVersionInfo() for the version ids of an object in a bucket with versioning. By default the latest version is read.</description>
 	    </argument>
 		<return>
 			<type>binary</type>
@@ -711,6 +742,31 @@
 			<required>No</required>
 			<default>10000</default>
 			<description>timeout for this execution</description>
+	    </argument>
+		<argument>
+			<name>mimeType</name>
+			<type>string</type>
+			<required>No</required>
+			<description>MimeType (Content-Type) of the file you are uploading, if not defined the type is detected from the file.</description>
+	    </argument>
+		<argument>
+			<name>metadata</name>
+			<alias>userMetadata</alias>
+			<type>struct</type>
+			<required>No</required>
+			<description>Custom (user defined) metadata to store with the object as a struct of key/value pairs.</description>
+	    </argument>
+		<argument>
+			<name>headers</name>
+			<type>struct</type>
+			<required>No</required>
+			<description>Standard HTTP headers to store with the object, supported keys are Cache-Control, Content-Disposition, Content-Encoding, Content-Language, Content-Type and Expires.</description>
+	    </argument>
+		<argument>
+			<name>storageClass</name>
+			<type>string</type>
+			<required>No</required>
+			<description>Storage class of the object, for example STANDARD, STANDARD_IA, ONEZONE_IA, INTELLIGENT_TIERING, GLACIER or DEEP_ARCHIVE. Which storage classes are available depends on the provider. If not defined the default of the bucket/provider is used.</description>
 	    </argument>
 		<return>
 			<type>void</type>
@@ -822,8 +878,7 @@
 			<name>mimeType</name>
 			<type>string</type>
 			<required>No</required>
-			<default>UTF-8</default>
-			<description>MimeType of the value you are storing.</description>
+			<description>MimeType of the value you are storing. For text the charset is added to it. If not defined, the type of binary data and files is detected from the content.</description>
 	    </argument>
 		<argument>
 			<name>acl</name>
@@ -875,6 +930,25 @@
 			<required>No</required>
 			<default>10000</default>
 			<description>timeout for this execution</description>
+	    </argument>
+		<argument>
+			<name>metadata</name>
+			<alias>userMetadata</alias>
+			<type>struct</type>
+			<required>No</required>
+			<description>Custom (user defined) metadata to store with the object as a struct of key/value pairs.</description>
+	    </argument>
+		<argument>
+			<name>headers</name>
+			<type>struct</type>
+			<required>No</required>
+			<description>Standard HTTP headers to store with the object, supported keys are Cache-Control, Content-Disposition, Content-Encoding, Content-Language, Content-Type and Expires.</description>
+	    </argument>
+		<argument>
+			<name>storageClass</name>
+			<type>string</type>
+			<required>No</required>
+			<description>Storage class of the object, for example STANDARD, STANDARD_IA, ONEZONE_IA, INTELLIGENT_TIERING, GLACIER or DEEP_ARCHIVE. Which storage classes are available depends on the provider. If not defined the default of the bucket/provider is used.</description>
 	    </argument>
 		<return>
 			<type>void</type>
@@ -1006,6 +1080,13 @@
 			<default>10000</default>
 			<description>timeout for this execution</description>
 	    </argument>
+		<argument>
+			<name>ignoreMissing</name>
+			<type>boolean</type>
+			<required>No</required>
+			<default>false</default>
+			<description>If true, an object that does not exist is not an error (like the DeleteObject operation of S3 itself, which does not fail for a missing key), and a bucket that does not exist is not an error when deleting a bucket. By default a missing object or bucket throws an exception.</description>
+	    </argument>
 		<return>
 			<type>query</type>
 		</return>
@@ -1096,6 +1177,18 @@
 			<default>10000</default>
 			<description>timeout for this execution</description>
 	    </argument>
+		<argument>
+			<name>range</name>
+			<type>any</type>
+			<required>No</required>
+			<description>Only read part of the object (HTTP range request). A string like "0-1023" (the first 1024 bytes), "1024-" (everything from byte 1024 on), or a struct with the keys start (default 0) and end (optional). Both values are inclusive and zero based. By default the whole object is read.</description>
+	    </argument>
+		<argument>
+			<name>versionId</name>
+			<type>string</type>
+			<required>No</required>
+			<description>Read this version of the object, see s3GetVersionInfo() for the version ids of an object in a bucket with versioning. By default the latest version is read.</description>
+	    </argument>
 		<return>
 			<type>any</type>
 		</return>
@@ -1180,6 +1273,31 @@
 			<required>No</required>
 			<default>10000</default>
 			<description>timeout for this execution</description>
+	    </argument>
+		<argument>
+			<name>delimiter</name>
+			<type>string</type>
+			<required>No</required>
+			<description>Group the keys at the first occurrence of this delimiter (usually "/") for a folder like listing. Each group is returned as one row with the column isPrefix set to true, the objectName of that row is the common prefix (for example "images/"). Objects that do not contain the delimiter are returned as usual. By default no grouping is done.</description>
+	    </argument>
+		<argument>
+			<name>startAfter</name>
+			<type>string</type>
+			<required>No</required>
+			<description>Only list keys that come after this key (in the order of the keys), to resume a listing. By default the listing starts with the first key.</description>
+	    </argument>
+		<argument>
+			<name>maxResults</name>
+			<type>numeric</type>
+			<required>No</required>
+			<default>0</default>
+			<description>Stop after this number of rows (objects and common prefixes). This is different from blockfactor, which is the size of the pages requested from the server. 0 (the default) lists all keys.</description>
+	    </argument>
+		<argument>
+			<name>prefix</name>
+			<type>string</type>
+			<required>No</required>
+			<description>Only list objects whose key starts with this prefix, for example "images/originals/". The filtering is done by S3, so a large bucket is not listed completely. If not set or empty, all objects in the bucket are listed.</description>
 	    </argument>
 		<return>
 			<type>query</type>
@@ -1381,6 +1499,25 @@
 			<default>10000</default>
 			<description>timeout for this execution</description>
 	    </argument>
+		<argument>
+			<name>metadata</name>
+			<alias>userMetadata</alias>
+			<type>struct</type>
+			<required>No</required>
+			<description>Custom (user defined) metadata to store with the object as a struct of key/value pairs. When copying or moving, the given metadata replaces the user metadata of the source object, without this argument the metadata of the source is kept.</description>
+	    </argument>
+		<argument>
+			<name>headers</name>
+			<type>struct</type>
+			<required>No</required>
+			<description>Standard HTTP headers to store with the object, supported keys are Cache-Control, Content-Disposition, Content-Encoding, Content-Language, Content-Type and Expires. When copying or moving, only the headers defined are changed, all other headers and the user metadata are taken over from the source object.</description>
+	    </argument>
+		<argument>
+			<name>storageClass</name>
+			<type>string</type>
+			<required>No</required>
+			<description>Storage class of the object, for example STANDARD, STANDARD_IA, ONEZONE_IA, INTELLIGENT_TIERING, GLACIER or DEEP_ARCHIVE. Which storage classes are available depends on the provider. If not defined the default of the bucket/provider is used.</description>
+	    </argument>
 		<return>
 			<type>void</type>
 		</return>
@@ -1471,6 +1608,25 @@
 			<required>No</required>
 			<default>10000</default>
 			<description>timeout for this execution</description>
+	    </argument>
+		<argument>
+			<name>metadata</name>
+			<alias>userMetadata</alias>
+			<type>struct</type>
+			<required>No</required>
+			<description>Custom (user defined) metadata to store with the object as a struct of key/value pairs. When copying or moving, the given metadata replaces the user metadata of the source object, without this argument the metadata of the source is kept.</description>
+	    </argument>
+		<argument>
+			<name>headers</name>
+			<type>struct</type>
+			<required>No</required>
+			<description>Standard HTTP headers to store with the object, supported keys are Cache-Control, Content-Disposition, Content-Encoding, Content-Language, Content-Type and Expires. When copying or moving, only the headers defined are changed, all other headers and the user metadata are taken over from the source object.</description>
+	    </argument>
+		<argument>
+			<name>storageClass</name>
+			<type>string</type>
+			<required>No</required>
+			<description>Storage class of the object, for example STANDARD, STANDARD_IA, ONEZONE_IA, INTELLIGENT_TIERING, GLACIER or DEEP_ARCHIVE. Which storage classes are available depends on the provider. If not defined the default of the bucket/provider is used.</description>
 	    </argument>
 		<return>
 			<type>void</type>
