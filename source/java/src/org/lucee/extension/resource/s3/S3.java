@@ -2417,6 +2417,14 @@ public class S3 {
 	}
 
 	public void setMetaData(String bucketName, String objectName, Struct metadata) throws PageException, S3Exception {
+		setMetaData(bucketName, objectName, metadata, false);
+	}
+
+	/**
+	 * @param merge if true, the existing user metadata is kept and the given entries are added to it (or
+	 *            replace the entry with the same name), otherwise the user metadata is replaced
+	 */
+	public void setMetaData(String bucketName, String objectName, Struct metadata, boolean merge) throws PageException, S3Exception {
 		Map<String, String> data = new HashMap<>();
 		Iterator<Entry<Key, Object>> it = metadata.entryIterator();
 		Entry<Key, Object> e;
@@ -2425,7 +2433,7 @@ public class S3 {
 			e = it.next();
 			data.put(e.getKey().getString(), cas.toString(e.getValue()));
 		}
-		setMetaDataAsMap(bucketName, objectName, data);
+		setMetaDataAsMap(bucketName, objectName, data, merge);
 	}
 
 	/**
@@ -2436,6 +2444,15 @@ public class S3 {
 	 * metadata (for example "content-type") replace the current value of that header.
 	 */
 	public void setMetaDataAsMap(String bucketName, String objectName, Map<String, String> metadata) throws S3Exception {
+		setMetaDataAsMap(bucketName, objectName, metadata, false);
+	}
+
+	/**
+	 * Same as {@link #setMetaDataAsMap(String, String, Map)}, but with merge=true the existing user metadata
+	 * of the object is kept, the given entries are added to it and replace an existing entry with the same
+	 * name.
+	 */
+	public void setMetaDataAsMap(String bucketName, String objectName, Map<String, String> metadata, boolean merge) throws S3Exception {
 
 		bucketName = improveBucketName(bucketName);
 		objectName = improveObjectName(objectName);
@@ -2470,6 +2487,11 @@ public class S3 {
 
 			ObjectMetadata newMetadata = new ObjectMetadata();
 			keepSystemMetaData(current, newMetadata);
+			if (merge && current.getUserMetadata() != null) {
+				for (Entry<String, String> ue: current.getUserMetadata().entrySet()) {
+					newMetadata.addUserMetadata(ue.getKey(), ue.getValue());
+				}
+			}
 			Iterator<Entry<String, String>> it = metadata.entrySet().iterator();
 			Entry<String, String> e;
 			String key;
