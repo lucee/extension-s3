@@ -39,6 +39,7 @@ import lucee.loader.engine.CFMLEngineFactory;
 import lucee.loader.util.Util;
 import lucee.runtime.type.Array;
 import lucee.runtime.type.Struct;
+import lucee.runtime.util.Cast;
 
 public final class StorageObjectWrapper extends S3InfoSupport {
 
@@ -227,12 +228,13 @@ public final class StorageObjectWrapper extends S3InfoSupport {
 			Iterator<Entry<String, String>> it = umd.entrySet().iterator();
 			Entry<String, String> e;
 			String name;
+			Cast cast = CFMLEngineFactory.getInstance().getCastUtil();
 			while (it.hasNext()) {
 				e = it.next();
 				name = Util.replace(e.getKey(), "-", "", true);
 				name = Character.toLowerCase(name.charAt(0)) + (name.length() > 1 ? name.substring(1) : "");
 				// a user metadata entry must not replace one of the fields of the extension (size, owner, exists, ...)
-				if (!data.containsKey(CFMLEngineFactory.getInstance().getCastUtil().toKey(name))) data.setEL(name, e.getValue());
+				if (!data.containsKey(cast.toKey(name))) data.setEL(name, e.getValue());
 			}
 		}
 
