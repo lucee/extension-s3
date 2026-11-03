@@ -571,6 +571,18 @@
 			<default>10000</default>
 			<description>timeout for this execution</description>
 	    </argument>
+		<argument>
+			<name>range</name>
+			<type>any</type>
+			<required>No</required>
+			<description>Only read part of the object (HTTP range request). A string like "0-1023" (the first 1024 bytes), "1024-" (everything from byte 1024 on), or a struct with the keys start (default 0) and end (optional). Both values are inclusive and zero based. By default the whole object is read.</description>
+	    </argument>
+		<argument>
+			<name>versionId</name>
+			<type>string</type>
+			<required>No</required>
+			<description>Read this version of the object, see s3GetVersionInfo() for the version ids of an object in a bucket with versioning. By default the latest version is read.</description>
+	    </argument>
 		<return>
 			<type>string</type>
 		</return>
@@ -630,6 +642,18 @@
 			<required>No</required>
 			<default>10000</default>
 			<description>timeout for this execution</description>
+	    </argument>
+		<argument>
+			<name>range</name>
+			<type>any</type>
+			<required>No</required>
+			<description>Only read part of the object (HTTP range request). A string like "0-1023" (the first 1024 bytes), "1024-" (everything from byte 1024 on), or a struct with the keys start (default 0) and end (optional). Both values are inclusive and zero based. By default the whole object is read.</description>
+	    </argument>
+		<argument>
+			<name>versionId</name>
+			<type>string</type>
+			<required>No</required>
+			<description>Read this version of the object, see s3GetVersionInfo() for the version ids of an object in a bucket with versioning. By default the latest version is read.</description>
 	    </argument>
 		<return>
 			<type>binary</type>
@@ -1095,6 +1119,18 @@
 			<required>No</required>
 			<default>10000</default>
 			<description>timeout for this execution</description>
+	    </argument>
+		<argument>
+			<name>range</name>
+			<type>any</type>
+			<required>No</required>
+			<description>Only read part of the object (HTTP range request). A string like "0-1023" (the first 1024 bytes), "1024-" (everything from byte 1024 on), or a struct with the keys start (default 0) and end (optional). Both values are inclusive and zero based. By default the whole object is read.</description>
+	    </argument>
+		<argument>
+			<name>versionId</name>
+			<type>string</type>
+			<required>No</required>
+			<description>Read this version of the object, see s3GetVersionInfo() for the version ids of an object in a bucket with versioning. By default the latest version is read.</description>
 	    </argument>
 		<return>
 			<type>any</type>

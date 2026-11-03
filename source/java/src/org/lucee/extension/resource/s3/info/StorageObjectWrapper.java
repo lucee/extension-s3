@@ -236,6 +236,7 @@ public final class StorageObjectWrapper extends S3InfoSupport {
 
 		Array acl = s3.getAccessControlList(getBucketName(), getObjectName());
 		if (acl != null) data.setEL("acl", acl);
+		if (omd.getVersionId() != null) data.setEL("versionId", omd.getVersionId());
 		return data;
 	}
 
