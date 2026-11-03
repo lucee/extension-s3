@@ -44,7 +44,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 				var trg = s3p( "to" );
 				buildTree( src );
 
-				directoryRename( src, trg );
+				renameDirectory( src, trg );
 
 				expectTree( trg );
 				expect( directoryExists( src ) ).toBeFalse();
@@ -64,7 +64,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 				expect( fileExists( s3p( "copy/b.txt" ) ) ).toBeFalse();
 				expect( directoryExists( s3p( "copy2" ) ) ).toBeFalse();
 
-				directoryRename( s3p( "dir" ), s3p( "moved" ) );
+				renameDirectory( s3p( "dir" ), s3p( "moved" ) );
 				expect( fileRead( s3p( "moved/a.txt" ) ) ).toBe( "in dir" );
 				expect( directoryExists( s3p( "dir" ) ) ).toBeFalse();
 				// the sibling is not touched
@@ -81,7 +81,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 				expect( fileRead( s3p( "virtualCopy/inner/v2.txt" ) ) ).toBe( "v2" );
 				expect( fileRead( s3p( "virtual/inner/v2.txt" ) ) ).toBe( "v2" );
 
-				directoryRename( s3p( "virtual" ), s3p( "virtualMoved" ) );
+				renameDirectory( s3p( "virtual" ), s3p( "virtualMoved" ) );
 				expect( fileRead( s3p( "virtualMoved/v1.txt" ) ) ).toBe( "v1" );
 				expect( fileRead( s3p( "virtualMoved/inner/v2.txt" ) ) ).toBe( "v2" );
 				expect( directoryExists( s3p( "virtual" ) ) ).toBeFalse();
@@ -105,7 +105,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 				fileWrite( s3p( "two/x.txt" ), "x" );
 
 				expect( function() {
-					directoryRename( s3p( "one" ), s3p( "two" ) );
+					renameDirectory( s3p( "one" ), s3p( "two" ) );
 				}).toThrow();
 
 				expectTree( s3p( "one" ) );
@@ -121,7 +121,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 				directoryCopy( s3p( "toOther" ), other & "/copied", true );
 				expectTree( other & "/copied" );
 
-				directoryRename( s3p( "toOther" ), other & "/moved" );
+				renameDirectory( s3p( "toOther" ), other & "/moved" );
 				expectTree( other & "/moved" );
 				expect( directoryExists( s3p( "toOther" ) ) ).toBeFalse();
 			});
@@ -133,7 +133,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 				expectTree( s3p( "new/parent/copied" ) );
 				expect( directoryExists( s3p( "new/parent" ) ) ).toBeTrue();
 
-				directoryRename( s3p( "deepSrc" ), s3p( "other/parent/moved" ), true );
+				renameDirectory( s3p( "deepSrc" ), s3p( "other/parent/moved" ), true );
 				expectTree( s3p( "other/parent/moved" ) );
 				expect( directoryExists( s3p( "other/parent" ) ) ).toBeTrue();
 				expect( directoryExists( s3p( "deepSrc" ) ) ).toBeFalse();
@@ -142,7 +142,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 			it( title="the parent directory of a moved directory does not vanish when it was the last thing in it", body=function() {
 				fileWrite( s3p( "holder/only/a.txt" ), "a" );
 
-				directoryRename( s3p( "holder/only" ), s3p( "elsewhere" ) );
+				renameDirectory( s3p( "holder/only" ), s3p( "elsewhere" ) );
 
 				expect( fileRead( s3p( "elsewhere/a.txt" ) ) ).toBe( "a" );
 				expect( directoryExists( s3p( "holder" ) ) ).toBeTrue();
@@ -152,7 +152,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 			it( title="a copied or moved directory can be listed", body=function() {
 				buildTree( s3p( "listed" ) );
 
-				directoryRename( s3p( "listed" ), s3p( "listedMoved" ) );
+				renameDirectory( s3p( "listed" ), s3p( "listedMoved" ) );
 
 				var names = directoryList( s3p( "listedMoved" ), true, "name" );
 				arraySort( names, "text" );
@@ -162,6 +162,17 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 				expect( names ).toInclude( "empty" );
 			});
 		});
+	}
+
+	/**
+	 * directoryRename(), but with acl="private". The directoryRename() function of Lucee hardcodes the ACL
+	 * "public-read" and applies it to the new directory with s3:PutObjectAcl. Amazon buckets with "Block Public
+	 * Access" (BlockPublicAcls, the default of new buckets and the setting of the CI bucket) refuse that with
+	 * AccessDenied, which has nothing to do with the copy/move of this ticket. A private ACL is accepted, and the
+	 * directory tag is the same code (Directory.actionRename) as the function, only with the ACL as argument.
+	 */
+	private function renameDirectory( required string source, required string destination, boolean createPath=true ) {
+		directory action="rename" directory=arguments.source newdirectory=arguments.destination createpath=arguments.createPath acl="private";
 	}
 
 	// the tree used in the tests: files in the root, nested sub directories and an empty directory
