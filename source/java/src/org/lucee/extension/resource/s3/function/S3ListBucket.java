@@ -22,7 +22,7 @@ public class S3ListBucket extends S3Function {
 	public Object invoke(PageContext pc, Object[] args) throws PageException {
 		CFMLEngine eng = CFMLEngineFactory.getInstance();
 		Cast cast = eng.getCastUtil();
-		if (args.length < 1 || args.length > 10) throw eng.getExceptionUtil().createFunctionException(pc, "S3ListBucket", 1, 10, args.length);
+		if (args.length < 1 || args.length > 11) throw eng.getExceptionUtil().createFunctionException(pc, "S3ListBucket", 1, 11, args.length);
 
 		// required
 		String bucketName = cast.toString(args[0]);
@@ -39,6 +39,7 @@ public class S3ListBucket extends S3Function {
 		long maxResults = args.length > 9 && !isEmpty(args[9]) ? cast.toLongValue(args[9]) : 0;
 		if (args.length > 9 && !isEmpty(args[9]) && maxResults < 0)
 			throw eng.getExceptionUtil().createFunctionException(pc, "S3ListBucket", 10, "maxResults", "invalid value [" + args[9] + "], it needs to be a number of 0 or more", "");
+		String prefix = args.length > 10 && !isEmpty(args[10]) ? cast.toString(args[10]) : null;
 
 		// validate
 
@@ -47,12 +48,12 @@ public class S3ListBucket extends S3Function {
 
 			// no listener
 			if (listener == null) {
-				return s3.listObjectsAsQuery(bucketName, blockSize, null, delimiter, startAfter, maxResults);
+				return s3.listObjectsAsQuery(bucketName, blockSize, null, delimiter, startAfter, maxResults, prefix);
 			}
 			else {
 				ListListener list = toListener(eng, pc, listener);
 				list.before();
-				s3.listObjectsAsQuery(bucketName, blockSize, toListener(eng, pc, listener), delimiter, startAfter, maxResults);
+				s3.listObjectsAsQuery(bucketName, blockSize, toListener(eng, pc, listener), delimiter, startAfter, maxResults, prefix);
 				list.after();
 			}
 		}
