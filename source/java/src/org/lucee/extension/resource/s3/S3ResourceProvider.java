@@ -128,6 +128,9 @@ public final class S3ResourceProvider implements ResourceProvider {
 		Boolean pathStyleAccess = null;
 		Boolean ssl = null;
 		Struct appData = null;
+		S3Properties appProp = null;
+		S3Properties mappingProp = null;
+		String mappingLocation = null;
 
 		// env var / system prop
 		{
@@ -188,6 +191,7 @@ public final class S3ResourceProvider implements ResourceProvider {
 				}
 				catch (Exception e) {}
 				prop = appData != null ? S3Properties.load(pc, appData, null) : null;// pc.getApplicationContext().getS3();
+				appProp = prop;
 			}
 
 			if (prop != null) {
@@ -249,6 +253,8 @@ public final class S3ResourceProvider implements ResourceProvider {
 				S3Properties prop = appData != null ? S3Properties.load(pc, appData, accessKeyId) : null;
 				if (prop != null) {
 					mapping = accessKeyId;
+					mappingProp = prop;
+					mappingLocation = prop.getDefaultLocation();
 					accessKeyId = prop.getAccessKeyId();
 					host = prop.getHost();
 					bucket = prop.getBucket();
@@ -310,6 +316,21 @@ public final class S3ResourceProvider implements ResourceProvider {
 		if (defaultACL != null) properties.setACL(defaultACL);
 		if (defaultLocation != null) properties.setDefaultLocation(defaultLocation);
 		if (!hasCustomHost && !Util.isEmpty(host, true)) properties.setHost(host);
+
+		// bucket suffix (per region), empty by default
+		try {
+			S3Properties.applyBucketSuffix(properties, appProp, mappingProp, null);
+			if (!properties.getBucketSuffix().isEmpty()) {
+				// the region of a mapping is the region for all requests going through that mapping
+				if (!Util.isEmpty(mappingLocation, true)) storage.setValue(mappingLocation);
+				String region = storage.getValue();
+				if (Util.isEmpty(region, true)) region = properties.getDefaultLocation();
+				properties.setBucketSuffix(properties.getBucketSuffix().withRegion(region));
+			}
+		}
+		catch (S3Exception e) {
+			throw new RuntimeException(e);
+		}
 
 		/*
 		 * if (!Util.isEmpty(bucket, true)) { if (Util.isEmpty(path, true)) { path = "/" + bucket + "/"; }

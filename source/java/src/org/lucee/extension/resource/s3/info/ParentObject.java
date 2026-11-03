@@ -93,7 +93,7 @@ public class ParentObject extends S3InfoSupport {
 	@Override
 	public Struct getMetaData() throws S3Exception {
 		Struct data = super.getMetaData();
-		Array acl = s3.getAccessControlList(getBucketName(), null);
+		Array acl = s3.getAccessControlListRaw(getBucketName(), null);
 		if (acl != null) data.put("acl", acl);
 		return data;
 	}

@@ -122,11 +122,11 @@ public final class StorageObjectWrapper extends S3InfoSupport {
 	}
 
 	public URL getLink(int secondsValid) throws InvalidKeyException, NoSuchAlgorithmException, IOException {
-		return s3.url(so.getBucketName(), so.getKey(), secondsValid * 1000);
+		return s3.urlRaw(so.getBucketName(), so.getKey(), secondsValid * 1000);
 	}
 
 	public InputStream getInputStream() throws S3Exception {
-		return s3.getInputStream(so.getBucketName(), so.getKey());
+		return s3.getInputStreamRaw(so.getBucketName(), so.getKey());
 	}
 
 	@Override
@@ -188,7 +188,7 @@ public final class StorageObjectWrapper extends S3InfoSupport {
 			synchronized (S3.getToken("contentType:" + getBucketName() + ":" + getObjectName())) {
 				if (contentType == null) {
 					try {
-						contentType = s3.getContentType(getBucketName(), getObjectName());
+						contentType = s3.getContentTypeRaw(getBucketName(), getObjectName());
 					}
 					catch (Exception e) {
 						if (log != null) log.error("s3", e);
@@ -204,7 +204,7 @@ public final class StorageObjectWrapper extends S3InfoSupport {
 	public Struct getMetaData() throws S3Exception {
 		Struct data = super.getMetaData();
 
-		ObjectMetadata omd = s3.getObjectMetadata(getBucketName(), getObjectName());
+		ObjectMetadata omd = s3.getObjectMetadataRaw(getBucketName(), getObjectName());
 
 		// raw
 		{
@@ -234,7 +234,7 @@ public final class StorageObjectWrapper extends S3InfoSupport {
 			}
 		}
 
-		Array acl = s3.getAccessControlList(getBucketName(), getObjectName());
+		Array acl = s3.getAccessControlListRaw(getBucketName(), getObjectName());
 		if (acl != null) data.setEL("acl", acl);
 		return data;
 	}
