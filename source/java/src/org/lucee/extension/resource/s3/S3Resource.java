@@ -20,6 +20,7 @@ package org.lucee.extension.resource.s3;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
@@ -380,14 +381,16 @@ public class S3Resource extends ResourceSupport {
 				List<S3Info> list = s3.list(false, false);
 				if (list != null) {
 					Iterator<S3Info> it = list.iterator();
-					children = new S3Resource[list.size()];
+					List<S3Resource> kids = new ArrayList<S3Resource>(list.size());
 					S3Info si;
-					int index = 0;
 					while (it.hasNext()) {
 						si = it.next();
-						children[index] = S3ResourceFactory.INSTANCE.create(engine, s3, props, location, provider, si.getBucketName(), buckets ? "" : S3.improveObjectName(si.getObjectName(), false));
-						index++;
+						// the bucket name on S3 can differ from the one used in the path (bucket suffix)
+						String name = s3.toLogicalBucket(si.getBucketName());
+						if (name == null) continue;
+						kids.add(S3ResourceFactory.INSTANCE.create(engine, s3, props, location, provider, name, ""));
 					}
+					children = kids.toArray(new S3Resource[kids.size()]);
 				}
 			}
 			else if (isDirectory()) {
@@ -526,12 +529,21 @@ public class S3Resource extends ResourceSupport {
 		copy(this, res, append);
 	}
 
+	/**
+	 * same account and the same bucket name handling (bucket suffix), only then source and target can
+	 * be handled in one request on the S3 side
+	 */
+	private static boolean sameContainer(S3 a, S3 b) {
+		return a.getAccessKeyId().equals(b.getAccessKeyId()) && a.getSecretAccessKey().equals(b.getSecretAccessKey())
+				&& a.getBucketSuffix().toCacheKey().equals(b.getBucketSuffix().toCacheKey());
+	}
+
 	private void copy(Resource from, Resource to, boolean append) throws IOException {
 		if (from instanceof S3Resource && to instanceof S3Resource) {
 			S3Resource f = (S3Resource) from;
 			S3Resource t = (S3Resource) to;
 			// whe have the same container
-			if (f.s3.getAccessKeyId().equals(t.s3.getAccessKeyId()) && f.s3.getSecretAccessKey().equals(t.s3.getSecretAccessKey())) {
+			if (sameContainer(f.s3, t.s3)) {
 				s3.copyObject(f.bucketName, f.objectName, t.bucketName, t.objectName, toACL(t.acl), t.location);
 				return;
 			}
@@ -549,7 +561,7 @@ public class S3Resource extends ResourceSupport {
 		if (!(target instanceof S3Resource)) return null;
 		S3Resource t = (S3Resource) target;
 		if (isRoot() || isBucket() || t.isRoot() || t.isBucket()) return null;
-		if (!s3.getAccessKeyId().equals(t.s3.getAccessKeyId()) || !s3.getSecretAccessKey().equals(t.s3.getSecretAccessKey())) return null;
+		if (!sameContainer(s3, t.s3)) return null;
 		if (bucketName.equals(t.bucketName)) {
 			String src = objectName + "/";
 			String trg = t.objectName + "/";
@@ -589,7 +601,7 @@ public class S3Resource extends ResourceSupport {
 			S3Resource s3Src = (S3Resource) src;
 			S3Resource s3Trg = (S3Resource) trg;
 			// we have the same container
-			if (s3Trg.s3.getAccessKeyId().equals(s3Src.s3.getAccessKeyId()) && s3Trg.s3.getSecretAccessKey().equals(s3Src.s3.getSecretAccessKey())) {
+			if (sameContainer(s3Src.s3, s3Trg.s3)) {
 				s3.moveObject(s3Src.bucketName, s3Src.objectName, s3Trg.bucketName, s3Trg.objectName, toACL(s3Trg.acl), s3Trg.location);
 				return;
 			}

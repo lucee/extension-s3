@@ -74,7 +74,7 @@ public abstract class S3InfoSupport implements S3Info {
 			synchronized (S3.getToken("S3InfoSupport:region:" + getBucketName())) {
 				if (region == null) {
 					try {
-						region = s3.getBucketRegion(getBucketName(), true);
+						region = s3.getBucketRegionRaw(getBucketName(), true);
 					}
 					catch (S3Exception e) {
 						if (log != null) log.error("s3", e);
