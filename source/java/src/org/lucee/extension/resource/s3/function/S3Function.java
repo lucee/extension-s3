@@ -51,6 +51,50 @@ public abstract class S3Function extends BIF {
 	private static final long DEFAULT_TIMEOUT = 10000L;
 
 	/**
+	 * converts the argument "range" of s3Read, s3ReadBinary and s3Download to {start, end}, end is
+	 * Long.MAX_VALUE for an open range.
+	 * 
+	 * @param range a string like "0-1023", "1024-" (a leading "bytes=" is accepted) or a struct with the
+	 *            keys start (optional, default 0) and end (optional)
+	 * @return null if no range is defined
+	 */
+	protected static long[] toRange(Object range) throws PageException {
+		if (range == null) return null;
+		CFMLEngine eng = CFMLEngineFactory.getInstance();
+		Cast cast = eng.getCastUtil();
+
+		long start;
+		long end = Long.MAX_VALUE;
+		if (range instanceof Struct) {
+			Struct sct = (Struct) range;
+			Object s = sct.get(cast.toKey("start"), null);
+			Object e = sct.get(cast.toKey("end"), null);
+			if (s == null && e == null) throw eng.getExceptionUtil().createApplicationException("the struct for the argument [range] needs the key [start] and/or [end]");
+			start = s == null || Util.isEmpty(cast.toString(s, ""), true) ? 0 : toRangeValue(cast, s, "start");
+			if (e != null && !Util.isEmpty(cast.toString(e, ""), true)) end = toRangeValue(cast, e, "end");
+		}
+		else {
+			String str = cast.toString(range).trim();
+			if (str.isEmpty()) return null;
+			if (str.regionMatches(true, 0, "bytes=", 0, 6)) str = str.substring(6).trim();
+			int index = str.indexOf('-');
+			if (index < 1) throw eng.getExceptionUtil().createApplicationException("invalid value [" + range + "] for the argument [range], use a format like [0-1023] or [1024-]");
+			start = toRangeValue(cast, str.substring(0, index).trim(), "start");
+			String strEnd = str.substring(index + 1).trim();
+			if (!strEnd.isEmpty()) end = toRangeValue(cast, strEnd, "end");
+		}
+		if (end < start) throw eng.getExceptionUtil().createApplicationException("invalid value for the argument [range], the end [" + end + "] is smaller than the start [" + start + "]");
+		return new long[] { start, end };
+	}
+
+	private static long toRangeValue(Cast cast, Object value, String name) throws PageException {
+		double d = cast.toDoubleValue(value, Double.NaN);
+		if (Double.isNaN(d) || d < 0 || d != Math.floor(d))
+			throw CFMLEngineFactory.getInstance().getExceptionUtil().createApplicationException("invalid value [" + value + "] for the [" + name + "] of the argument [range], it needs to be a whole number of 0 or more");
+		return (long) d;
+	}
+
+	/**
 	 * Converts the arguments "metadata", "headers" and "storageClass" of the write and copy functions
 	 * to object options.
 	 * 

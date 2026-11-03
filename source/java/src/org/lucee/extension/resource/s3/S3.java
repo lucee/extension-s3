@@ -46,6 +46,7 @@ import com.amazonaws.services.s3.model.CompleteMultipartUploadRequest;
 import com.amazonaws.services.s3.model.CopyObjectRequest;
 import com.amazonaws.services.s3.model.CreateBucketRequest;
 import com.amazonaws.services.s3.model.DeleteObjectsRequest;
+import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.DeleteObjectsRequest.KeyVersion;
 import com.amazonaws.services.s3.model.GeneratePresignedUrlRequest;
 import com.amazonaws.services.s3.model.Grant;
@@ -467,13 +468,30 @@ public class S3 {
 	}
 
 	public S3Object getData(String bucketName, String objectName) throws S3Exception {
+		return getData(bucketName, objectName, null, null);
+	}
+
+	/**
+	 * @param range {start, end} of the bytes to read, end can be Long.MAX_VALUE for no end, null for the
+	 *            whole object
+	 * @param versionId version of the object to read, null for the latest version
+	 */
+	public S3Object getData(String bucketName, String objectName, long[] range, String versionId) throws S3Exception {
 		bucketName = improveBucketName(bucketName);
 		objectName = improveObjectName(objectName);
 
 		AmazonS3Client client = getAmazonS3(bucketName, null);
 		try {
-			if (log != null) log.debug("S3", "get data from [" + bucketName + "/" + objectName + "]");
-			return client.getObject(bucketName, objectName);
+			if (log != null) log.debug("S3", "get data from [" + bucketName + "/" + objectName + "]" + (Util.isEmpty(versionId, true) ? "" : " version [" + versionId + "]")
+					+ (range == null ? "" : " range [" + range[0] + "-" + (range[1] == Long.MAX_VALUE ? "" : range[1]) + "]"));
+			if (range == null && Util.isEmpty(versionId, true)) return client.getObject(bucketName, objectName);
+
+			GetObjectRequest gor = new GetObjectRequest(bucketName, objectName, Util.isEmpty(versionId, true) ? null : versionId.trim());
+			if (range != null) {
+				if (range[1] == Long.MAX_VALUE) gor.setRange(range[0]);
+				else gor.setRange(range[0], range[1]);
+			}
+			return client.getObject(gor);
 		}
 		catch (AmazonServiceException se) {
 			throw toS3Exception(se);
