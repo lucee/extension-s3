@@ -39,7 +39,7 @@ public class S3Read extends S3Function {
 
 		}
 		catch (Exception e) {
-			throw eng.getCastUtil().toPageException(e);
+			throw S3Util.toPageException(e);
 		}
 		finally {
 			S3Util.closeS3Object(obj);

@@ -217,7 +217,7 @@ public class S3Download extends S3Function {
 			}
 		}
 		catch (Exception e) {
-			throw eng.getCastUtil().toPageException(e);
+			throw S3Util.toPageException(e);
 		}
 		finally {
 			S3Util.closeS3Object(obj);
@@ -278,7 +278,7 @@ public class S3Download extends S3Function {
 			return (Component) m.invoke(null, new Object[] { access, component });
 		}
 		catch (Exception e) {
-			throw CFMLEngineFactory.getInstance().getCastUtil().toPageException(e);
+			throw S3Util.toPageException(e);
 		}
 	}
 }

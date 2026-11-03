@@ -1,5 +1,6 @@
 package org.lucee.extension.resource.s3.function;
 
+import org.lucee.extension.resource.s3.S3Util;
 import org.lucee.extension.resource.s3.S3;
 
 import lucee.loader.engine.CFMLEngine;
@@ -57,7 +58,7 @@ public class S3GeneratePresignedURL extends S3Function {
 					contentEncoding, versionId, zeroByteContent, customResponseHeaders).toExternalForm();
 		}
 		catch (Exception e) {
-			throw eng.getCastUtil().toPageException(e);
+			throw S3Util.toPageException(e);
 		}
 	}
 
