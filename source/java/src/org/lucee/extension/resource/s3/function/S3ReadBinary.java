@@ -37,7 +37,7 @@ public class S3ReadBinary extends S3Function {
 			return baos.toByteArray();
 		}
 		catch (Exception e) {
-			throw eng.getCastUtil().toPageException(e);
+			throw S3Util.toPageException(e);
 		}
 		finally {
 			S3Util.closeS3Object(obj);

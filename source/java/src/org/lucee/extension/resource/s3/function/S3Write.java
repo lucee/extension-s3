@@ -4,7 +4,9 @@ import java.io.File;
 import java.lang.reflect.Method;
 import java.nio.charset.Charset;
 
+import org.lucee.extension.resource.s3.S3Util;
 import org.lucee.extension.resource.s3.AccessControlListUtil;
+import org.lucee.extension.resource.s3.ObjectOptions;
 import org.lucee.extension.resource.s3.S3;
 import org.lucee.extension.resource.s3.S3Exception;
 
@@ -21,6 +23,11 @@ public class S3Write extends S3Function {
 
 	public static Object call(PageContext pc, String bucketName, String objectName, Object value, String charset, String mimeType, Object objACL, String location,
 			String accessKeyId, String secretAccessKey, String host, double timeout) throws PageException {
+		return call(pc, bucketName, objectName, value, charset, mimeType, objACL, location, accessKeyId, secretAccessKey, host, timeout, null);
+	}
+
+	public static Object call(PageContext pc, String bucketName, String objectName, Object value, String charset, String mimeType, Object objACL, String location,
+			String accessKeyId, String secretAccessKey, String host, double timeout, ObjectOptions opts) throws PageException {
 		CFMLEngine eng = CFMLEngineFactory.getInstance();
 
 		// for backward compatibility, when host was not existing
@@ -34,7 +41,7 @@ public class S3Write extends S3Function {
 			acl = objACL != null ? AccessControlListUtil.toAccessControlList(objACL) : null;
 		}
 		catch (S3Exception s3e) {
-			throw eng.getCastUtil().toPageException(s3e);
+			throw S3Util.toPageException(s3e);
 		}
 		if (eng.getStringUtil().isEmpty(mimeType, true)) mimeType = null;
 		if (eng.getStringUtil().isEmpty(location, true)) location = null;
@@ -47,22 +54,30 @@ public class S3Write extends S3Function {
 
 			// binary
 			if (eng.getDecisionUtil().isBinary(value)) {
-				s3.write(bucketName, objectName, eng.getCastUtil().toBinary(value), mimeType, acl, location);
+				Object[] ct = resolveContentType(pc, "S3Write", 5, mimeType, opts, false);
+				s3.write(bucketName, objectName, eng.getCastUtil().toBinary(value), (String) ct[1], acl, location, (ObjectOptions) ct[0]);
 			}
 			else if (value instanceof File) {
-				s3.write(bucketName, objectName, (File) value, acl, location);
+				Object[] ct = resolveContentType(pc, "S3Write", 5, mimeType, opts, false);
+				s3.write(bucketName, objectName, (File) value, acl, location, (ObjectOptions) ct[0]);
 			}
 			else if (value instanceof Resource) {
-				s3.write(bucketName, objectName, (Resource) value, acl, location);
+				Object[] ct = resolveContentType(pc, "S3Write", 5, mimeType, opts, false);
+				s3.write(bucketName, objectName, (Resource) value, acl, location, (ObjectOptions) ct[0]);
 			}
 			else {
 				if (eng.getStringUtil().isEmpty(charset, true)) charset = null;
 				Charset cs = eng.getCastUtil().toCharset(charset, null);
-				s3.write(bucketName, objectName, eng.getCastUtil().toString(value), mimeType, cs, acl, location);
+				Object[] ct = resolveContentType(pc, "S3Write", 5, mimeType, opts, true);
+				ObjectOptions textOpts = (ObjectOptions) ct[0];
+				String textType = (String) ct[1];
+				// text without a defined type is plain text (the charset is added to it)
+				if (textType == null && (textOpts == null || textOpts.getContentType() == null)) textType = "text/plain";
+				s3.write(bucketName, objectName, eng.getCastUtil().toString(value), textType, cs, acl, location, textOpts);
 			}
 		}
 		catch (Exception e) {
-			throw eng.getCastUtil().toPageException(e);
+			throw S3Util.toPageException(e);
 		}
 		return null;
 	}
@@ -122,38 +137,50 @@ public class S3Write extends S3Function {
 		CFMLEngine engine = CFMLEngineFactory.getInstance();
 		Cast cast = engine.getCastUtil();
 
-		if (args.length == 11) {
-			return call(pc, cast.toString(args[0]), cast.toString(args[1]), args[2], cast.toString(args[3]), cast.toString(args[4]), args[5], cast.toString(args[6]),
-					cast.toString(args[7]), cast.toString(args[8]), cast.toString(args[9]), cast.toDoubleValue(args[10]));
+		// arguments after the timeout: metadata, headers, storageClass
+		ObjectOptions opts = null;
+		int len = args.length;
+		if (len > 11) {
+			if (len > 14) throw engine.getExceptionUtil().createFunctionException(pc, "S3Write", 3, 14, len);
+			opts = toObjectOptions(pc, "S3Write", 12, args[11], len > 12 ? args[12] : null, len > 13 ? args[13] : null);
+			// ignore the arguments not defined at the end, so the number of arguments matches what the user defined
+			len = 11;
+			while (len > 3 && args[len - 1] == null)
+				len--;
 		}
-		if (args.length == 10) {
+
+		if (len == 11) {
 			return call(pc, cast.toString(args[0]), cast.toString(args[1]), args[2], cast.toString(args[3]), cast.toString(args[4]), args[5], cast.toString(args[6]),
-					cast.toString(args[7]), cast.toString(args[8]), cast.toString(args[9]), 0);
+					cast.toString(args[7]), cast.toString(args[8]), cast.toString(args[9]), cast.toDoubleValue(args[10]), opts);
 		}
-		if (args.length == 9) {
+		if (len == 10) {
 			return call(pc, cast.toString(args[0]), cast.toString(args[1]), args[2], cast.toString(args[3]), cast.toString(args[4]), args[5], cast.toString(args[6]),
-					cast.toString(args[7]), cast.toString(args[8]), null, 0);
+					cast.toString(args[7]), cast.toString(args[8]), cast.toString(args[9]), 0, opts);
 		}
-		if (args.length == 8) {
+		if (len == 9) {
 			return call(pc, cast.toString(args[0]), cast.toString(args[1]), args[2], cast.toString(args[3]), cast.toString(args[4]), args[5], cast.toString(args[6]),
-					cast.toString(args[7]), null, null, 0);
+					cast.toString(args[7]), cast.toString(args[8]), null, 0, opts);
 		}
-		if (args.length == 7) {
+		if (len == 8) {
+			return call(pc, cast.toString(args[0]), cast.toString(args[1]), args[2], cast.toString(args[3]), cast.toString(args[4]), args[5], cast.toString(args[6]),
+					cast.toString(args[7]), null, null, 0, opts);
+		}
+		if (len == 7) {
 			return call(pc, cast.toString(args[0]), cast.toString(args[1]), args[2], cast.toString(args[3]), cast.toString(args[4]), args[5], cast.toString(args[6]), null, null,
-					null, 0);
+					null, 0, opts);
 		}
-		if (args.length == 6) {
-			return call(pc, cast.toString(args[0]), cast.toString(args[1]), args[2], cast.toString(args[3]), cast.toString(args[4]), args[5], null, null, null, null, 0);
+		if (len == 6) {
+			return call(pc, cast.toString(args[0]), cast.toString(args[1]), args[2], cast.toString(args[3]), cast.toString(args[4]), args[5], null, null, null, null, 0, opts);
 		}
-		if (args.length == 5) {
-			return call(pc, cast.toString(args[0]), cast.toString(args[1]), args[2], cast.toString(args[3]), cast.toString(args[4]), null, null, null, null, null, 0);
+		if (len == 5) {
+			return call(pc, cast.toString(args[0]), cast.toString(args[1]), args[2], cast.toString(args[3]), cast.toString(args[4]), null, null, null, null, null, 0, opts);
 		}
-		if (args.length == 4) {
-			return call(pc, cast.toString(args[0]), cast.toString(args[1]), args[2], cast.toString(args[3]), null, null, null, null, null, null, 0);
+		if (len == 4) {
+			return call(pc, cast.toString(args[0]), cast.toString(args[1]), args[2], cast.toString(args[3]), null, null, null, null, null, null, 0, opts);
 		}
-		if (args.length == 3) {
-			return call(pc, cast.toString(args[0]), cast.toString(args[1]), args[2], null, null, null, null, null, null, null, 0);
+		if (len == 3) {
+			return call(pc, cast.toString(args[0]), cast.toString(args[1]), args[2], null, null, null, null, null, null, null, 0, opts);
 		}
-		throw engine.getExceptionUtil().createFunctionException(pc, "S3Write", 3, 11, args.length);
+		throw engine.getExceptionUtil().createFunctionException(pc, "S3Write", 3, 14, args.length);
 	}
 }

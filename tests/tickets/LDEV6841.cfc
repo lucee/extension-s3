@@ -34,6 +34,10 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 				// s3GetMetaData() removes the first "-" of the names, this is the key if the prefix would be there twice
 				expect( a ).notToHaveKey( "xamz-meta-foo" );
 				expect( a.foo ).toBe( "1" );
+				// the original names of the user metadata (LDEV-6840)
+				expect( a.metadata ).toHaveKey( "foo" );
+				expect( a.metadata ).notToHaveKey( "x-amz-meta-foo" );
+				expect( a.headers ).notToHaveKey( "x-amz-meta-x-amz-meta-foo" );
 			});
 
 			it( title="the prefix is removed without looking at the case", body=function() {

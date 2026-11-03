@@ -1,5 +1,6 @@
 package org.lucee.extension.resource.s3.function;
 
+import org.lucee.extension.resource.s3.S3Util;
 import org.lucee.extension.resource.s3.AccessControlListUtil;
 import org.lucee.extension.resource.s3.S3;
 
@@ -38,7 +39,7 @@ public class S3CreateBucket extends S3Function {
 			s3.createDirectory(bucketName, acl, location);
 		}
 		catch (Exception e) {
-			throw eng.getCastUtil().toPageException(e);
+			throw S3Util.toPageException(e);
 		}
 		return null;
 	}

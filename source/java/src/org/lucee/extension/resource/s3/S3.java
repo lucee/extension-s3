@@ -22,6 +22,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.lucee.extension.resource.s3.info.MetaDataStructs;
 import org.lucee.extension.resource.s3.info.NotExisting;
 import org.lucee.extension.resource.s3.info.ParentObject;
 import org.lucee.extension.resource.s3.info.S3BucketWrapper;
@@ -35,9 +36,11 @@ import org.lucee.extension.resource.s3.util.XMLUtil;
 
 import com.amazonaws.AmazonServiceException;
 import com.amazonaws.HttpMethod;
+import com.amazonaws.services.s3.Headers;
 import com.amazonaws.services.s3.model.AccessControlList;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
 import com.amazonaws.services.s3.model.Bucket;
+import com.amazonaws.services.s3.model.CanonicalGrantee;
 import com.amazonaws.services.s3.model.CannedAccessControlList;
 import com.amazonaws.services.s3.model.CompleteMultipartUploadRequest;
 import com.amazonaws.services.s3.model.CopyObjectRequest;
@@ -45,6 +48,9 @@ import com.amazonaws.services.s3.model.CreateBucketRequest;
 import com.amazonaws.services.s3.model.DeleteObjectsRequest;
 import com.amazonaws.services.s3.model.DeleteObjectsRequest.KeyVersion;
 import com.amazonaws.services.s3.model.GeneratePresignedUrlRequest;
+import com.amazonaws.services.s3.model.Grant;
+import com.amazonaws.services.s3.model.Grantee;
+import com.amazonaws.services.s3.model.GroupGrantee;
 import com.amazonaws.services.s3.model.InitiateMultipartUploadRequest;
 import com.amazonaws.services.s3.model.InitiateMultipartUploadResult;
 import com.amazonaws.services.s3.model.ListObjectsRequest;
@@ -53,12 +59,14 @@ import com.amazonaws.services.s3.model.ObjectListing;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.Owner;
 import com.amazonaws.services.s3.model.PartETag;
+import com.amazonaws.services.s3.model.Permission;
 import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.s3.model.ResponseHeaderOverrides;
 import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.amazonaws.services.s3.model.S3VersionSummary;
 import com.amazonaws.services.s3.model.SSEAlgorithm;
+import com.amazonaws.services.s3.model.SSEAwsKeyManagementParams;
 import com.amazonaws.services.s3.model.SSECustomerKey;
 import com.amazonaws.services.s3.model.UploadPartRequest;
 import com.amazonaws.services.s3.model.UploadPartResult;
@@ -875,6 +883,17 @@ public class S3 {
 	}
 
 	public Query listObjectsAsQuery(String bucketName, int maxKeys, ListListener listener) throws S3Exception, PageException {
+		return listObjectsAsQuery(bucketName, maxKeys, listener, null, null, 0);
+	}
+
+	/**
+	 * @param maxKeys size of a page, between 1 and 1000
+	 * @param delimiter if set, the keys are grouped at the first occurrence of the delimiter (after the
+	 *            start of the key); a group is returned as a row with isPrefix=true
+	 * @param startAfter if set, only keys that come after this key are listed
+	 * @param maxResults maximal number of rows (objects and prefixes) to return, 0 for no limit
+	 */
+	public Query listObjectsAsQuery(String bucketName, int maxKeys, ListListener listener, String delimiter, String startAfter, long maxResults) throws S3Exception, PageException {
 		AmazonS3Client client = getAmazonS3(bucketName, null);
 		try {
 			CFMLEngine eng = CFMLEngineFactory.getInstance();
@@ -884,36 +903,66 @@ public class S3 {
 			final Key size = creator.createKey("size");
 			final Key lastModified = creator.createKey("lastModified");
 			final Key owner = creator.createKey("owner");
-			Query qry = listener == null ? eng.getCreationUtil().createQuery(new Key[] { objectName, size, lastModified, owner }, 0, "buckets") : null;
+			final Key eTag = creator.createKey("eTag");
+			final Key storageClass = creator.createKey("storageClass");
+			final Key isPrefix = creator.createKey("isPrefix");
+			final Key[] columns = new Key[] { objectName, size, lastModified, owner, eTag, storageClass, isPrefix };
+			Query qry = listener == null ? eng.getCreationUtil().createQuery(columns, 0, "buckets") : null;
 			ListObjectsRequest lor = new ListObjectsRequest();
 			lor.setBucketName(bucketName);
 
 			if (maxKeys < 1 || maxKeys > 1000) throw new S3Exception("invalid maxKeys [" + maxKeys + "] must be an number between 1 and 1000");
-			lor.setMaxKeys(maxKeys);
+			if (maxResults < 0) throw new S3Exception("invalid maxResults [" + maxResults + "] must be a number of 0 or more");
+			// no need to ask for more than we want to return
+			lor.setMaxKeys(maxResults > 0 && maxResults < maxKeys ? (int) maxResults : maxKeys);
+			if (!Util.isEmpty(delimiter)) lor.setDelimiter(delimiter);
+			// a ListObjects (v1) request names this parameter "marker", the result starts after that key
+			if (!Util.isEmpty(startAfter)) lor.setMarker(startAfter);
 
 			ObjectListing objects = client.listObjects(lor);
 			/* Recursively delete all the objects inside given bucket */
 
 			if (objects != null && objects.getObjectSummaries() != null) {
 				int row, sum = 0;
+				long remaining = maxResults > 0 ? maxResults : Long.MAX_VALUE;
 				List<S3ObjectSummary> summeries;
+				List<String> prefixes;
 				Owner o;
 				while (true) {
 					summeries = objects.getObjectSummaries();
-					sum += summeries.size();
-					if (listener != null) qry = eng.getCreationUtil().createQuery(new Key[] { objectName, size, lastModified, owner }, 0, "buckets");
-					if (sum >= warnThreshold) logThreshold(sum, bucketName);
-					for (S3ObjectSummary summary: summeries) {
-						fixBackBlazeBug(summary, bucketName);
-						row = qry.addRow();
-						qry.setAt(objectName, row, summary.getKey());
-						qry.setAt(lastModified, row, summary.getLastModified());
-						qry.setAt(size, row, summary.getSize());
-						o = summary.getOwner();
-						if (o != null) qry.setAt(owner, row, o.getDisplayName());
-					}
+					prefixes = objects.getCommonPrefixes();
+					if (prefixes == null) prefixes = new ArrayList<String>();
+					if (listener != null) qry = eng.getCreationUtil().createQuery(columns, 0, "buckets");
 
-					if (objects.isTruncated()) {
+					// objects and common prefixes of a page are returned separately by S3, add them in the order of the keys
+					int io = 0, ip = 0;
+					S3ObjectSummary summary;
+					while (remaining > 0 && (io < summeries.size() || ip < prefixes.size())) {
+						summary = io < summeries.size() ? summeries.get(io) : null;
+						if (summary != null) fixBackBlazeBug(summary, bucketName);
+						if (summary == null || (ip < prefixes.size() && prefixes.get(ip).compareTo(summary.getKey()) < 0)) {
+							row = qry.addRow();
+							qry.setAt(objectName, row, prefixes.get(ip++));
+							qry.setAt(isPrefix, row, Boolean.TRUE);
+						}
+						else {
+							io++;
+							row = qry.addRow();
+							qry.setAt(objectName, row, summary.getKey());
+							qry.setAt(lastModified, row, summary.getLastModified());
+							qry.setAt(size, row, summary.getSize());
+							o = summary.getOwner();
+							if (o != null) qry.setAt(owner, row, o.getDisplayName());
+							qry.setAt(eTag, row, summary.getETag());
+							qry.setAt(storageClass, row, summary.getStorageClass());
+							qry.setAt(isPrefix, row, Boolean.FALSE);
+						}
+						remaining--;
+					}
+					sum += qry.getRecordcount();
+					if (sum >= warnThreshold) logThreshold(sum, bucketName);
+
+					if (objects.isTruncated() && remaining > 0) {
 						if (listener != null && !listener.invoke(qry)) break;
 						objects = client.listNextBatchOfObjects(objects);
 						if (objects == null) break;
@@ -1434,7 +1483,7 @@ public class S3 {
 				if (log != null) log.debug("S3", "list objects (" + sum + ") for [" + bucketName + "/" + nameFile + "]");
 			}
 			else {
-				throw new S3Exception("can't delete file/directory " + bucketName + "/" + objectName + ", file/directory does not exist");
+				throw notFound("can't delete file/directory " + bucketName + "/" + objectName + ", file/directory does not exist", bucketName, objectName);
 			}
 
 			if (!force && matchKids) {
@@ -1456,7 +1505,7 @@ public class S3 {
 				// we create parent because before it maybe was a pseudi dir
 				createParentDirectory(bucketName, objectName, true);
 			}
-			else throw new S3Exception("can't delete file/directory " + bucketName + "/" + objectName + ", file/directory does not exist");
+			else throw notFound("can't delete file/directory " + bucketName + "/" + objectName + ", file/directory does not exist", bucketName, objectName);
 		}
 		catch (AmazonServiceException se) {
 			throw toS3Exception(se);
@@ -1570,6 +1619,19 @@ public class S3 {
 	 * @throws S3Exception
 	 */
 	public void copyObject(String srcBucketName, String srcObjectName, String trgBucketName, String trgObjectName, Object acl, String targetRegion) throws S3Exception {
+		copyObject(srcBucketName, srcObjectName, trgBucketName, trgObjectName, acl, targetRegion, null);
+	}
+
+	/**
+	 * Same as the copy above, with optional object properties. Without properties the copy keeps the metadata of the source object
+	 * (S3 default). With metadata or headers defined, the metadata of the target is replaced: whatever is not defined
+	 * is taken over from the source, user metadata is only taken over if not defined. A storage class only changes the storage class
+	 * of the target.
+	 * 
+	 * @param opts object properties, can be null
+	 */
+	public void copyObject(String srcBucketName, String srcObjectName, String trgBucketName, String trgObjectName, Object acl, String targetRegion, ObjectOptions opts)
+			throws S3Exception {
 		srcBucketName = improveBucketName(srcBucketName);
 		srcObjectName = improveObjectName(srcObjectName, false);
 		trgBucketName = improveBucketName(trgBucketName);
@@ -1585,6 +1647,10 @@ public class S3 {
 
 		try {
 			CopyObjectRequest cor = new CopyObjectRequest(srcBucketName, srcObjectName, trgBucketName, trgObjectName);
+			if (opts != null) {
+				if (opts.hasMetaData()) cor.setNewObjectMetadata(opts.mergeInto(srcClient.getObjectMetadata(srcBucketName, srcObjectName)));
+				opts.applyTo(cor);
+			}
 
 			if (acl != null) setACL(cor, acl);
 			try {
@@ -1595,7 +1661,7 @@ public class S3 {
 				// could be an Pseudo folder
 				if (se.getErrorCode().equals("NoSuchKey")) {
 					S3Info src = get(srcBucketName, srcObjectName);
-					if (src.isVirtual()) {
+					if (src != null && src.isVirtual()) {
 						throw new S3Exception("Cannot copy virtual folder", se);
 					}
 					throw toS3Exception(se);
@@ -1645,12 +1711,12 @@ public class S3 {
 					}
 				}
 				else {
-					throw new S3Exception("could not copy [" + srcBucketName + "/" + srcObjectName + "] to [" + trgBucketName + "/" + trgObjectName + "]  ", se);
+					throw copyFailed("could not copy [" + srcBucketName + "/" + srcObjectName + "] to [" + trgBucketName + "/" + trgObjectName + "]  ", se);
 				}
 			}
 		}
 		catch (AmazonServiceException se) {
-			throw new S3Exception("could not copy [" + srcBucketName + "/" + srcObjectName + "] to [" + trgBucketName + "/" + trgObjectName + "]  ", se);
+			throw copyFailed("could not copy [" + srcBucketName + "/" + srcObjectName + "] to [" + trgBucketName + "/" + trgObjectName + "]  ", se);
 		}
 		finally {
 			srcClient.release();
@@ -1680,7 +1746,15 @@ public class S3 {
 	 */
 	public void moveObject(String srcBucketName, String srcObjectName, String trgBucketName, String trgObjectName, Object acl, String targetRegion)
 			throws S3Exception {
-		copyObject(srcBucketName, srcObjectName, trgBucketName, trgObjectName, acl, targetRegion);
+		moveObject(srcBucketName, srcObjectName, trgBucketName, trgObjectName, acl, targetRegion, null);
+	}
+
+	/**
+	 * Same as the move above, with optional object properties, see copyObject.
+	 */
+	public void moveObject(String srcBucketName, String srcObjectName, String trgBucketName, String trgObjectName, Object acl, String targetRegion, ObjectOptions opts)
+			throws S3Exception {
+		copyObject(srcBucketName, srcObjectName, trgBucketName, trgObjectName, acl, targetRegion, opts);
 		delete(srcBucketName, srcObjectName, true);
 	}
 
@@ -1730,7 +1804,7 @@ public class S3 {
 			if (log != null) log.debug("S3", "copy directory (" + keys.size() + " objects) from [" + srcBucketName + "/" + srcDir + "] to [" + trgBucketName + "/" + trgDir + "]");
 		}
 		catch (AmazonServiceException se) {
-			throw new S3Exception("could not copy [" + srcBucketName + "/" + src + "] to [" + trgBucketName + "/" + trg + "]  ", se);
+			throw copyFailed("could not copy [" + srcBucketName + "/" + src + "] to [" + trgBucketName + "/" + trg + "]  ", se);
 		}
 		finally {
 			trgClient.release();
@@ -1872,6 +1946,15 @@ public class S3 {
 	 */
 
 	public void write(String bucketName, String objectName, String data, String mimeType, Charset charset, Object acl, String region) throws IOException {
+		write(bucketName, objectName, data, mimeType, charset, acl, region, null);
+	}
+
+	/**
+	 * Same as the write above, with optional object properties (metadata, headers, storage class).
+	 * 
+	 * @param opts object properties, can be null
+	 */
+	public void write(String bucketName, String objectName, String data, String mimeType, Charset charset, Object acl, String region, ObjectOptions opts) throws IOException {
 		bucketName = improveBucketName(bucketName);
 		objectName = improveObjectName(objectName, false);
 		flushExists(bucketName, objectName);
@@ -1886,7 +1969,7 @@ public class S3 {
 			File tmp = File.createTempFile("writeString-", ".txt");
 			try {
 				Util.copy(new ByteArrayInputStream(bytes), new FileOutputStream(tmp), true, true);
-				write(bucketName, objectName, tmp, acl, region);
+				write(bucketName, objectName, tmp, acl, region, ObjectOptions.withDefaultContentType(opts, ct));
 				return;
 			}
 			finally {
@@ -1896,6 +1979,7 @@ public class S3 {
 		else {
 			ObjectMetadata md = new ObjectMetadata();
 			if (ct != null) md.setContentType(ct);
+			if (opts != null) opts.applyTo(md);
 			md.setLastModified(new Date());
 			// create a PutObjectRequest passing the folder name suffixed by /
 			md.setContentLength(bytes.length);
@@ -1903,6 +1987,7 @@ public class S3 {
 			bis.mark(READ_LIMIT);
 			PutObjectRequest por = new PutObjectRequest(bucketName, objectName, bis, md);
 			por.getRequestClientOptions().setReadLimit(READ_LIMIT); // Set the read limit on the client
+			if (opts != null) opts.applyTo(por);
 
 			if (acl != null) setACL(por, acl);
 			try {
@@ -1916,14 +2001,14 @@ public class S3 {
 						S3Exception s3e = toS3Exception(ase);
 						if (s3e.getProposedSize() != 0 && s3e.getProposedSize() < maxSize) {
 							maxSize = s3e.getProposedSize();
-							write(bucketName, objectName, data, mimeType, charset, acl, region);
+							write(bucketName, objectName, data, mimeType, charset, acl, region, opts);
 							return;
 						}
 						throw s3e;
 					}
 					if (ase.getErrorCode().equals("NoSuchBucket")) {
 						createDirectory(bucketName, acl, region);
-						write(bucketName, objectName, data, mimeType, charset, acl, region);
+						write(bucketName, objectName, data, mimeType, charset, acl, region, opts);
 						return;
 					}
 					else throw toS3Exception(ase);
@@ -1951,6 +2036,15 @@ public class S3 {
 	 */
 
 	public void write(String bucketName, String objectName, byte[] data, String mimeType, Object acl, String region) throws IOException {
+		write(bucketName, objectName, data, mimeType, acl, region, null);
+	}
+
+	/**
+	 * Same as the write above, with optional object properties (metadata, headers, storage class).
+	 * 
+	 * @param opts object properties, can be null
+	 */
+	public void write(String bucketName, String objectName, byte[] data, String mimeType, Object acl, String region, ObjectOptions opts) throws IOException {
 		bucketName = improveBucketName(bucketName);
 		objectName = improveObjectName(objectName, false);
 		if (log != null) log.debug("S3", "write byte array (" + (data == null ? 0 : data.length) + ") to [" + bucketName + "/" + objectName + "]");
@@ -1963,7 +2057,7 @@ public class S3 {
 			File tmp = File.createTempFile("writeBytes-", ".txt");
 			try {
 				Util.copy(new ByteArrayInputStream(data), new FileOutputStream(tmp), true, true);
-				write(bucketName, objectName, tmp, acl, region);
+				write(bucketName, objectName, tmp, acl, region, ObjectOptions.withDefaultContentType(opts, mimeType));
 				return;
 			}
 			finally {
@@ -1979,6 +2073,8 @@ public class S3 {
 
 			String ct = CFMLEngineFactory.getInstance().getResourceUtil().getMimeType(data, null);
 			if (ct != null) md.setContentType(ct);
+			if (opts != null) opts.applyTo(md);
+			if (opts != null) opts.applyTo(por);
 			md.setLastModified(new Date());
 			if (acl != null) setACL(por, acl);
 			try {
@@ -2008,6 +2104,15 @@ public class S3 {
 	}
 
 	public void write(String bucketName, String objectName, File file, Object acl, String region) throws IOException {
+		write(bucketName, objectName, file, acl, region, null);
+	}
+
+	/**
+	 * Same as the write above, with optional object properties (metadata, headers, storage class).
+	 * 
+	 * @param opts object properties, can be null
+	 */
+	public void write(String bucketName, String objectName, File file, Object acl, String region, ObjectOptions opts) throws IOException {
 		bucketName = improveBucketName(bucketName);
 		objectName = improveObjectName(objectName, false);
 		if (log != null) log.debug("S3", "write file [" + file + "] to [" + bucketName + "/" + objectName + "]");
@@ -2015,6 +2120,7 @@ public class S3 {
 		ObjectMetadata md = new ObjectMetadata();
 		md.setContentLength(file.length());
 		md.setContentType(ct);
+		if (opts != null) opts.applyTo(md);
 		md.setLastModified(new Date());
 
 		flushExists(bucketName, objectName);
@@ -2034,6 +2140,7 @@ public class S3 {
 
 				// Initiate the multipart upload.
 				InitiateMultipartUploadRequest initRequest = new InitiateMultipartUploadRequest(bucketName, objectName, md);
+				if (opts != null) opts.applyTo(initRequest);
 				InitiateMultipartUploadResult initResponse = client.initiateMultipartUpload(initRequest);
 
 				// Upload the file parts.
@@ -2065,7 +2172,7 @@ public class S3 {
 			catch (AmazonServiceException ase) {
 				if (ase.getErrorCode().equals("NoSuchBucket")) {
 					createDirectory(bucketName, acl, region);
-					write(bucketName, objectName, file, acl, region);
+					write(bucketName, objectName, file, acl, region, opts);
 					return;
 				}
 				else throw toS3Exception(ase);
@@ -2082,6 +2189,7 @@ public class S3 {
 			try {
 				PutObjectRequest por = new PutObjectRequest(bucketName, objectName, is = getInputStream(file), md);
 				por.getRequestClientOptions().setReadLimit(READ_LIMIT); // Set the read limit on the client
+				if (opts != null) opts.applyTo(por);
 				if (acl != null) setACL(por, acl);
 				por.setMetadata(md);
 
@@ -2098,14 +2206,14 @@ public class S3 {
 					S3Exception s3e = toS3Exception(ase);
 					if (s3e.getProposedSize() != 0 && s3e.getProposedSize() < maxSize) {
 						maxSize = s3e.getProposedSize();
-						write(bucketName, objectName, file, acl, region);
+						write(bucketName, objectName, file, acl, region, opts);
 						return;
 					}
 					throw s3e;
 				}
 				if (ase.getErrorCode().equals("NoSuchBucket")) {
 					createDirectory(bucketName, acl, region);
-					write(bucketName, objectName, file, acl, region);
+					write(bucketName, objectName, file, acl, region, opts);
 					return;
 				}
 				else throw toS3Exception(ase);
@@ -2118,9 +2226,18 @@ public class S3 {
 	}
 
 	public void write(String bucketName, String objectName, Resource res, Object acl, String region) throws IOException {
+		write(bucketName, objectName, res, acl, region, null);
+	}
+
+	/**
+	 * Same as the write above, with optional object properties (metadata, headers, storage class).
+	 * 
+	 * @param opts object properties, can be null
+	 */
+	public void write(String bucketName, String objectName, Resource res, Object acl, String region, ObjectOptions opts) throws IOException {
 
 		if (res instanceof File) {
-			write(bucketName, objectName, (File) res, acl, region);
+			write(bucketName, objectName, (File) res, acl, region, opts);
 			return;
 		}
 		if (log != null) log.debug("S3", "write resource [" + res + "] to [" + bucketName + "/" + objectName + "]");
@@ -2139,7 +2256,7 @@ public class S3 {
 				File tmp = File.createTempFile("writeResource-", ".txt");
 				try {
 					Util.copy(res.getInputStream(), new FileOutputStream(tmp), true, true);
-					write(bucketName, objectName, tmp, acl, region);
+					write(bucketName, objectName, tmp, acl, region, ObjectOptions.withDefaultContentType(opts, ct));
 					return;
 				}
 				finally {
@@ -2152,12 +2269,14 @@ public class S3 {
 				md.setLastModified(new Date());
 				md.setContentLength(res.length());
 				md.setContentType(ct);
+				if (opts != null) opts.applyTo(md);
 				// create a PutObjectRequest passing the folder name suffixed by /
 
 				try {
 
 					PutObjectRequest por = new PutObjectRequest(bucketName, objectName, is = getInputStream(res), md);
 					por.getRequestClientOptions().setReadLimit(READ_LIMIT); // Set the read limit on the client
+					if (opts != null) opts.applyTo(por);
 					if (acl != null) setACL(por, acl);
 
 					client.putObject(por);
@@ -2168,14 +2287,14 @@ public class S3 {
 						S3Exception s3e = toS3Exception(ase);
 						if (s3e.getProposedSize() != 0 && s3e.getProposedSize() < maxSize) {
 							maxSize = s3e.getProposedSize();
-							write(bucketName, objectName, res, acl, region);
+							write(bucketName, objectName, res, acl, region, opts);
 							return;
 						}
 						throw s3e;
 					}
 					if (ase.getErrorCode().equals("NoSuchBucket")) {
 						createDirectory(bucketName, acl, region);
-						write(bucketName, objectName, res, acl, region);
+						write(bucketName, objectName, res, acl, region, opts);
 						return;
 					}
 					else throw toS3Exception(ase);
@@ -2229,6 +2348,8 @@ public class S3 {
 					sct.setEL(e.getKey().replace('-', '_'), e.getValue());
 				}
 				sct.setEL("lastModified", md.getLastModified());
+				sct.setEL("metadata", MetaDataStructs.toMetadata(md));
+				sct.setEL("headers", MetaDataStructs.toHeaders(md));
 
 			}
 		}
@@ -2309,53 +2430,161 @@ public class S3 {
 		setMetaDataAsMap(bucketName, objectName, data);
 	}
 
+	/**
+	 * Replaces the user metadata of an object with the given one. The system metadata of the object
+	 * (Content-Type, Cache-Control, Content-Disposition, Content-Encoding, Content-Language, Expires,
+	 * redirect location, server side encryption, storage class) and the ACL are kept, because the copy that
+	 * is used to change the metadata would reset them otherwise. System headers that are part of the given
+	 * metadata (for example "content-type") replace the current value of that header.
+	 */
 	public void setMetaDataAsMap(String bucketName, String objectName, Map<String, String> metadata) throws S3Exception {
-
-		Iterator<Entry<String, String>> it = metadata.entrySet().iterator();
-		Entry<String, String> e;
-		ObjectMetadata metadataCopy = new ObjectMetadata();
-		while (it.hasNext()) {
-			e = it.next();
-			metadataCopy.addUserMetadata(toMetaDataKey(removeMetaDataPrefix(e.getKey())), e.getValue());
-		}
 
 		bucketName = improveBucketName(bucketName);
 		objectName = improveObjectName(objectName);
 
-		if (!Util.isEmpty(objectName)) {
-			AmazonS3Client client = getAmazonS3(bucketName, null);
+		if (Util.isEmpty(objectName)) throw new S3Exception("cannot set metadata for a bucket"); // TOOD possible?
+
+		AmazonS3Client client = getAmazonS3(bucketName, null);
+		try {
 			S3BucketWrapper bw = get(bucketName);
 			if (bw == null) throw new S3Exception("there is no bucket [" + bucketName + "]");
+
+			// the current metadata, a folder can be stored with or without the trailing slash
+			String on = objectName;
+			ObjectMetadata current;
 			try {
-				CopyObjectRequest request = new CopyObjectRequest(bucketName, objectName, bucketName, objectName).withNewObjectMetadata(metadataCopy);
-				client.copyObject(request);
-				flushExists(bucketName, objectName);
+				current = client.getObjectMetadata(bucketName, on);
 			}
 			catch (AmazonServiceException se) {
-				if (se.getErrorCode().equals("NoSuchKey")) { // we know at this point objectname is not empty, so we do not have to check that
-					try {
-						String on = oppositeObjectName(objectName);
-						CopyObjectRequest request = new CopyObjectRequest(bucketName, on, bucketName, on).withNewObjectMetadata(metadataCopy);
-						client.copyObject(request);
-						flushExists(bucketName, on);
-						return;
-					}
-					catch (AmazonServiceException ise) {
-						S3Info src = get(bucketName, objectName);
-						if (src.isVirtual()) {
-							throw new S3Exception("Cannot set meta data to a virtual folder", se);
-						}
-						throw toS3Exception(ise);
-					}
+				if (!isNotFound(se)) throw toS3Exception(se);
+				on = oppositeObjectName(objectName);
+				try {
+					current = client.getObjectMetadata(bucketName, on);
 				}
-				throw toS3Exception(se);
+				catch (AmazonServiceException ise) {
+					if (isNotFound(ise)) {
+						S3Info src = get(bucketName, objectName);
+						if (src != null && src.isVirtual()) throw new S3Exception("Cannot set meta data to a virtual folder", se);
+					}
+					throw toS3Exception(ise);
+				}
 			}
-			finally {
-				client.release();
-			}
-		}
-		else throw new S3Exception("cannot set metadata for a bucket"); // TOOD possible?
 
+			ObjectMetadata newMetadata = new ObjectMetadata();
+			keepSystemMetaData(current, newMetadata);
+			Iterator<Entry<String, String>> it = metadata.entrySet().iterator();
+			Entry<String, String> e;
+			String key;
+			while (it.hasNext()) {
+				e = it.next();
+				key = toMetaDataKey(removeMetaDataPrefix(e.getKey()));
+				if ("Content-Type".equals(key)) newMetadata.setContentType(e.getValue());
+				else if ("Content-Disposition".equals(key)) newMetadata.setContentDisposition(e.getValue());
+				else if ("Content-Encoding".equals(key)) newMetadata.setContentEncoding(e.getValue());
+				else if ("Content-Language".equals(key)) newMetadata.setHeader(Headers.CONTENT_LANGUAGE, e.getValue());
+				else if ("Cache-Control".equals(key)) newMetadata.setCacheControl(e.getValue());
+				else newMetadata.addUserMetadata(key, e.getValue());
+			}
+
+			String storageClass = current.getStorageClass();
+			String kmsKeyId = (String) current.getRawMetadataValue(Headers.SERVER_SIDE_ENCRYPTION_AWS_KMS_KEYID);
+			Object acl = aclToKeep(client, bucketName, on);
+
+			if (on.endsWith("/") && current.getContentLength() == 0) {
+				// a folder placeholder has no content, so it is written again (not every server can copy such an object onto itself)
+				newMetadata.setContentLength(0);
+				PutObjectRequest por = new PutObjectRequest(bucketName, on, new ByteArrayInputStream(new byte[0]), newMetadata);
+				if (!Util.isEmpty(storageClass)) por.setStorageClass(storageClass);
+				if (!Util.isEmpty(kmsKeyId)) por.setSSEAwsKeyManagementParams(new SSEAwsKeyManagementParams(kmsKeyId));
+				if (acl instanceof CannedAccessControlList) por.setCannedAcl((CannedAccessControlList) acl);
+				else if (acl instanceof AccessControlList) por.setAccessControlList((AccessControlList) acl);
+				try {
+					client.putObject(por);
+				}
+				catch (AmazonServiceException se) {
+					throw toS3Exception(se);
+				}
+			}
+			else {
+				CopyObjectRequest request = new CopyObjectRequest(bucketName, on, bucketName, on).withNewObjectMetadata(newMetadata);
+				if (!Util.isEmpty(storageClass)) request.setStorageClass(storageClass);
+				if (!Util.isEmpty(kmsKeyId)) request.setSSEAwsKeyManagementParams(new SSEAwsKeyManagementParams(kmsKeyId));
+				if (acl instanceof CannedAccessControlList) request.setCannedAccessControlList((CannedAccessControlList) acl);
+				else if (acl instanceof AccessControlList) request.setAccessControlList((AccessControlList) acl);
+				try {
+					client.copyObject(request);
+				}
+				catch (AmazonServiceException se) {
+					throw toS3Exception(se);
+				}
+			}
+			flushExists(bucketName, on);
+		}
+		finally {
+			client.release();
+		}
+	}
+
+	private static boolean isNotFound(AmazonServiceException ase) {
+		// a HEAD request has no body, so the error code is the status text and not "NoSuchKey"
+		return ase.getStatusCode() == 404 || "NoSuchKey".equals(ase.getErrorCode());
+	}
+
+	/** copies the headers a REPLACE copy would reset from the current object */
+	private void keepSystemMetaData(ObjectMetadata from, ObjectMetadata to) {
+		if (from.getContentType() != null) to.setContentType(from.getContentType());
+		if (from.getContentDisposition() != null) to.setContentDisposition(from.getContentDisposition());
+		if (from.getContentEncoding() != null) to.setContentEncoding(from.getContentEncoding());
+		if (from.getContentLanguage() != null) to.setHeader(Headers.CONTENT_LANGUAGE, from.getContentLanguage());
+		if (from.getCacheControl() != null) to.setCacheControl(from.getCacheControl());
+		if (from.getHttpExpiresDate() != null) to.setHttpExpiresDate(from.getHttpExpiresDate());
+		if (from.getSSEAlgorithm() != null) to.setSSEAlgorithm(from.getSSEAlgorithm());
+		Object redirect = from.getRawMetadataValue(Headers.REDIRECT_LOCATION);
+		if (redirect != null) to.setHeader(Headers.REDIRECT_LOCATION, redirect);
+	}
+
+	/**
+	 * Keeps the ACL of the object in the copy. Nothing is set when the ACL is only the default (full control for
+	 * the owner), this way buckets that do not allow ACLs (bucket owner enforced) are not sent an ACL they would
+	 * reject. The common ACLs are sent as canned ACL (supported by all S3 compatible servers), everything else as
+	 * the list of grants.
+	 */
+	/**
+	 * @return the ACL of the object as a canned ACL or an access control list, null if the object has the default ACL or the ACL cannot
+	 *         be read
+	 */
+	private Object aclToKeep(AmazonS3Client client, String bucketName, String objectName) {
+		AccessControlList acl;
+		try {
+			acl = client.getObjectAcl(bucketName, objectName);
+		}
+		catch (AmazonServiceException ase) {
+			// servers without ACL support, or a user that is not allowed to read the ACL: the copy then
+			// behaves like before and the object gets the default ACL
+			if (ase.getStatusCode() == 501 || ase.getStatusCode() == 403) {
+				if (log != null) log.warn("S3", "could not read the ACL of [" + bucketName + "/" + objectName + "], the ACL is not kept: " + ase.getMessage());
+				return null;
+			}
+			throw ase;
+		}
+		if (acl == null) return null;
+		String ownerId = acl.getOwner() == null ? null : acl.getOwner().getId();
+		boolean other = false, allRead = false, allWrite = false, authRead = false;
+		for (Grant grant: acl.getGrantsAsList()) {
+			Grantee grantee = grant.getGrantee();
+			Permission permission = grant.getPermission();
+			String id = grantee == null ? null : grantee.getIdentifier();
+			if (permission == Permission.FullControl && grantee instanceof CanonicalGrantee && ownerId != null && ownerId.equals(id)) continue;
+			if (permission == Permission.Read && GroupGrantee.AllUsers.getIdentifier().equals(id)) allRead = true;
+			else if (permission == Permission.Write && GroupGrantee.AllUsers.getIdentifier().equals(id)) allWrite = true;
+			else if (permission == Permission.Read && GroupGrantee.AuthenticatedUsers.getIdentifier().equals(id)) authRead = true;
+			else other = true;
+		}
+		if (!other && !allRead && !allWrite && !authRead) return null; // default ACL
+		if (!other && allRead && allWrite && !authRead) return CannedAccessControlList.PublicReadWrite;
+		else if (!other && allRead && !allWrite && !authRead) return CannedAccessControlList.PublicRead;
+		else if (!other && authRead && !allRead && !allWrite) return CannedAccessControlList.AuthenticatedRead;
+		return acl;
 	}
 
 	/**
@@ -2371,6 +2600,11 @@ public class S3 {
 	}
 
 	private String toMetaDataKey(String key) {
+		if (key.equalsIgnoreCase("cache-control")) return "Cache-Control";
+		if (key.equalsIgnoreCase("cache_control")) return "Cache-Control";
+		if (key.equalsIgnoreCase("cache control")) return "Cache-Control";
+		if (key.equalsIgnoreCase("cachecontrol")) return "Cache-Control";
+
 		if (key.equalsIgnoreCase("content-disposition")) return "Content-Disposition";
 		if (key.equalsIgnoreCase("content_disposition")) return "Content-Disposition";
 		if (key.equalsIgnoreCase("content disposition")) return "Content-Disposition";
@@ -2735,6 +2969,25 @@ public class S3 {
 		return toS3Exception(se, null);
 	}
 
+	/**
+	 * the message starts as before ("could not copy [...] to [...]") and is followed by the details of
+	 * the response, so the reason (NoSuchKey, AccessDenied, ...) is part of the message
+	 */
+	private static S3Exception copyFailed(String message, AmazonServiceException se) {
+		S3Exception cause = toS3Exception(se, null);
+		S3Exception s3e = new S3Exception(message + ";" + cause.getMessage(), se);
+		s3e.setStackTrace(se.getStackTrace());
+		return s3e;
+	}
+
+	private static S3Exception notFound(String message, String bucketName, String objectName) {
+		S3Exception s3e = new S3Exception(message);
+		s3e.setStatusCode(404);
+		s3e.setErrorCode("NotFound");
+		s3e.setLocation(bucketName, objectName);
+		return s3e;
+	}
+
 	public static S3Exception toS3Exception(AmazonServiceException se, String detail) {
 		String msg = se.getErrorMessage();
 		if (Util.isEmpty(msg, true)) msg = se.getMessage();
@@ -2816,6 +3069,7 @@ public class S3 {
 		S3Exception s3e = new S3Exception(msg);
 		s3e.initCause(se);
 		s3e.setStackTrace(se.getStackTrace());
+		s3e.setServiceDetails(se);
 		s3e.setErrorCode(ec);
 		if (proposedSize > 0) s3e.setProposedSize(proposedSize);
 		return s3e;
