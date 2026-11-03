@@ -881,6 +881,17 @@ public class S3 {
 	}
 
 	public Query listObjectsAsQuery(String bucketName, int maxKeys, ListListener listener) throws S3Exception, PageException {
+		return listObjectsAsQuery(bucketName, maxKeys, listener, null, null, 0);
+	}
+
+	/**
+	 * @param maxKeys size of a page, between 1 and 1000
+	 * @param delimiter if set, the keys are grouped at the first occurrence of the delimiter (after the
+	 *            start of the key); a group is returned as a row with isPrefix=true
+	 * @param startAfter if set, only keys that come after this key are listed
+	 * @param maxResults maximal number of rows (objects and prefixes) to return, 0 for no limit
+	 */
+	public Query listObjectsAsQuery(String bucketName, int maxKeys, ListListener listener, String delimiter, String startAfter, long maxResults) throws S3Exception, PageException {
 		AmazonS3Client client = getAmazonS3(bucketName, null);
 		try {
 			CFMLEngine eng = CFMLEngineFactory.getInstance();
@@ -890,36 +901,66 @@ public class S3 {
 			final Key size = creator.createKey("size");
 			final Key lastModified = creator.createKey("lastModified");
 			final Key owner = creator.createKey("owner");
-			Query qry = listener == null ? eng.getCreationUtil().createQuery(new Key[] { objectName, size, lastModified, owner }, 0, "buckets") : null;
+			final Key eTag = creator.createKey("eTag");
+			final Key storageClass = creator.createKey("storageClass");
+			final Key isPrefix = creator.createKey("isPrefix");
+			final Key[] columns = new Key[] { objectName, size, lastModified, owner, eTag, storageClass, isPrefix };
+			Query qry = listener == null ? eng.getCreationUtil().createQuery(columns, 0, "buckets") : null;
 			ListObjectsRequest lor = new ListObjectsRequest();
 			lor.setBucketName(bucketName);
 
 			if (maxKeys < 1 || maxKeys > 1000) throw new S3Exception("invalid maxKeys [" + maxKeys + "] must be an number between 1 and 1000");
-			lor.setMaxKeys(maxKeys);
+			if (maxResults < 0) throw new S3Exception("invalid maxResults [" + maxResults + "] must be a number of 0 or more");
+			// no need to ask for more than we want to return
+			lor.setMaxKeys(maxResults > 0 && maxResults < maxKeys ? (int) maxResults : maxKeys);
+			if (!Util.isEmpty(delimiter)) lor.setDelimiter(delimiter);
+			// a ListObjects (v1) request names this parameter "marker", the result starts after that key
+			if (!Util.isEmpty(startAfter)) lor.setMarker(startAfter);
 
 			ObjectListing objects = client.listObjects(lor);
 			/* Recursively delete all the objects inside given bucket */
 
 			if (objects != null && objects.getObjectSummaries() != null) {
 				int row, sum = 0;
+				long remaining = maxResults > 0 ? maxResults : Long.MAX_VALUE;
 				List<S3ObjectSummary> summeries;
+				List<String> prefixes;
 				Owner o;
 				while (true) {
 					summeries = objects.getObjectSummaries();
-					sum += summeries.size();
-					if (listener != null) qry = eng.getCreationUtil().createQuery(new Key[] { objectName, size, lastModified, owner }, 0, "buckets");
-					if (sum >= warnThreshold) logThreshold(sum, bucketName);
-					for (S3ObjectSummary summary: summeries) {
-						fixBackBlazeBug(summary, bucketName);
-						row = qry.addRow();
-						qry.setAt(objectName, row, summary.getKey());
-						qry.setAt(lastModified, row, summary.getLastModified());
-						qry.setAt(size, row, summary.getSize());
-						o = summary.getOwner();
-						if (o != null) qry.setAt(owner, row, o.getDisplayName());
-					}
+					prefixes = objects.getCommonPrefixes();
+					if (prefixes == null) prefixes = new ArrayList<String>();
+					if (listener != null) qry = eng.getCreationUtil().createQuery(columns, 0, "buckets");
 
-					if (objects.isTruncated()) {
+					// objects and common prefixes of a page are returned separately by S3, add them in the order of the keys
+					int io = 0, ip = 0;
+					S3ObjectSummary summary;
+					while (remaining > 0 && (io < summeries.size() || ip < prefixes.size())) {
+						summary = io < summeries.size() ? summeries.get(io) : null;
+						if (summary != null) fixBackBlazeBug(summary, bucketName);
+						if (summary == null || (ip < prefixes.size() && prefixes.get(ip).compareTo(summary.getKey()) < 0)) {
+							row = qry.addRow();
+							qry.setAt(objectName, row, prefixes.get(ip++));
+							qry.setAt(isPrefix, row, Boolean.TRUE);
+						}
+						else {
+							io++;
+							row = qry.addRow();
+							qry.setAt(objectName, row, summary.getKey());
+							qry.setAt(lastModified, row, summary.getLastModified());
+							qry.setAt(size, row, summary.getSize());
+							o = summary.getOwner();
+							if (o != null) qry.setAt(owner, row, o.getDisplayName());
+							qry.setAt(eTag, row, summary.getETag());
+							qry.setAt(storageClass, row, summary.getStorageClass());
+							qry.setAt(isPrefix, row, Boolean.FALSE);
+						}
+						remaining--;
+					}
+					sum += qry.getRecordcount();
+					if (sum >= warnThreshold) logThreshold(sum, bucketName);
+
+					if (objects.isTruncated() && remaining > 0) {
 						if (listener != null && !listener.invoke(qry)) break;
 						objects = client.listNextBatchOfObjects(objects);
 						if (objects == null) break;
