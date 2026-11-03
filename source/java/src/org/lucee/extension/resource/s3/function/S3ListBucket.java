@@ -1,5 +1,6 @@
 package org.lucee.extension.resource.s3.function;
 
+import org.lucee.extension.resource.s3.S3Util;
 import org.lucee.extension.resource.s3.S3;
 import org.lucee.extension.resource.s3.listener.ComponentListListener;
 import org.lucee.extension.resource.s3.listener.ListListener;
@@ -51,7 +52,7 @@ public class S3ListBucket extends S3Function {
 			}
 		}
 		catch (Exception e) {
-			throw CFMLEngineFactory.getInstance().getCastUtil().toPageException(e);
+			throw S3Util.toPageException(e);
 		}
 		return null;
 	}
