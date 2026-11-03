@@ -437,6 +437,32 @@ public class S3 {
 		writeRaw(toRemoteBucket(bucketName, region), objectName, res, acl, region);
 	}
 
+	public void copyObject(String srcBucketName, String srcObjectName, String trgBucketName, String trgObjectName, Object acl, String targetRegion, ObjectOptions opts)
+			throws S3Exception {
+		copyObjectRaw(rb(srcBucketName), srcObjectName, toRemoteBucket(trgBucketName, targetRegion), trgObjectName, acl, targetRegion, opts);
+	}
+
+	public void moveObject(String srcBucketName, String srcObjectName, String trgBucketName, String trgObjectName, CannedAccessControlList cacl, String targetRegion,
+			ObjectOptions opts) throws S3Exception {
+		moveObjectRaw(rb(srcBucketName), srcObjectName, toRemoteBucket(trgBucketName, targetRegion), trgObjectName, cacl, targetRegion, opts);
+	}
+
+	public void write(String bucketName, String objectName, String data, String mimeType, Charset charset, Object acl, String region, ObjectOptions opts) throws IOException {
+		writeRaw(toRemoteBucket(bucketName, region), objectName, data, mimeType, charset, acl, region, opts);
+	}
+
+	public void write(String bucketName, String objectName, byte[] data, String mimeType, Object acl, String region, ObjectOptions opts) throws IOException {
+		writeRaw(toRemoteBucket(bucketName, region), objectName, data, mimeType, acl, region, opts);
+	}
+
+	public void write(String bucketName, String objectName, File file, Object acl, String region, ObjectOptions opts) throws IOException {
+		writeRaw(toRemoteBucket(bucketName, region), objectName, file, acl, region, opts);
+	}
+
+	public void write(String bucketName, String objectName, Resource res, Object acl, String region, ObjectOptions opts) throws IOException {
+		writeRaw(toRemoteBucket(bucketName, region), objectName, res, acl, region, opts);
+	}
+
 	public Struct getMetaDataStruct(String bucketName, String objectName) throws S3Exception {
 		return getMetaDataStructRaw(rb(bucketName), objectName);
 	}
@@ -1799,6 +1825,19 @@ public class S3 {
 	 * @throws S3Exception
 	 */
 	public void copyObjectRaw(String srcBucketName, String srcObjectName, String trgBucketName, String trgObjectName, Object acl, String targetRegion) throws S3Exception {
+		copyObjectRaw(srcBucketName, srcObjectName, trgBucketName, trgObjectName, acl, targetRegion, null);
+	}
+
+	/**
+	 * Same as the copy above, with optional object properties. Without properties the copy keeps the metadata of the source object
+	 * (S3 default). With metadata or headers defined, the metadata of the target is replaced: whatever is not defined
+	 * is taken over from the source, user metadata is only taken over if not defined. A storage class only changes the storage class
+	 * of the target.
+	 * 
+	 * @param opts object properties, can be null
+	 */
+	public void copyObjectRaw(String srcBucketName, String srcObjectName, String trgBucketName, String trgObjectName, Object acl, String targetRegion, ObjectOptions opts)
+			throws S3Exception {
 		srcBucketName = improveBucketName(srcBucketName);
 		srcObjectName = improveObjectName(srcObjectName, false);
 		trgBucketName = improveBucketName(trgBucketName);
@@ -1814,6 +1853,10 @@ public class S3 {
 
 		try {
 			CopyObjectRequest cor = new CopyObjectRequest(srcBucketName, srcObjectName, trgBucketName, trgObjectName);
+			if (opts != null) {
+				if (opts.hasMetaData()) cor.setNewObjectMetadata(opts.mergeInto(srcClient.getObjectMetadata(srcBucketName, srcObjectName)));
+				opts.applyTo(cor);
+			}
 
 			if (acl != null) setACL(cor, acl);
 			try {
@@ -1909,7 +1952,15 @@ public class S3 {
 	 */
 	public void moveObjectRaw(String srcBucketName, String srcObjectName, String trgBucketName, String trgObjectName, CannedAccessControlList cacl, String targetRegion)
 			throws S3Exception {
-		copyObjectRaw(srcBucketName, srcObjectName, trgBucketName, trgObjectName, cacl, targetRegion);
+		moveObjectRaw(srcBucketName, srcObjectName, trgBucketName, trgObjectName, cacl, targetRegion, null);
+	}
+
+	/**
+	 * Same as the move above, with optional object properties, see copyObject.
+	 */
+	public void moveObjectRaw(String srcBucketName, String srcObjectName, String trgBucketName, String trgObjectName, CannedAccessControlList cacl, String targetRegion,
+			ObjectOptions opts) throws S3Exception {
+		copyObjectRaw(srcBucketName, srcObjectName, trgBucketName, trgObjectName, cacl, targetRegion, opts);
 		deleteRaw(srcBucketName, srcObjectName, true);
 	}
 
@@ -1974,6 +2025,15 @@ public class S3 {
 	 */
 
 	public void writeRaw(String bucketName, String objectName, String data, String mimeType, Charset charset, Object acl, String region) throws IOException {
+		writeRaw(bucketName, objectName, data, mimeType, charset, acl, region, null);
+	}
+
+	/**
+	 * Same as the write above, with optional object properties (metadata, headers, storage class).
+	 * 
+	 * @param opts object properties, can be null
+	 */
+	public void writeRaw(String bucketName, String objectName, String data, String mimeType, Charset charset, Object acl, String region, ObjectOptions opts) throws IOException {
 		bucketName = improveBucketName(bucketName);
 		objectName = improveObjectName(objectName, false);
 		flushExists(bucketName, objectName);
@@ -1988,7 +2048,7 @@ public class S3 {
 			File tmp = File.createTempFile("writeString-", ".txt");
 			try {
 				Util.copy(new ByteArrayInputStream(bytes), new FileOutputStream(tmp), true, true);
-				writeRaw(bucketName, objectName, tmp, acl, region);
+				writeRaw(bucketName, objectName, tmp, acl, region, ObjectOptions.withDefaultContentType(opts, ct));
 				return;
 			}
 			finally {
@@ -1998,6 +2058,7 @@ public class S3 {
 		else {
 			ObjectMetadata md = new ObjectMetadata();
 			if (ct != null) md.setContentType(ct);
+			if (opts != null) opts.applyTo(md);
 			md.setLastModified(new Date());
 			// create a PutObjectRequest passing the folder name suffixed by /
 			md.setContentLength(bytes.length);
@@ -2005,6 +2066,7 @@ public class S3 {
 			bis.mark(READ_LIMIT);
 			PutObjectRequest por = new PutObjectRequest(bucketName, objectName, bis, md);
 			por.getRequestClientOptions().setReadLimit(READ_LIMIT); // Set the read limit on the client
+			if (opts != null) opts.applyTo(por);
 
 			if (acl != null) setACL(por, acl);
 			try {
@@ -2018,14 +2080,14 @@ public class S3 {
 						S3Exception s3e = toS3Exception(ase);
 						if (s3e.getProposedSize() != 0 && s3e.getProposedSize() < maxSize) {
 							maxSize = s3e.getProposedSize();
-							writeRaw(bucketName, objectName, data, mimeType, charset, acl, region);
+							writeRaw(bucketName, objectName, data, mimeType, charset, acl, region, opts);
 							return;
 						}
 						throw s3e;
 					}
 					if (ase.getErrorCode().equals("NoSuchBucket")) {
 						createDirectoryRaw(bucketName, acl, region);
-						writeRaw(bucketName, objectName, data, mimeType, charset, acl, region);
+						writeRaw(bucketName, objectName, data, mimeType, charset, acl, region, opts);
 						return;
 					}
 					else throw toS3Exception(ase);
@@ -2053,6 +2115,15 @@ public class S3 {
 	 */
 
 	public void writeRaw(String bucketName, String objectName, byte[] data, String mimeType, Object acl, String region) throws IOException {
+		writeRaw(bucketName, objectName, data, mimeType, acl, region, null);
+	}
+
+	/**
+	 * Same as the write above, with optional object properties (metadata, headers, storage class).
+	 * 
+	 * @param opts object properties, can be null
+	 */
+	public void writeRaw(String bucketName, String objectName, byte[] data, String mimeType, Object acl, String region, ObjectOptions opts) throws IOException {
 		bucketName = improveBucketName(bucketName);
 		objectName = improveObjectName(objectName, false);
 		if (log != null) log.debug("S3", "write byte array (" + (data == null ? 0 : data.length) + ") to [" + bucketName + "/" + objectName + "]");
@@ -2065,7 +2136,7 @@ public class S3 {
 			File tmp = File.createTempFile("writeBytes-", ".txt");
 			try {
 				Util.copy(new ByteArrayInputStream(data), new FileOutputStream(tmp), true, true);
-				writeRaw(bucketName, objectName, tmp, acl, region);
+				writeRaw(bucketName, objectName, tmp, acl, region, ObjectOptions.withDefaultContentType(opts, mimeType));
 				return;
 			}
 			finally {
@@ -2081,6 +2152,8 @@ public class S3 {
 
 			String ct = CFMLEngineFactory.getInstance().getResourceUtil().getMimeType(data, null);
 			if (ct != null) md.setContentType(ct);
+			if (opts != null) opts.applyTo(md);
+			if (opts != null) opts.applyTo(por);
 			md.setLastModified(new Date());
 			if (acl != null) setACL(por, acl);
 			try {
@@ -2110,6 +2183,15 @@ public class S3 {
 	}
 
 	public void writeRaw(String bucketName, String objectName, File file, Object acl, String region) throws IOException {
+		writeRaw(bucketName, objectName, file, acl, region, null);
+	}
+
+	/**
+	 * Same as the write above, with optional object properties (metadata, headers, storage class).
+	 * 
+	 * @param opts object properties, can be null
+	 */
+	public void writeRaw(String bucketName, String objectName, File file, Object acl, String region, ObjectOptions opts) throws IOException {
 		bucketName = improveBucketName(bucketName);
 		objectName = improveObjectName(objectName, false);
 		if (log != null) log.debug("S3", "write file [" + file + "] to [" + bucketName + "/" + objectName + "]");
@@ -2117,6 +2199,7 @@ public class S3 {
 		ObjectMetadata md = new ObjectMetadata();
 		md.setContentLength(file.length());
 		md.setContentType(ct);
+		if (opts != null) opts.applyTo(md);
 		md.setLastModified(new Date());
 
 		flushExists(bucketName, objectName);
@@ -2136,6 +2219,7 @@ public class S3 {
 
 				// Initiate the multipart upload.
 				InitiateMultipartUploadRequest initRequest = new InitiateMultipartUploadRequest(bucketName, objectName, md);
+				if (opts != null) opts.applyTo(initRequest);
 				InitiateMultipartUploadResult initResponse = client.initiateMultipartUpload(initRequest);
 
 				// Upload the file parts.
@@ -2167,7 +2251,7 @@ public class S3 {
 			catch (AmazonServiceException ase) {
 				if (ase.getErrorCode().equals("NoSuchBucket")) {
 					createDirectoryRaw(bucketName, acl, region);
-					writeRaw(bucketName, objectName, file, acl, region);
+					writeRaw(bucketName, objectName, file, acl, region, opts);
 					return;
 				}
 				else throw toS3Exception(ase);
@@ -2184,6 +2268,7 @@ public class S3 {
 			try {
 				PutObjectRequest por = new PutObjectRequest(bucketName, objectName, is = getInputStream(file), md);
 				por.getRequestClientOptions().setReadLimit(READ_LIMIT); // Set the read limit on the client
+				if (opts != null) opts.applyTo(por);
 				if (acl != null) setACL(por, acl);
 				por.setMetadata(md);
 
@@ -2200,14 +2285,14 @@ public class S3 {
 					S3Exception s3e = toS3Exception(ase);
 					if (s3e.getProposedSize() != 0 && s3e.getProposedSize() < maxSize) {
 						maxSize = s3e.getProposedSize();
-						writeRaw(bucketName, objectName, file, acl, region);
+						writeRaw(bucketName, objectName, file, acl, region, opts);
 						return;
 					}
 					throw s3e;
 				}
 				if (ase.getErrorCode().equals("NoSuchBucket")) {
 					createDirectoryRaw(bucketName, acl, region);
-					writeRaw(bucketName, objectName, file, acl, region);
+					writeRaw(bucketName, objectName, file, acl, region, opts);
 					return;
 				}
 				else throw toS3Exception(ase);
@@ -2220,9 +2305,18 @@ public class S3 {
 	}
 
 	public void writeRaw(String bucketName, String objectName, Resource res, Object acl, String region) throws IOException {
+		writeRaw(bucketName, objectName, res, acl, region, null);
+	}
+
+	/**
+	 * Same as the write above, with optional object properties (metadata, headers, storage class).
+	 * 
+	 * @param opts object properties, can be null
+	 */
+	public void writeRaw(String bucketName, String objectName, Resource res, Object acl, String region, ObjectOptions opts) throws IOException {
 
 		if (res instanceof File) {
-			writeRaw(bucketName, objectName, (File) res, acl, region);
+			writeRaw(bucketName, objectName, (File) res, acl, region, opts);
 			return;
 		}
 		if (log != null) log.debug("S3", "write resource [" + res + "] to [" + bucketName + "/" + objectName + "]");
@@ -2241,7 +2335,7 @@ public class S3 {
 				File tmp = File.createTempFile("writeResource-", ".txt");
 				try {
 					Util.copy(res.getInputStream(), new FileOutputStream(tmp), true, true);
-					writeRaw(bucketName, objectName, tmp, acl, region);
+					writeRaw(bucketName, objectName, tmp, acl, region, ObjectOptions.withDefaultContentType(opts, ct));
 					return;
 				}
 				finally {
@@ -2254,12 +2348,14 @@ public class S3 {
 				md.setLastModified(new Date());
 				md.setContentLength(res.length());
 				md.setContentType(ct);
+				if (opts != null) opts.applyTo(md);
 				// create a PutObjectRequest passing the folder name suffixed by /
 
 				try {
 
 					PutObjectRequest por = new PutObjectRequest(bucketName, objectName, is = getInputStream(res), md);
 					por.getRequestClientOptions().setReadLimit(READ_LIMIT); // Set the read limit on the client
+					if (opts != null) opts.applyTo(por);
 					if (acl != null) setACL(por, acl);
 
 					client.putObject(por);
@@ -2270,14 +2366,14 @@ public class S3 {
 						S3Exception s3e = toS3Exception(ase);
 						if (s3e.getProposedSize() != 0 && s3e.getProposedSize() < maxSize) {
 							maxSize = s3e.getProposedSize();
-							writeRaw(bucketName, objectName, res, acl, region);
+							writeRaw(bucketName, objectName, res, acl, region, opts);
 							return;
 						}
 						throw s3e;
 					}
 					if (ase.getErrorCode().equals("NoSuchBucket")) {
 						createDirectoryRaw(bucketName, acl, region);
-						writeRaw(bucketName, objectName, res, acl, region);
+						writeRaw(bucketName, objectName, res, acl, region, opts);
 						return;
 					}
 					else throw toS3Exception(ase);
