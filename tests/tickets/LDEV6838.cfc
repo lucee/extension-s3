@@ -276,7 +276,10 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 	}
 
 	private string function baseURI() {
-		return "/test/#listLast( getDirectoryFromPath( getCurrentTemplatePath() ), "\/" )#/LDEV6838/";
+		// the CI maps the tests of the extension to /testAdditional, locally they can be mapped to /test
+		var folder = "tickets/LDEV6838/";
+		if ( directoryExists( expandPath( "/testAdditional/" & folder ) ) ) return "/testAdditional/" & folder;
+		return "/test/" & folder;
 	}
 
 	private boolean function isNotSupported() {
