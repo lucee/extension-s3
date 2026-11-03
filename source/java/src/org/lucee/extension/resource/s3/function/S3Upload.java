@@ -1,5 +1,6 @@
 package org.lucee.extension.resource.s3.function;
 
+import org.lucee.extension.resource.s3.S3Util;
 import org.lucee.extension.resource.s3.AccessControlListUtil;
 import org.lucee.extension.resource.s3.ObjectOptions;
 import org.lucee.extension.resource.s3.S3;
@@ -49,7 +50,7 @@ public class S3Upload extends S3Function {
 			s3.write(bucketName, objectName, source, acl, location, opts);
 		}
 		catch (Exception e) {
-			throw eng.getCastUtil().toPageException(e);
+			throw S3Util.toPageException(e);
 		}
 		return null;
 	}
