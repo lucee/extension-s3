@@ -22,6 +22,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.lucee.extension.resource.s3.info.MetaDataStructs;
 import org.lucee.extension.resource.s3.info.NotExisting;
 import org.lucee.extension.resource.s3.info.ParentObject;
 import org.lucee.extension.resource.s3.info.S3BucketWrapper;
@@ -2227,6 +2228,8 @@ public class S3 {
 					sct.setEL(e.getKey().replace('-', '_'), e.getValue());
 				}
 				sct.setEL("lastModified", md.getLastModified());
+				sct.setEL("metadata", MetaDataStructs.toMetadata(md));
+				sct.setEL("headers", MetaDataStructs.toHeaders(md));
 
 			}
 		}
