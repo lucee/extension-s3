@@ -9,6 +9,21 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 
 	function run( testResults, testBox ) {
 
+		// the versioning of a bucket is changed, so the version tests need a bucket of their own (not S3_CUSTOM_BUCKET),
+		// and a server that supports versioning (MinIO only does in some setups)
+		variables.versioningSupported = false;
+		if ( CustomS3::isSupported() && !len( CustomS3::getCredentials().BUCKET ) ) {
+			var probe = CustomS3::prepare( "6845p" );
+			try {
+				var rsp = versioningRequest( probe );
+				if ( rsp.status_code == 200 ) variables.versioningSupported = true;
+				else if ( rsp.status_code != 501 ) throw( message="could not check if the server supports versioning: " & rsp.status_code & " " & rsp.filecontent );
+			}
+			finally {
+				CustomS3::cleanup( probe );
+			}
+		}
+
 		describe( title="LDEV-6845: range and versionId", skip=!CustomS3::isSupported(), body=function() {
 
 			beforeEach( function() {
@@ -104,7 +119,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 			describe( "versionId", function() {
 
 				// the versioning of a bucket is changed, so the test needs a bucket of its own (not S3_CUSTOM_BUCKET)
-				it( title="read and describe the versions of an object", skip=len( CustomS3::getCredentials().BUCKET ) > 0, body=function() {
+				it( title="read and describe the versions of an object", skip=!variables.versioningSupported, body=function() {
 
 					var obj = "versioned.txt";
 					enableVersioning( ctx );
@@ -174,9 +189,13 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 	// ---- helpers: the extension has no function to change the versioning of a bucket, so the (few) requests
 	// needed for the test are sent signed (AWS Signature Version 4) with cfhttp
 
-	private void function enableVersioning( required struct ctx ) {
+	private struct function versioningRequest( required struct ctx ) {
 		var body = '<VersioningConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Status>Enabled</Status></VersioningConfiguration>';
-		var rsp = signedRequest( ctx, "PUT", "/" & ctx.bucket, "versioning=", body );
+		return signedRequest( ctx, "PUT", "/" & ctx.bucket, "versioning=", body );
+	}
+
+	private void function enableVersioning( required struct ctx ) {
+		var rsp = versioningRequest( ctx );
 		if ( rsp.status_code != 200 ) throw( message="could not enable versioning: " & rsp.status_code & " " & rsp.filecontent );
 	}
 
