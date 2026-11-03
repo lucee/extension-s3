@@ -1049,6 +1049,13 @@
 			<default>10000</default>
 			<description>timeout for this execution</description>
 	    </argument>
+		<argument>
+			<name>ignoreMissing</name>
+			<type>boolean</type>
+			<required>No</required>
+			<default>false</default>
+			<description>If true, an object that does not exist is not an error (like the DeleteObject operation of S3 itself, which does not fail for a missing key), and a bucket that does not exist is not an error when deleting a bucket. By default a missing object or bucket throws an exception.</description>
+	    </argument>
 		<return>
 			<type>query</type>
 		</return>
