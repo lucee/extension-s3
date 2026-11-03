@@ -115,46 +115,45 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 		try {
 			var bucketName=Util::createBucketName("list-bucket-prefix");
 			var objectNames=["images/originals/a.txt","images/originals/b.txt","images/thumbs/a.txt","other.txt"];
-			var host=(isNull(cred.HOST)?nullvalue():cred.HOST);
 
 			// create empty bucket
 			Util::deleteIfExists(cred,bucketName);
 			S3CreateBucket(
 					bucketName:bucketName,
-					accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:host);
+					accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST));
 
 			// create objects
 			loop array=objectNames item="local.objectName" {
 				S3Write(
 					value:"Susi Sorglos",
 					bucketName:bucketName,  objectName:objectName,
-					accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:host);
+					accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST));
 			}
 
 			// no prefix: everything, same as before
-			var all=S3ListBucket(bucketName:bucketName, accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:host);
+			var all=S3ListBucket(bucketName:bucketName, accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST));
 			assertEquals(4, all.recordcount);
 
 			// empty prefix is the same as no prefix
-			var empty=S3ListBucket(bucketName:bucketName, prefix:"", accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:host);
+			var empty=S3ListBucket(bucketName:bucketName, prefix:"", accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST));
 			assertEquals(4, empty.recordcount);
 
 			// deepest "folder"
-			var originals=S3ListBucket(bucketName:bucketName, prefix:"images/originals/", accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:host);
+			var originals=S3ListBucket(bucketName:bucketName, prefix:"images/originals/", accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST));
 			assertEquals(2, originals.recordcount);
 			assertEquals("images/originals/a.txt,images/originals/b.txt", arrayToList(queryColumnData(originals,"objectName")));
 
 			// parent "folder" includes its sub folders
-			var images=S3ListBucket(bucketName:bucketName, prefix:"images/", accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:host);
+			var images=S3ListBucket(bucketName:bucketName, prefix:"images/", accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST));
 			assertEquals(3, images.recordcount);
 
 			// a prefix is not limited to folders
-			var partial=S3ListBucket(bucketName:bucketName, prefix:"oth", accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:host);
+			var partial=S3ListBucket(bucketName:bucketName, prefix:"oth", accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST));
 			assertEquals(1, partial.recordcount);
 			assertEquals("other.txt", partial.objectName);
 
 			// nothing matches
-			var none=S3ListBucket(bucketName:bucketName, prefix:"does/not/exist/", accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:host);
+			var none=S3ListBucket(bucketName:bucketName, prefix:"does/not/exist/", accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST));
 			assertEquals(0, none.recordcount);
 
 			// prefix together with a listener and blockfactor
@@ -168,7 +167,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 				blockfactor:2,
 				accessKeyId:cred.ACCESS_KEY_ID,
 				secretAccessKey:cred.SECRET_KEY,
-				host:host
+				host:(isNull(cred.HOST)?nullvalue():cred.HOST)
 			);
 			assertEquals("2;1;", res);
 		}
