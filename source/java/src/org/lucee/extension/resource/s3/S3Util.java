@@ -8,11 +8,14 @@ import java.util.List;
 import com.amazonaws.services.s3.model.S3Object;
 
 import lucee.commons.io.res.Resource;
+import lucee.loader.engine.CFMLEngine;
 import lucee.loader.engine.CFMLEngineFactory;
 import lucee.loader.util.Util;
 import lucee.runtime.PageContext;
 import lucee.runtime.config.Config;
 import lucee.runtime.exp.PageException;
+import lucee.runtime.type.Struct;
+import lucee.runtime.util.Creation;
 
 public class S3Util {
 	private static final Class[] EMPTY_CLASS = new Class[0];
@@ -96,6 +99,39 @@ public class S3Util {
 		catch (Exception e) {
 			throw CFMLEngineFactory.getInstance().getCastUtil().toPageException(e);
 		}
+	}
+
+	/**
+	 * Converts an exception to the exception thrown to CFML. When the exception is (or is caused by) a
+	 * S3Exception, the details are available in the catch block: errorCode (the code of the service, like
+	 * NoSuchKey or AccessDenied) and additional.statusCode, additional.requestId,
+	 * additional.extendedRequestId, additional.bucket and additional.objectName (those only when known).
+	 * The type and the message are not changed.
+	 */
+	public static PageException toPageException(Throwable t) {
+		CFMLEngine eng = CFMLEngineFactory.getInstance();
+		PageException pe = eng.getCastUtil().toPageException(t);
+		S3Exception s3e = null;
+		Throwable c = t;
+		for (int i = 0; c != null && i < 10; i++) {
+			if (c instanceof S3Exception) {
+				s3e = (S3Exception) c;
+				break;
+			}
+			c = c.getCause();
+		}
+		if (s3e == null) return pe;
+
+		String ec = s3e.getPublicErrorCode();
+		if (!Util.isEmpty(ec, true)) pe.setErrorCode(ec);
+		Creation creator = eng.getCreationUtil();
+		Struct additional = pe.getAdditional();
+		if (s3e.getStatusCode() > 0) additional.setEL(creator.createKey("statusCode"), Double.valueOf(s3e.getStatusCode()));
+		if (!Util.isEmpty(s3e.getRequestId(), true)) additional.setEL(creator.createKey("requestId"), s3e.getRequestId());
+		if (!Util.isEmpty(s3e.getExtendedRequestId(), true)) additional.setEL(creator.createKey("extendedRequestId"), s3e.getExtendedRequestId());
+		if (!Util.isEmpty(s3e.getBucketName(), true)) additional.setEL(creator.createKey("bucket"), s3e.getBucketName());
+		if (!Util.isEmpty(s3e.getObjectName(), true)) additional.setEL(creator.createKey("objectName"), s3e.getObjectName());
+		return pe;
 	}
 
 	public static void closeS3Object(S3Object obj) {

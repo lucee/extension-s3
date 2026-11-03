@@ -1432,7 +1432,7 @@ public class S3 {
 				if (log != null) log.debug("S3", "list objects (" + sum + ") for [" + bucketName + "/" + nameFile + "]");
 			}
 			else {
-				throw new S3Exception("can't delete file/directory " + bucketName + "/" + objectName + ", file/directory does not exist");
+				throw notFound("can't delete file/directory " + bucketName + "/" + objectName + ", file/directory does not exist", bucketName, objectName);
 			}
 
 			if (!force && matchKids) {
@@ -1454,7 +1454,7 @@ public class S3 {
 				// we create parent because before it maybe was a pseudi dir
 				createParentDirectory(bucketName, objectName, true);
 			}
-			else throw new S3Exception("can't delete file/directory " + bucketName + "/" + objectName + ", file/directory does not exist");
+			else throw notFound("can't delete file/directory " + bucketName + "/" + objectName + ", file/directory does not exist", bucketName, objectName);
 		}
 		catch (AmazonServiceException se) {
 			throw toS3Exception(se);
@@ -1593,7 +1593,7 @@ public class S3 {
 				// could be an Pseudo folder
 				if (se.getErrorCode().equals("NoSuchKey")) {
 					S3Info src = get(srcBucketName, srcObjectName);
-					if (src.isVirtual()) {
+					if (src != null && src.isVirtual()) {
 						throw new S3Exception("Cannot copy virtual folder", se);
 					}
 					throw toS3Exception(se);
@@ -1643,12 +1643,12 @@ public class S3 {
 					}
 				}
 				else {
-					throw new S3Exception("could not copy [" + srcBucketName + "/" + srcObjectName + "] to [" + trgBucketName + "/" + trgObjectName + "]  ", se);
+					throw copyFailed("could not copy [" + srcBucketName + "/" + srcObjectName + "] to [" + trgBucketName + "/" + trgObjectName + "]  ", se);
 				}
 			}
 		}
 		catch (AmazonServiceException se) {
-			throw new S3Exception("could not copy [" + srcBucketName + "/" + srcObjectName + "] to [" + trgBucketName + "/" + trgObjectName + "]  ", se);
+			throw copyFailed("could not copy [" + srcBucketName + "/" + srcObjectName + "] to [" + trgBucketName + "/" + trgObjectName + "]  ", se);
 		}
 		finally {
 			srcClient.release();
@@ -1728,7 +1728,7 @@ public class S3 {
 			if (log != null) log.debug("S3", "copy directory (" + keys.size() + " objects) from [" + srcBucketName + "/" + srcDir + "] to [" + trgBucketName + "/" + trgDir + "]");
 		}
 		catch (AmazonServiceException se) {
-			throw new S3Exception("could not copy [" + srcBucketName + "/" + src + "] to [" + trgBucketName + "/" + trg + "]  ", se);
+			throw copyFailed("could not copy [" + srcBucketName + "/" + src + "] to [" + trgBucketName + "/" + trg + "]  ", se);
 		}
 		finally {
 			trgClient.release();
@@ -2721,6 +2721,25 @@ public class S3 {
 		return toS3Exception(se, null);
 	}
 
+	/**
+	 * the message starts as before ("could not copy [...] to [...]") and is followed by the details of
+	 * the response, so the reason (NoSuchKey, AccessDenied, ...) is part of the message
+	 */
+	private static S3Exception copyFailed(String message, AmazonServiceException se) {
+		S3Exception cause = toS3Exception(se, null);
+		S3Exception s3e = new S3Exception(message + ";" + cause.getMessage(), se);
+		s3e.setStackTrace(se.getStackTrace());
+		return s3e;
+	}
+
+	private static S3Exception notFound(String message, String bucketName, String objectName) {
+		S3Exception s3e = new S3Exception(message);
+		s3e.setStatusCode(404);
+		s3e.setErrorCode("NotFound");
+		s3e.setLocation(bucketName, objectName);
+		return s3e;
+	}
+
 	public static S3Exception toS3Exception(AmazonServiceException se, String detail) {
 		String msg = se.getErrorMessage();
 		if (Util.isEmpty(msg, true)) msg = se.getMessage();
@@ -2802,6 +2821,7 @@ public class S3 {
 		S3Exception s3e = new S3Exception(msg);
 		s3e.initCause(se);
 		s3e.setStackTrace(se.getStackTrace());
+		s3e.setServiceDetails(se);
 		s3e.setErrorCode(ec);
 		if (proposedSize > 0) s3e.setProposedSize(proposedSize);
 		return s3e;
