@@ -20,6 +20,7 @@ package org.lucee.extension.resource.s3.function;
 
 import java.io.IOException;
 
+import org.lucee.extension.resource.s3.S3Util;
 import org.lucee.extension.resource.s3.S3Resource;
 
 import lucee.loader.engine.CFMLEngine;
@@ -42,7 +43,7 @@ public class StoreSetACL extends S3Function {
 			return _call(pc, url, objACL);
 		}
 		catch (IOException e) {
-			throw CFMLEngineFactory.getInstance().getCastUtil().toPageException(e);
+			throw S3Util.toPageException(e);
 		}
 	}
 

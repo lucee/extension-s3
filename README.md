@@ -126,6 +126,7 @@ The extension also provides native `s3*()` functions for S3-specific operations:
 // buckets
 buckets = s3listBuckets();
 objects = s3listBucket("my-bucket");
+images  = s3listBucket(bucketName="my-bucket", prefix="images/"); // only keys that start with the prefix, filtered by S3
 
 // read / write
 content = s3read("my-bucket", "hello.txt");
