@@ -42,6 +42,17 @@ component  {
 	}
 
 	/**
+	 * The group used for the "array of grant structs" ACL tests of S3Copy and S3Move. That is "authenticated"
+	 * (all authenticated AWS users), except for Wasabi: Wasabi rejects that grantee with
+	 * "InvalidArgument: Grantee URI not recognized: http://acs.amazonaws.com/groups/global/AuthenticatedUsers"
+	 * (it has no AWS accounts), so there the same test runs with the group "all" (all users).
+	 * Only the group is provider specific, the grant is still set on a new bucket and read back with S3GetACL.
+	 */
+	static function grantGroup(required struct cred) {
+		return findNoCase("wasabisys.com", cred.HOST?:"") ? "all" : "authenticated";
+	}
+
+	/**
 	 * Calls fn, which has to fail, and returns the error message. Fails the test when fn does not throw.
 	 */
 	static function messageOfFailure(required function fn) {

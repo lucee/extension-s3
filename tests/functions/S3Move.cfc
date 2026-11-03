@@ -122,10 +122,11 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 				Util::waitUntilReadable(cred,srcBucketName,o.src);
 			}
 
-			// array of grant structs
+			// array of grant structs; group "all" instead of "authenticated" on Wasabi, see Util::grantGroup()
+			var grantGroup=Util::grantGroup(cred);
 			S3Move(
 				srcBucketName:srcBucketName,  srcObjectName:objects[1].src, trgBucketName:trgBucketName, trgObjectName:objects[1].trg,
-				acl:[{"group":"authenticated","permission":"READ"}],
+				acl:[{"group":grantGroup,"permission":"READ"}],
 				accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST));
 			assertFalse(S3Exists(
 				bucketName:srcBucketName,  objectName:objects[1].src,
@@ -134,7 +135,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 			var acl=S3GetACL(
 				bucketName:trgBucketName, objectName:objects[1].trg,
 				accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST));
-			assertTrue(Util::hasGrant(acl,"authenticated","READ"), "READ for authenticated users is missing: #serializeJSON(acl)#");
+			assertTrue(Util::hasGrant(acl,grantGroup,"READ"), "READ for group [#grantGroup#] is missing: #serializeJSON(acl)#");
 
 			// canned ACL
 			S3Move(
