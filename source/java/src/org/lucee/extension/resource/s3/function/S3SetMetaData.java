@@ -36,7 +36,7 @@ public class S3SetMetaData extends S3Function {
 	public Object invoke(PageContext pc, Object[] args) throws PageException {
 		CFMLEngine eng = CFMLEngineFactory.getInstance();
 		Cast cast = eng.getCastUtil();
-		if (args.length > 7 || args.length < 3) throw eng.getExceptionUtil().createFunctionException(pc, "S3SetMetaData", 3, 7, args.length);
+		if (args.length > 8 || args.length < 3) throw eng.getExceptionUtil().createFunctionException(pc, "S3SetMetaData", 3, 8, args.length);
 
 		// required
 		String bucketName = cast.toString(args[0]);
@@ -49,13 +49,14 @@ public class S3SetMetaData extends S3Function {
 		String secretAccessKey = args.length > 4 && args[4] != null ? cast.toString(args[4]) : null;
 		String host = args.length > 5 && args[5] != null ? cast.toString(args[5]) : null;
 		double timeout = args.length > 6 && !isEmpty(args[6]) ? cast.toDoubleValue(args[6]) : 0;
+		boolean merge = args.length > 7 && !isEmpty(args[7]) ? cast.toBooleanValue(args[7]) : false;
 
 		PropsAndEndpoint pae = extractFromPath(eng, bucketName, objectName, accessKeyId, secretAccessKey, host);
 
 		try {
 			// create S3 Instance
 			S3 s3 = S3.getInstance(pae.props != null ? pae.props : toS3Properties(pc, accessKeyId, secretAccessKey, host), toTimeout(timeout), pc.getConfig());
-			s3.setMetaData(pae.bucketName, pae.objectName, metadata);
+			s3.setMetaData(pae.bucketName, pae.objectName, metadata, merge);
 			return null;
 		}
 		catch (Exception e) {

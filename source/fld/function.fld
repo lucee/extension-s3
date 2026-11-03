@@ -442,6 +442,13 @@
 			<default>10000</default>
 			<description>timeout for this execution</description>
 	    </argument>
+		<argument>
+			<name>merge</name>
+			<type>boolean</type>
+			<required>No</required>
+			<default>false</default>
+			<description>If false (the default), the user metadata of the object is replaced by the given metadata. If true, the existing user metadata is kept, the given entries are added to it and replace an existing entry with the same name. The system metadata (Content-Type, Cache-Control, ...) and the ACL of the object are kept in both cases.</description>
+	    </argument>
 		<return>
 			<type>void</type>
 		</return>

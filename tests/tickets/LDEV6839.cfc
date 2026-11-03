@@ -1,6 +1,7 @@
 /**
  * LDEV-6839: s3SetMetaData() must only change the user metadata, the system metadata
- * (Content-Type, Cache-Control, ...) and the ACL of the object have to survive.
+ * (Content-Type, Cache-Control, ...) and the ACL of the object have to survive. The optional argument merge=true
+ * keeps the existing user metadata and adds the given entries to it.
  * https://luceeserver.atlassian.net/browse/LDEV-6839
  *
  * Runs against the S3 compatible server from the S3_CUSTOM_* environment variables (MinIO in the CI).
@@ -60,6 +61,59 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 				var md = s3GetMetaData( bucketNameOrPath=ctx.bucket, objectName=obj );
 				expect( md.contentType ).toBe( "text/csv" );
 				expect( md.userid ).toBe( "1" );
+			});
+
+			it( title="merge=true keeps the existing user metadata and overlays the new keys", body=function() {
+				var obj = CustomS3::key( ctx, "merge.txt" );
+				s3Write( bucketName=ctx.bucket, objectName=obj, value="hello", mimeType="text/plain" );
+				s3SetMetaData( bucketNameOrPath=ctx.bucket, objectName=obj, metadata={ "a": "1", "b": "2" } );
+
+				s3SetMetaData( bucketNameOrPath=ctx.bucket, objectName=obj, metadata={ "b": "20", "c": "3" }, merge=true );
+
+				var md = s3GetMetaData( bucketNameOrPath=ctx.bucket, objectName=obj );
+				expect( md.a ).toBe( "1" );
+				expect( md.b ).toBe( "20" );
+				expect( md.c ).toBe( "3" );
+				// the system metadata is kept as well
+				expect( md.contentType ).toInclude( "text/plain" );
+				expect( s3Read( bucketName=ctx.bucket, objectName=obj ) ).toBe( "hello" );
+			});
+
+			it( title="merge=true overlays a key independent of the case of the name", body=function() {
+				var obj = CustomS3::key( ctx, "mergecase.txt" );
+				s3Write( bucketName=ctx.bucket, objectName=obj, value="hello" );
+				s3SetMetaData( bucketNameOrPath=ctx.bucket, objectName=obj, metadata={ "user-id": "1", "keep": "x" } );
+
+				s3SetMetaData( bucketNameOrPath=ctx.bucket, objectName=obj, metadata={ "User-Id": "2" }, merge=true );
+
+				var md = s3GetMetaData( bucketNameOrPath=ctx.bucket, objectName=obj );
+				expect( md.userid ).toBe( "2" );
+				expect( md.keep ).toBe( "x" );
+			});
+
+			it( title="merge=true on an object without user metadata just sets the new ones", body=function() {
+				var obj = CustomS3::key( ctx, "mergenone.txt" );
+				s3Write( bucketName=ctx.bucket, objectName=obj, value="hello" );
+
+				s3SetMetaData( bucketNameOrPath=ctx.bucket, objectName=obj, metadata={ "a": "1" }, merge=true );
+
+				expect( s3GetMetaData( bucketNameOrPath=ctx.bucket, objectName=obj ).a ).toBe( "1" );
+			});
+
+			it( title="merge=false (and no merge argument) replaces the user metadata", body=function() {
+				var obj = CustomS3::key( ctx, "nomerge.txt" );
+				s3Write( bucketName=ctx.bucket, objectName=obj, value="hello" );
+				s3SetMetaData( bucketNameOrPath=ctx.bucket, objectName=obj, metadata={ "a": "1" } );
+
+				s3SetMetaData( bucketNameOrPath=ctx.bucket, objectName=obj, metadata={ "b": "2" }, merge=false );
+				var md = s3GetMetaData( bucketNameOrPath=ctx.bucket, objectName=obj );
+				expect( md.b ).toBe( "2" );
+				expect( md ).notToHaveKey( "a" );
+
+				s3SetMetaData( bucketNameOrPath=ctx.bucket, objectName=obj, metadata={ "c": "3" } );
+				md = s3GetMetaData( bucketNameOrPath=ctx.bucket, objectName=obj );
+				expect( md.c ).toBe( "3" );
+				expect( md ).notToHaveKey( "b" );
 			});
 
 			it( title="the ACL of the object is kept", body=function() {
