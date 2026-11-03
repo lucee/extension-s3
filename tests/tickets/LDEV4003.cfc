@@ -165,14 +165,15 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 	}
 
 	/**
-	 * directoryRename(), but with acl="private". The directoryRename() function of Lucee hardcodes the ACL
-	 * "public-read" and applies it to the new directory with s3:PutObjectAcl. Amazon buckets with "Block Public
-	 * Access" (BlockPublicAcls, the default of new buckets and the setting of the CI bucket) refuse that with
-	 * AccessDenied, which has nothing to do with the copy/move of this ticket. A private ACL is accepted, and the
-	 * directory tag is the same code (Directory.actionRename) as the function, only with the ACL as argument.
+	 * directoryRename() without the ACL step. The directoryRename() function of Lucee hardcodes the ACL "public-read"
+	 * and applies it to the new directory with s3:PutObjectAcl afterwards. The CI bucket policy does not allow that:
+	 * Block Public Access refuses public ACLs and new Amazon buckets do not allow ACLs at all
+	 * (AccessControlListNotSupported), so every directoryRename() fails on Amazon, which has nothing to do with the
+	 * copy/move of this ticket. The directory tag is the same code (Directory.actionRename) as the function, but
+	 * only sets an ACL when the attribute acl is passed, so the tag is used here (without acl).
 	 */
 	private function renameDirectory( required string source, required string destination, boolean createPath=true ) {
-		directory action="rename" directory=arguments.source newdirectory=arguments.destination createpath=arguments.createPath acl="private";
+		directory action="rename" directory=arguments.source newdirectory=arguments.destination createpath=arguments.createPath;
 	}
 
 	// the tree used in the tests: files in the root, nested sub directories and an empty directory
