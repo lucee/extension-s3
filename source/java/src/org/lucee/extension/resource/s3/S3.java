@@ -412,6 +412,14 @@ public class S3 {
 		clearRaw(rb(bucketName), maxAge);
 	}
 
+	public void delete(String bucketName, boolean force, boolean ignoreMissing) throws S3Exception {
+		deleteRaw(rb(bucketName), force, ignoreMissing);
+	}
+
+	public void delete(String bucketName, String objectName, boolean force, boolean ignoreMissing) throws S3Exception {
+		deleteRaw(rb(bucketName), objectName, force, ignoreMissing);
+	}
+
 	public void copyObject(String srcBucketName, String srcObjectName, String trgBucketName, String trgObjectName, Object acl, String targetRegion) throws S3Exception {
 		copyObjectRaw(rb(srcBucketName), srcObjectName, toRemoteBucket(trgBucketName, targetRegion), trgObjectName, acl, targetRegion);
 	}
@@ -1614,6 +1622,13 @@ public class S3 {
 	}
 
 	public void deleteRaw(String bucketName, boolean force) throws S3Exception {
+		deleteRaw(bucketName, force, false);
+	}
+
+	/**
+	 * @param ignoreMissing if true, a bucket that does not exist is not an error
+	 */
+	public void deleteRaw(String bucketName, boolean force, boolean ignoreMissing) throws S3Exception {
 		// com.amazonaws.services.s3.model.AmazonS3Exception: The bucket you tried to delete is not empty
 
 		bucketName = improveBucketName(bucketName);
@@ -1633,7 +1648,13 @@ public class S3 {
 
 		}
 		catch (AmazonServiceException se) {
+			if (ignoreMissing && "NoSuchBucket".equals(se.getErrorCode())) return;
 			throw toS3Exception(se);
+		}
+		catch (S3Exception se) {
+			// clear() reports the missing bucket as S3Exception
+			if (ignoreMissing && "NoSuchBucket".equals(se.getErrorCode())) return;
+			throw se;
 		}
 		finally {
 			client.release();
@@ -1641,8 +1662,16 @@ public class S3 {
 	}
 
 	public void deleteRaw(String bucketName, String objectName, boolean force) throws S3Exception {
+		deleteRaw(bucketName, objectName, force, false);
+	}
+
+	/**
+	 * @param ignoreMissing if true, an object (or bucket) that does not exist is not an error, like the
+	 *            DeleteObject operation of S3 itself
+	 */
+	public void deleteRaw(String bucketName, String objectName, boolean force, boolean ignoreMissing) throws S3Exception {
 		if (Util.isEmpty(objectName, true)) {
-			deleteRaw(bucketName, force);
+			deleteRaw(bucketName, force, ignoreMissing);
 			return;
 		}
 		bucketName = improveBucketName(bucketName);
@@ -1686,6 +1715,7 @@ public class S3 {
 				if (log != null) log.debug("S3", "list objects (" + sum + ") for [" + bucketName + "/" + nameFile + "]");
 			}
 			else {
+				if (ignoreMissing) return;
 				throw notFound("can't delete file/directory " + bucketName + "/" + objectName + ", file/directory does not exist", bucketName, objectName);
 			}
 
@@ -1708,7 +1738,7 @@ public class S3 {
 				// we create parent because before it maybe was a pseudi dir
 				createParentDirectory(bucketName, objectName, true);
 			}
-			else throw notFound("can't delete file/directory " + bucketName + "/" + objectName + ", file/directory does not exist", bucketName, objectName);
+			else if (!ignoreMissing) throw notFound("can't delete file/directory " + bucketName + "/" + objectName + ", file/directory does not exist", bucketName, objectName);
 		}
 		catch (AmazonServiceException se) {
 			throw toS3Exception(se);
