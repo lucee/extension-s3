@@ -83,8 +83,14 @@ public class S3Write extends S3Function {
 	}
 
 	public static Object toResource(PageContext pc, Object value) {
+		// an empty string is text (it would resolve to the current directory)
+		if (value instanceof CharSequence && value.toString().isEmpty()) return value;
 		Resource res = toResource(pc, value, true, null);
-		if (res != null) return res;
+		if (res != null) {
+			// a string is only a file when it names an existing file, a directory can not be written as an object
+			if (value instanceof CharSequence && !res.isFile()) return value;
+			return res;
+		}
 		return value;
 	}
 
