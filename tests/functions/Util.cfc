@@ -71,6 +71,29 @@ component  {
 	}
 
 	/**
+	 * S3ListBucket that retries while AWS still answers NoSuchBucket for a bucket that does exist (listing of a freshly
+	 * created bucket, also right after S3ClearBucket, can be served by a node that does not know the bucket yet).
+	 * Any other error is rethrown at once, a bucket that really does not exist is rethrown after timeoutMs.
+	 */
+	static function listBucketRetry(cred,bucketName,timeoutMs=30000) {
+		var start=getTickCount();
+		var pause=100;
+		while(true) {
+			try {
+				return S3ListBucket( 
+					bucketName:bucketName, 
+					accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST));
+			}
+			catch(e) {
+				var msg=(e.message?:"")&" "&(e.detail?:"");
+				if(!findNoCase("NoSuchBucket",msg) || (getTickCount()-start+pause)>timeoutMs) rethrow;
+			}
+			sleep(pause);
+			pause=min(pause*2,2000);
+		}
+	}
+
+	/**
 	 * true when the ACL (array of structs as returned by S3GetACL) contains a grant of the given
 	 * permission to the given group, for example hasGrant(acl,"authenticated","READ")
 	 */
