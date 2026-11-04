@@ -1893,7 +1893,9 @@ public class S3 {
 				versions = client.listVersions(new ListVersionsRequest().withBucketName(bucketName));
 			}
 			catch (AmazonServiceException ase) {
-				if (!"NoSuchBucket".equals(ase.getErrorCode())) {
+				// NoSuchBucket: nothing to delete. NotImplemented: the server (for example older MinIO) can not list versions,
+				// so it has no versions to delete beyond the objects removed above.
+				if (!"NoSuchBucket".equals(ase.getErrorCode()) && !"NotImplemented".equals(ase.getErrorCode()) && ase.getStatusCode() != 501) {
 					throw ase;
 				}
 			}
