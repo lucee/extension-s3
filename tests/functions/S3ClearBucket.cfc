@@ -48,7 +48,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 
 			S3ClearBucket(bucketName:bucketName, accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY,host:(isNull(cred.HOST)?nullvalue():cred.HOST));
 			
-			var kids=S3ListBucket(bucketName:bucketName, accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY,host:(isNull(cred.HOST)?nullvalue():cred.HOST));
+			// the bucket still exists, AWS can answer NoSuchBucket for a moment (retry only on that)
+			var kids=Util::listBucketRetry(cred,bucketName);
 			assertTrue(kids.recordcount==0);
 		}
 		catch(e) {
