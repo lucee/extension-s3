@@ -89,6 +89,8 @@ import lucee.runtime.util.Creation;
 import lucee.runtime.util.Strings;
 
 public class S3 {
+	private static final String USER_METADATA_PREFIX = "x-amz-meta-";
+
 	private static final short CHECK_EXISTS = 1;
 	private static final short CHECK_IS_DIR = 2;
 	private static final short CHECK_IS_FILE = 4;
@@ -1265,9 +1267,12 @@ public class S3 {
 			catch (Exception e) {
 				if (e instanceof AmazonS3Exception) {
 					AmazonS3Exception ase = (AmazonS3Exception) e;
-					if ("NoSuchBucket".equals(ase.getErrorCode()) || "404".equals(ase.getStatusCode())) return null;
+					if ("NoSuchBucket".equals(ase.getErrorCode()) || ase.getStatusCode() == 404) return null;
 				}
+				// LDEV-6680 any other problem (pool timeout, no response, ...) does not mean the object is missing,
+				// so we do not answer "does not exist" and we never cache it as NotExisting
 				if (log != null) log.error("s3", e);
+				throw toS3Exception(e);
 			}
 
 			/* Recursively delete all the objects inside given bucket */
@@ -2225,7 +2230,7 @@ public class S3 {
 			String key;
 			while (it.hasNext()) {
 				e = it.next();
-				key = toMetaDataKey(e.getKey());
+				key = toMetaDataKey(removeMetaDataPrefix(e.getKey()));
 				if ("Content-Type".equals(key)) newMetadata.setContentType(e.getValue());
 				else if ("Content-Disposition".equals(key)) newMetadata.setContentDisposition(e.getValue());
 				else if ("Content-Encoding".equals(key)) newMetadata.setContentEncoding(e.getValue());
@@ -2333,6 +2338,18 @@ public class S3 {
 		else if (!other && allRead && !allWrite && !authRead) return CannedAccessControlList.PublicRead;
 		else if (!other && authRead && !allRead && !allWrite) return CannedAccessControlList.AuthenticatedRead;
 		return acl;
+	}
+
+	/**
+	 * The SDK adds the prefix "x-amz-meta-" to the name of every user metadata entry when it sends it, so
+	 * a name that already has the prefix (as header name) would get it twice.
+	 */
+	private static String removeMetaDataPrefix(String key) throws S3Exception {
+		if (key != null && key.regionMatches(true, 0, USER_METADATA_PREFIX, 0, USER_METADATA_PREFIX.length())) {
+			key = key.substring(USER_METADATA_PREFIX.length());
+			if (key.trim().isEmpty()) throw new S3Exception("the name of a metadata entry cannot be empty, it is only the prefix [" + USER_METADATA_PREFIX + "]");
+		}
+		return key;
 	}
 
 	private String toMetaDataKey(String key) {
