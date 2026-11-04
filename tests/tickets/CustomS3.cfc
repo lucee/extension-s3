@@ -82,4 +82,59 @@ component {
 			systemOutput( "CustomS3 cleanup failed: " & e.message, true );
 		}
 	}
+
+	/**
+	 * enables the versioning of the bucket of the context (the extension has no function to change it)
+	 * @return the http status code, 200 when the server supports versioning (MinIO only does in some setups)
+	 */
+	static numeric function enableVersioning( required struct ctx ) {
+		var body = '<VersioningConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Status>Enabled</Status></VersioningConfiguration>';
+		return CustomS3::signedRequest( ctx, "PUT", "/" & ctx.bucket, "versioning=", body ).status_code;
+	}
+
+	// ---- the extension has no function to change the versioning of a bucket, so the (few) requests
+	// needed for the tests are sent signed (AWS Signature Version 4) with cfhttp
+
+	static struct function signedRequest( required struct ctx, required string method, required string path, string query="", string body="" ) {
+		var cred = ctx.cred;
+		var local_ = reFindNoCase( "^(localhost|127\.0\.0\.1)(:|$)", cred.HOST ) > 0;
+		var host = reReplaceNoCase( cred.HOST, "^https?://", "" );
+		var scheme = local_ || left( cred.HOST, 7 ) == "http://" ? "http" : "https";
+		var region = len( cred.REGION ) ? cred.REGION : "us-east-1";
+		if ( !len( cred.REGION ) && reFindNoCase( "^s3\.([a-z0-9-]+)\.wasabisys\.com$", host ) ) {
+			region = reReplaceNoCase( host, "^s3\.([a-z0-9-]+)\.wasabisys\.com$", "\1" );
+		}
+
+		var now_ = dateConvert( "local2Utc", now() );
+		var amzDate = dateTimeFormat( now_, "yyyyMMdd'T'HHnnss'Z'" );
+		var day = dateTimeFormat( now_, "yyyyMMdd" );
+		var payloadHash = lcase( hash( body, "SHA-256", "utf-8" ) );
+
+		var canonicalHeaders = "host:" & host & chr( 10 ) & "x-amz-content-sha256:" & payloadHash & chr( 10 ) & "x-amz-date:" & amzDate & chr( 10 );
+		var signedHeaders = "host;x-amz-content-sha256;x-amz-date";
+		var canonical = method & chr( 10 ) & path & chr( 10 ) & query & chr( 10 ) & canonicalHeaders & chr( 10 ) & signedHeaders & chr( 10 ) & payloadHash;
+		var scope = day & "/" & region & "/s3/aws4_request";
+		var toSign = "AWS4-HMAC-SHA256" & chr( 10 ) & amzDate & chr( 10 ) & scope & chr( 10 ) & lcase( hash( canonical, "SHA-256", "utf-8" ) );
+
+		var kDate = CustomS3::hmacBinary( "AWS4" & cred.SECRET_KEY, day );
+		var kRegion = CustomS3::hmacBinary( kDate, region );
+		var kService = CustomS3::hmacBinary( kRegion, "s3" );
+		var kSigning = CustomS3::hmacBinary( kService, "aws4_request" );
+		var signature = lcase( binaryEncode( CustomS3::hmacBinary( kSigning, toSign ), "hex" ) );
+
+		var auth = "AWS4-HMAC-SHA256 Credential=" & cred.ACCESS_KEY_ID & "/" & scope & ", SignedHeaders=" & signedHeaders & ", Signature=" & signature;
+		var reqUrl = scheme & "://" & host & path & ( len( query ) ? "?" & query : "" );
+		http method=method url=reqUrl result="local.rsp" timeout=30 {
+			httpparam type="header" name="x-amz-date" value=amzDate;
+			httpparam type="header" name="x-amz-content-sha256" value=payloadHash;
+			httpparam type="header" name="Authorization" value=auth;
+			if ( len( body ) ) httpparam type="body" value=body;
+		}
+		return rsp;
+	}
+
+	static binary function hmacBinary( required any key, required string message ) {
+		return binaryDecode( hmac( message, key, "HmacSHA256", "utf-8" ), "hex" );
+	}
+
 }
