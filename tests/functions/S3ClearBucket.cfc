@@ -40,6 +40,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 
 			// the bucket was created by S3Write, AWS can answer NoSuchBucket for a short time afterwards
 			Util::waitUntilReadable(cred,bucketName,objectName);
+			// S3ListBucket can still answer NoSuchBucket for a moment after the object could be read
+			Util::waitUntilListable(cred,bucketName);
 
 			var kids=S3ListBucket(bucketName:bucketName, accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY,host:(isNull(cred.HOST)?nullvalue():cred.HOST));
 			assertTrue(kids.recordcount>0);

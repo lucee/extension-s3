@@ -22,42 +22,44 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 	function run( testResults , testBox ) {
 		describe( title="Test suite for ACL funcions", body=function() {
 			
-		// AWS
-			/*it(title="check with amazon add acl for bucket store style",skip=Util::isAWSNotSupported(), body = function( currentSpec ) {
+		// AWS: skipped on purpose. These specs grant the "authenticated" group (AuthenticatedUsers) and Amazon refuses that on the
+		// CI buckets: "s3:PutBucketAcl ... public ACLs are prevented by the BlockPublicAcls setting in S3 Block Public Access"
+		// (AccessDenied, verified in the CI run of LDEV-6858). Enable them again when the CI bucket/account allows public ACLs.
+			it(title="check with amazon add acl for bucket store style",skip=true, body = function( currentSpec ) {
 				var cred=Util::getAWSCredentials();
 				if(!setup(cred)) return;
 				testStoreAddACLBucketStore(cred);
 			});	
 	
-			it(title="check with amazon add acl for bucket s3 style",skip=Util::isAWSNotSupported(), body = function( currentSpec ) {
+			it(title="check with amazon add acl for bucket s3 style",skip=true, body = function( currentSpec ) {
 				var cred=Util::getAWSCredentials();
 				if(!setup(cred)) return;
 				testStoreAddACLBucketS3(cred);
 			});	
 
-			it(title="check with amazon set acl for bucket store style",skip=Util::isAWSNotSupported(), body = function( currentSpec ) {
+			it(title="check with amazon set acl for bucket store style",skip=true, body = function( currentSpec ) {
 				var cred=Util::getAWSCredentials();
 				if(!setup(cred)) return;
 				testStoreSetACLBucketStore(cred);
 			});	
 			
-			it(title="check with amazon set acl for bucket s3 style",skip=Util::isAWSNotSupported(), body = function( currentSpec ) {
+			it(title="check with amazon set acl for bucket s3 style",skip=true, body = function( currentSpec ) {
 				var cred=Util::getAWSCredentials();
 				if(!setup(cred)) return;
 				testStoreSetACLBucketS3(cred);
 			});	
 
-			it(title="check with amazon add acl for object store style",skip=Util::isAWSNotSupported(), body = function( currentSpec ) {
+			it(title="check with amazon add acl for object store style",skip=true, body = function( currentSpec ) {
 				var cred=Util::getAWSCredentials();
 				if(!setup(cred)) return;
 				testStoreAddACLObjectStore(cred);
 			});	
 
-			it(title="check with amazon add acl for object s3 style",skip=Util::isAWSNotSupported(), body = function( currentSpec ) {
+			it(title="check with amazon add acl for object s3 style",skip=true, body = function( currentSpec ) {
 				var cred=Util::getAWSCredentials();
 				if(!setup(cred)) return;
 				testStoreAddACLObjectS3(cred);
-			});	*/
+			});	
 		
 		// Blackbaze
 			it(title="check with Blackbaze add acl for bucket store style",skip=Util::isBackBlazeNotSupported(), body = function( currentSpec ) {
