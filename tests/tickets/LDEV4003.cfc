@@ -6,6 +6,9 @@
  * directory on the S3 side, with an older Lucee (or when the case is not supported, for example a
  * filter) Lucee does it object by object. The result has to be the same in all cases, that is what
  * these tests check.
+ *
+ * Runs against Amazon S3 if the credentials are set, otherwise against the S3 compatible server of the
+ * S3_CUSTOM_* environment variables (MinIO in the CI), see CustomS3.cfc.
  */
 component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 
@@ -15,14 +18,23 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 
 			beforeEach( function() {
 				variables.cred = getCredentials();
-				variables.bucket = "ldev4003-" & lcase( left( createUUID(), 8 ) ) & "-" & listFirst( replace( server.lucee.version, ".", "", "all" ), "-" );
-				var s3settings = buildS3Settings( cred );
-				application action="update" s3=s3settings;
-				directoryCreate( s3p( "" ) );
+				if ( structIsEmpty( variables.cred ) ) {
+					// no Amazon credentials: run against the S3 compatible server (MinIO in the CI), the bucket is created by prepare()
+					variables.custom = CustomS3::prepare( "4003" );
+					variables.bucket = custom.bucket;
+				}
+				else {
+					structDelete( variables, "custom" );
+					variables.bucket = "ldev4003-" & lcase( left( createUUID(), 8 ) ) & "-" & listFirst( replace( server.lucee.version, ".", "", "all" ), "-" );
+					var s3settings = buildS3Settings( cred );
+					application action="update" s3=s3settings;
+					directoryCreate( s3p( "" ) );
+				}
 			});
 
 			afterEach( function() {
-				deleteBucketEL( cred, bucket );
+				if ( !isNull( variables.custom ) ) CustomS3::cleanup( variables.custom );
+				else deleteBucketEL( cred, bucket );
 				if ( !isNull( variables.bucket2 ) ) deleteBucketEL( cred, variables.bucket2 );
 				structDelete( variables, "bucket2" );
 			});
@@ -214,8 +226,10 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 		return settings;
 	}
 
+	// Amazon S3, or the S3 compatible server of the CI (without a fixed bucket, the tests need buckets of their own)
 	private boolean function isNotSupported() {
-		return structIsEmpty( getCredentials() );
+		if ( !structIsEmpty( getCredentials() ) ) return false;
+		return !CustomS3::isSupported() || len( CustomS3::getCredentials().BUCKET ) > 0;
 	}
 
 	// same credentials the other tests of this extension use (Amazon S3)
@@ -229,6 +243,11 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 
 	private function deleteBucketEL( required struct cred, required string bucketName ) {
 		var bucketPath = "s3:///" & bucketName;
-		if ( directoryExists( bucketPath ) ) directoryDelete( bucketPath, true );
+		try {
+			if ( directoryExists( bucketPath ) ) directoryDelete( bucketPath, true );
+		}
+		catch ( any e ) {
+			systemOutput( "LDEV4003 cleanup of " & bucketName & " failed: " & e.message, true );
+		}
 	}
 }
