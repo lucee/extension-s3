@@ -21,6 +21,8 @@ Sorglos";
 							bucketName=bucketName,  objectName=objectName, 
 							accessKeyId=cred.ACCESS_KEY_ID, secretAccessKey=cred.SECRET_KEY, host=(isNull(cred.HOST)?nullvalue():cred.HOST));
 					}
+					// a freshly created bucket is not always visible right away (NoSuchBucket), wait until the object can be read
+					Util::waitUntilReadable(cred,bucketName,objectName);
 					arguments.spec.body({bucketName:bucketName,cred:cred});
 				}	
 				finally {
