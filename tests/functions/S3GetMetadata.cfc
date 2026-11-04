@@ -41,6 +41,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 					bucketName:bucketName,  objectName:objectName, 
 					accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST));
 			}
+			// a freshly created bucket is not always visible right away (NoSuchBucket), wait until the object can be read
+			Util::waitUntilReadable(cred,bucketName,objectName);
 
 			var meta=S3GetMetadata( 
 				bucketName:bucketName,  objectName:objectName, 

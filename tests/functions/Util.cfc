@@ -5,7 +5,44 @@ component  {
 		return "ldev-"&lcase(name)&"-"&listFirst(replace(server.lucee.version,".","","all"),"-")&"-"&lcase(left(createUUID(),5));
 	}
 
+	/**
+	 * A freshly created bucket/object is not always visible right away (AWS answers NoSuchBucket/NoSuchKey
+	 * for a short time after the bucket was created by S3Write), and the answer can differ from one request
+	 * to the next while the change propagates. So a single successful read is not enough: the object has to
+	 * be readable AND the bucket listable for "consecutive" rounds in a row (a failed round starts counting
+	 * again). Polls with a short backoff, gives up after timeoutMs and rethrows the last error. Any other
+	 * error is rethrown at once.
+	 */
+	static function waitUntilReadable(cred,bucketName,objectName,timeoutMs=30000,consecutive=3) {
+		var start=getTickCount();
+		var pause=100;
+		var okInARow=0;
+		while(true) {
+			try {
+				S3ReadBinary( 
+					bucketName:bucketName,  objectName:objectName, 
+					accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST));
+				// listing is a different request than reading, the clear/delete bucket tests depend on it
+				S3ListBucket(bucketName:bucketName, accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST));
+				okInARow++;
+				if(okInARow>=consecutive) return getTickCount()-start;
+				sleep(200);
+				continue;
+			}
+			catch(e) {
+				okInARow=0;
+				var msg=(e.message?:"")&" "&(e.detail?:"");
+				var notYetVisible=findNoCase("NoSuchBucket",msg) || findNoCase("NoSuchKey",msg);
+				if(!notYetVisible || (getTickCount()-start+pause)>timeoutMs) rethrow;
+			}
+			sleep(pause);
+			pause=min(pause*2,2000);
+		}
+	}
+
 	static function deleteBucketEL(cred,bucketName,objectName) {
+		// callers pass "s3://name" or "name"; S3Exists/S3Delete need the plain bucket name
+		if(left(bucketName,5)=="s3://") arguments.bucketName=mid(bucketName,6);
 		try {
 			if(S3Exists( 
 				bucketName:bucketName,  objectName:objectName?:nullValue(), 
