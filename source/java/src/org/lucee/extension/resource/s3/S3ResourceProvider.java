@@ -262,6 +262,9 @@ public final class S3ResourceProvider implements ResourceProvider {
 					defaultLocation = prop.getDefaultLocation();
 					defaultACL = prop.getACL();
 					properties.setHttpPool(prop.getHttpPool());
+					// the ssl and pathStyleAccess of the mapping belong to its host, they win over the ones of this.s3 and the environment
+					if (prop.getPathStyleAccess() != null) pathStyleAccess = prop.getPathStyleAccess();
+					if (prop.getSsl() != null) ssl = prop.getSsl();
 					defaultLocation = S3Util.extractLocationFromHostIfNecessary(defaultLocation, host);
 
 				}
