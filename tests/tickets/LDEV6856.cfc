@@ -148,7 +148,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 
 			it( title="SSE-S3: the object is stored with AES256 when the header of the presigned URL is sent", body=function() {
 				var rsp = put( url( { sseAlgorithm: "AES256" } ), "sse-s3", { "x-amz-server-side-encryption": "AES256" } );
-				expect( rsp.statusCode ).toBe( 200, rsp.statusCode & " " & rsp.fileContent );
+				expect( val( rsp.statusCode ) ).toBe( 200, rsp.statusCode & " " & rsp.fileContent );
 				Util::waitUntilReadable( cred, bucketName, obj );
 				expect( header( meta(), "x-amz-server-side-encryption" ) ).toBe( "AES256" );
 				expect( s3Read( bucketName=bucketName, objectName=obj, accessKeyId=cred.ACCESS_KEY_ID, secretAccessKey=cred.SECRET_KEY ) ).toBe( "sse-s3" );
@@ -156,13 +156,13 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 
 			it( title="SSE-S3: the upload is refused without the signed header", body=function() {
 				var rsp = put( url( { sseAlgorithm: "AES256" } ), "no-header", {} );
-				expect( rsp.statusCode ).notToBe( 200 );
+				expect( val( rsp.statusCode ) ).notToBe( 200 );
 				expect( s3Exists( bucketName=bucketName, objectName=obj, accessKeyId=cred.ACCESS_KEY_ID, secretAccessKey=cred.SECRET_KEY ) ).toBeFalse();
 			});
 
 			it( title="SSE-KMS: the object is stored with aws:kms", body=function() {
 				var rsp = put( url( { sseAlgorithm: "KMS" } ), "sse-kms", { "x-amz-server-side-encryption": "aws:kms" } );
-				expect( rsp.statusCode ).toBe( 200, rsp.statusCode & " " & rsp.fileContent );
+				expect( val( rsp.statusCode ) ).toBe( 200, rsp.statusCode & " " & rsp.fileContent );
 				Util::waitUntilReadable( cred, bucketName, obj );
 				expect( header( meta(), "x-amz-server-side-encryption" ) ).toBe( "aws:kms" );
 			});
@@ -172,12 +172,12 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 				var bad = toBase64( binaryDecode( hash( "something else", "md5" ), "hex" ) );
 
 				var rsp = put( url( { checksum: bad } ), "checksum content", { "Content-MD5": bad } );
-				expect( rsp.statusCode ).toBe( 400, "the content does not match the checksum: " & rsp.statusCode & " " & rsp.fileContent );
+				expect( val( rsp.statusCode ) ).toBe( 400, "the content does not match the checksum: " & rsp.statusCode & " " & rsp.fileContent );
 				expect( rsp.fileContent ).toInclude( "BadDigest" );
 				expect( s3Exists( bucketName=bucketName, objectName=obj, accessKeyId=cred.ACCESS_KEY_ID, secretAccessKey=cred.SECRET_KEY ) ).toBeFalse();
 
 				rsp = put( url( { checksum: good } ), "checksum content", { "Content-MD5": good } );
-				expect( rsp.statusCode ).toBe( 200, rsp.statusCode & " " & rsp.fileContent );
+				expect( val( rsp.statusCode ) ).toBe( 200, rsp.statusCode & " " & rsp.fileContent );
 				Util::waitUntilReadable( cred, bucketName, obj );
 				expect( s3Read( bucketName=bucketName, objectName=obj, accessKeyId=cred.ACCESS_KEY_ID, secretAccessKey=cred.SECRET_KEY ) ).toBe( "checksum content" );
 			});
