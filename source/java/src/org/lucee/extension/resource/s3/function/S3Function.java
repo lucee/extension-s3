@@ -122,7 +122,7 @@ public abstract class S3Function extends BIF {
 	}
 
 	public boolean isEmpty(Object object) {
-		if (object instanceof CharSequence) Util.isEmpty(object.toString(), true);
+		if (object instanceof CharSequence) return Util.isEmpty(object.toString(), true);
 		return object == null;
 	}
 
