@@ -23,6 +23,7 @@ import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import org.lucee.extension.resource.s3.S3;
 import org.lucee.extension.resource.s3.ObjectOptions;
 import org.lucee.extension.resource.s3.S3Exception;
 import org.lucee.extension.resource.s3.S3HttpPoolSettings;
@@ -218,6 +219,7 @@ public abstract class S3Function extends BIF {
 			}
 			props.setCustomCredentials(true);
 			props.setHttpPool(S3HttpPoolSettings.fromEnv());
+			applyConnectionSettings(pc, props);
 			applyBucketSuffix(pc, props);
 			return props;
 		}
@@ -285,6 +287,42 @@ public abstract class S3Function extends BIF {
 		applyBucketSuffix(pc, props);
 
 		return props;
+	}
+
+	/**
+	 * credentials passed as arguments overrule the ones of Application.cfc, but the connection settings
+	 * ssl and pathStyleAccess of the application still apply, as long as the application does not define
+	 * another host (those settings then belong to another server).
+	 */
+	protected static void applyConnectionSettings(PageContext pc, S3Properties props) {
+		if (pc == null) return;
+		try {
+			Struct appData = S3Properties.getApplicationData(pc);
+			if (appData == null) return;
+			S3Properties app = S3Properties.load(pc, appData, null);
+			if (app == null) return;
+			// the default host is what the application gets when it does not define one
+			String appHost = app.getHost();
+			if (!Util.isEmpty(appHost, true) && !S3.DEFAULT_HOST.equalsIgnoreCase(appHost.trim()) && !sameHost(appHost, props.getHost())) return;
+			if (props.getSsl() == null && app.getSsl() != null) props.setSsl(app.getSsl());
+			if (props.getPathStyleAccess() == null && app.getPathStyleAccess() != null) props.setPathStyleAccess(app.getPathStyleAccess());
+		}
+		catch (Exception e) {
+			// settings of the application that can not be read are ignored, same as for the credentials
+		}
+	}
+
+	private static boolean sameHost(String a, String b) {
+		return normalizeHost(a).equals(normalizeHost(b));
+	}
+
+	private static String normalizeHost(String host) {
+		if (host == null) return "";
+		host = host.trim().toLowerCase();
+		int index = host.indexOf("://");
+		if (index != -1) host = host.substring(index + 3);
+		while (host.endsWith("/")) host = host.substring(0, host.length() - 1);
+		return host;
 	}
 
 	/**
