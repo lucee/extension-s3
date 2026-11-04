@@ -7,7 +7,25 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.extract-version.outputs.VERSION }}
+      publish: ${{ steps.publish.outputs.PUBLISH }}
     steps:
+      # Only pushes and manual runs on master/main, a version branch (1.0, 2.0, ...) or release/* may
+      # publish (deploy). Feature and PR branches only build and test.
+      - name: Decide whether this run may publish
+        id: publish
+        env:
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+        run: |
+          PUBLISH=false
+          if [[ "$EVENT" == "push" || "$EVENT" == "workflow_dispatch" ]]; then
+            BRANCH="${REF#refs/heads/}"
+            if [[ "$REF" == refs/heads/* ]] && [[ "$BRANCH" == "master" || "$BRANCH" == "main" || "$BRANCH" =~ ^[0-9]+(\.[0-9]+)*$ || "$BRANCH" == release/* ]]; then
+              PUBLISH=true
+            fi
+          fi
+          echo "event=${EVENT} ref=${REF} publish=${PUBLISH}"
+          echo "PUBLISH=${PUBLISH}" >> "$GITHUB_OUTPUT"
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -104,7 +122,12 @@ jobs:
           repository: lucee/lucee
           path: lucee
 
-      - name: Run Lucee Test Suite
+      # Lucee's bootstrap-tests.cfm has a hard 10 minute request timeout, so the suite is split over two
+      # script-runner steps (each starts its own Lucee). testFilter is a comma separated list of strings that
+      # must be contained in the spec path below the tests directory (tests/functions, tests/tickets, ...).
+      # "extension" is the s3 labelled spec in the Lucee core test suite (test/extension/S3.cfc).
+      # A new top level folder under tests/ must be added to one of the two filters, or it is not run.
+      - name: Run Lucee Test Suite (functions)
         uses: lucee/script-runner@main
         with:
           webroot: ${{ github.workspace }}/lucee/test
@@ -115,11 +138,28 @@ jobs:
         env:
           testLabels: s3
           testAdditional: ${{ github.workspace }}/tests
+          testFilter: functions
+
+      # always run, so a failure in the first step does not hide the results of the second
+      - name: Run Lucee Test Suite (tickets, general, vfs, core)
+        if: ${{ !cancelled() }}
+        uses: lucee/script-runner@main
+        with:
+          webroot: ${{ github.workspace }}/lucee/test
+          execute: /bootstrap-tests.cfm
+          luceeVersion: ${{ matrix.lucee.version }}
+          luceeVersionQuery: ${{ matrix.lucee.query }}
+          extensionDir: ${{ github.workspace }}/target
+        env:
+          testLabels: s3
+          testAdditional: ${{ github.workspace }}/tests
+          testFilter: tickets,general,vfs,extension
 
   deploy:
     runs-on: ubuntu-latest
-    needs: [build-and-test]
-    if: always() && needs.build-and-test.result == 'success'
+    needs: [setup, build-and-test]
+    # pull requests and feature branches only build and test
+    if: always() && needs.build-and-test.result == 'success' && needs.setup.outputs.publish == 'true'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
