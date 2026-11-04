@@ -8,22 +8,58 @@ component  {
 	/**
 	 * A freshly created bucket/object is not always visible right away (AWS answers NoSuchBucket/NoSuchKey
 	 * for a short time after the bucket was created by S3Write). Polls with a short backoff until the object
-	 * can be read, gives up after timeoutMs and rethrows the last error. Any other error is rethrown at once.
+	 * can be read (consecutive times in a row, a single success was not enough on AWS), gives up after timeoutMs and rethrows the last error. Any other error is rethrown at once.
 	 */
-	static function waitUntilReadable(cred,bucketName,objectName,timeoutMs=30000) {
+	static function waitUntilReadable(cred,bucketName,objectName,timeoutMs=30000,consecutive=3) {
 		var start=getTickCount();
 		var pause=100;
+		var hits=0;
 		while(true) {
 			try {
 				S3ReadBinary( 
 					bucketName:bucketName,  objectName:objectName, 
 					accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST));
-				return getTickCount()-start;
+				// the answer can come from another node than the next call: only trust a run of consecutive successes
+				hits++;
+				if(hits>=arguments.consecutive) return getTickCount()-start;
+				sleep(200);
+				continue;
 			}
 			catch(e) {
+				hits=0;
 				var msg=(e.message?:"")&" "&(e.detail?:"");
 				var notYetVisible=findNoCase("NoSuchBucket",msg) || findNoCase("NoSuchKey",msg);
 				if(!notYetVisible || (getTickCount()-start+pause)>timeoutMs) rethrow;
+			}
+			sleep(pause);
+			pause=min(pause*2,2000);
+		}
+	}
+
+	/**
+	 * Same as waitUntilReadable, but for listing: AWS can serve the listing of a freshly created bucket from another
+	 * node than the read of an object, so a successful S3ReadBinary does not mean S3ListBucket already finds the bucket.
+	 * Polls S3ListBucket until it no longer answers NoSuchBucket, gives up after timeoutMs and rethrows the last error.
+	 */
+	static function waitUntilListable(cred,bucketName,timeoutMs=30000,consecutive=3) {
+		var start=getTickCount();
+		var pause=100;
+		var hits=0;
+		while(true) {
+			try {
+				S3ListBucket( 
+					bucketName:bucketName, 
+					accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST));
+				// the answer can come from another node than the next call: only trust a run of consecutive successes
+				hits++;
+				if(hits>=arguments.consecutive) return getTickCount()-start;
+				sleep(200);
+				continue;
+			}
+			catch(e) {
+				hits=0;
+				var msg=(e.message?:"")&" "&(e.detail?:"");
+				if(!findNoCase("NoSuchBucket",msg) || (getTickCount()-start+pause)>timeoutMs) rethrow;
 			}
 			sleep(pause);
 			pause=min(pause*2,2000);
@@ -104,8 +140,9 @@ component  {
 		var SECRET_KEY=server.system.environment.S3_AMAZON_SECRET_KEY?:nullValue();
 		if(isNull(SECRET_KEY) || isEmpty(SECRET_KEY)) return {};
 		
-		var PREFIX=server.system.environment.S3_AMAZON_BUCKET_PREFIX?:nullValue();
-		if(isNull(PREFIX) || isEmpty(PREFIX)) local.prefix="ldev";
+		// without S3_AMAZON_BUCKET_PREFIX the prefix falls back to "ldev", it must never be returned as null
+		var PREFIX=server.system.environment.S3_AMAZON_BUCKET_PREFIX?:"ldev";
+		if(isEmpty(PREFIX)) PREFIX="ldev";
 
 		return {ACCESS_KEY_ID:ACCESS_KEY_ID,SECRET_KEY:SECRET_KEY,PREFIX:PREFIX};
 	}
@@ -133,25 +170,6 @@ component  {
 		return {ACCESS_KEY_ID:ACCESS_KEY_ID,SECRET_KEY:SECRET_KEY,HOST:HOST,PREFIX:PREFIX};
 	}
 
-	public static boolean function isWasabiNotSupported() {
-		res= getWasabiCredentials();
-		return isNull(res) || len(res)==0;
-	}
-	public static struct function getWasabiCredentials() {
-		var ACCESS_KEY_ID=server.system.environment.S3_WASABI_ACCESS_KEY_ID?:nullValue();
-		if(isNull(ACCESS_KEY_ID) || isEmpty(ACCESS_KEY_ID)) return {};
-		
-		var SECRET_KEY=server.system.environment.S3_WASABI_SECRET_KEY?:nullValue();
-		if(isNull(SECRET_KEY) || isEmpty(SECRET_KEY)) return {};
-		
-		var HOST=server.system.environment.S3_WASABI_HOST?:nullValue();
-		if(isNull(HOST) || isEmpty(HOST)) return {};
-		
-		var PREFIX=server.system.environment.S3_WASABI_BUCKET_PREFIX?:nullValue();
-		if(isNull(PREFIX) || isEmpty(PREFIX)) return {};
-
-		return {ACCESS_KEY_ID:ACCESS_KEY_ID,SECRET_KEY:SECRET_KEY,HOST:HOST,PREFIX:PREFIX};
-	}
 	public static boolean function isWasabiNotSupported() {
 		res= getWasabiCredentials();
 		return isNull(res) || len(res)==0;
