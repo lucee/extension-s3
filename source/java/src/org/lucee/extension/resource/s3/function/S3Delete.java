@@ -16,6 +16,11 @@ public class S3Delete extends S3Function {
 
 	public static Object call(PageContext pc, String bucketName, String objectName, boolean force, String accessKeyId, String secretAccessKey, String host, double timeout)
 			throws PageException {
+		return call(pc, bucketName, objectName, force, accessKeyId, secretAccessKey, host, timeout, false);
+	}
+
+	public static Object call(PageContext pc, String bucketName, String objectName, boolean force, String accessKeyId, String secretAccessKey, String host, double timeout,
+			boolean ignoreMissing) throws PageException {
 
 		CFMLEngine eng = CFMLEngineFactory.getInstance();
 		// for backward compatibility, when host was not existing
@@ -25,8 +30,8 @@ public class S3Delete extends S3Function {
 		}
 		try {
 			S3 s3 = S3.getInstance(toS3Properties(pc, accessKeyId, secretAccessKey, host), toTimeout(timeout), pc.getConfig());
-			if (Util.isEmpty(objectName, true)) s3.delete(bucketName, force);
-			else s3.delete(bucketName, objectName, force);
+			if (Util.isEmpty(objectName, true)) s3.delete(bucketName, force, ignoreMissing);
+			else s3.delete(bucketName, objectName, force, ignoreMissing);
 			return null;
 		}
 		catch (Exception e) {
@@ -38,6 +43,8 @@ public class S3Delete extends S3Function {
 	public Object invoke(PageContext pc, Object[] args) throws PageException {
 		CFMLEngine engine = CFMLEngineFactory.getInstance();
 		Cast cast = engine.getCastUtil();
+		if (args.length == 8) return call(pc, cast.toString(args[0]), cast.toString(args[1]), cast.toBooleanValue(args[2]), cast.toString(args[3]), cast.toString(args[4]),
+				cast.toString(args[5]), cast.toDoubleValue(args[6]), args[7] != null && cast.toBooleanValue(args[7]));
 		if (args.length == 7) return call(pc, cast.toString(args[0]), cast.toString(args[1]), cast.toBooleanValue(args[2]), cast.toString(args[3]), cast.toString(args[4]),
 				cast.toString(args[5]), cast.toDoubleValue(args[6]));
 		if (args.length == 6) return call(pc, cast.toString(args[0]), cast.toString(args[1]), cast.toBooleanValue(args[2]), cast.toString(args[3]), cast.toString(args[4]),
@@ -49,6 +56,6 @@ public class S3Delete extends S3Function {
 		if (args.length == 2) return call(pc, cast.toString(args[0]), cast.toString(args[1]), true, null, null, null, 0);
 		if (args.length == 1) return call(pc, cast.toString(args[0]), null, true, null, null, null, 0);
 
-		throw engine.getExceptionUtil().createFunctionException(pc, "S3Delete", 1, 7, args.length);
+		throw engine.getExceptionUtil().createFunctionException(pc, "S3Delete", 1, 8, args.length);
 	}
 }
