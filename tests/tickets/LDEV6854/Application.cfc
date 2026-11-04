@@ -10,9 +10,12 @@ component {
 
 	env = server.system.environment;
 
-	// this version of the extension has no "ssl" setting, a local server (plain http) is addressed with the scheme in the host
+	// this version of the extension has no "ssl" / "pathStyleAccess" setting: a local server (plain http) is addressed with
+	// the scheme in the host. The AWS SDK addresses the buckets virtual hosted (bucket.localhost) except for an IP
+	// address, the self hosted server does not serve that (the bucket is not found, exists() answers false),
+	// so "localhost" is replaced with the IP (same as CustomS3::settings)
 	customHost = env.S3_CUSTOM_HOST ?: "";
-	if ( reFindNoCase( "^(localhost|127\.0\.0\.1)(:|$)", customHost ) ) customHost = "http://" & customHost;
+	if ( reFindNoCase( "^(localhost|127\.0\.0\.1)(:|$)", customHost ) ) customHost = "http://" & reReplaceNoCase( customHost, "^localhost", "127.0.0.1" );
 
 	if ( ( url.custom ?: false ) == true ) {
 		this.s3 = {
