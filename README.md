@@ -54,3 +54,97 @@ https://github.com/lucee/extension-s3/blob/master/source/java/src/org/lucee/exte
 There are some known issues with region support (especially with other providers than AWS
 
 We are tracking those issues in the following Epic https://luceeserver.atlassian.net/browse/LDEV-4636
+
+## Bucket Name Suffix per Region (DR failover)
+
+Cross-region replication (CRR) needs two buckets with different names, because bucket names are global. With a bucket suffix per region your code keeps using **one logical bucket name** and the extension adds the suffix of the effective region in one central place, right before the request is sent. Switching the region (for example to fail over to a replica region) then switches to the replica bucket, without touching the code.
+
+Nothing is configured by default, so nothing changes unless you define a suffix.
+
+```javascript
+component {
+    this.s3.accessKeyId     = "my-access-key";
+    this.s3.awsSecretKey    = "my-secret-key";
+    this.s3.defaultLocation = "eu-west-1";   // set the region together with the suffix, see below
+
+    // region -> suffix
+    this.s3.bucketSuffixes = { "eu-west-1": "", "eu-central-1": "-dr" };
+
+    // optional: buckets that are not replicated and never get a suffix (exact name or prefix*)
+    this.s3.bucketSuffixExclude = [ "shared-assets", "tmp-*" ];
+}
+```
+
+Or with environment variables / system properties:
+
+```bash
+LUCEE_S3_REGION=eu-central-1
+LUCEE_S3_BUCKETSUFFIXES={"eu-west-1":"","eu-central-1":"-dr"}
+LUCEE_S3_BUCKETSUFFIXEXCLUDE=shared-assets,tmp-*
+```
+
+With the configuration above, in the region `eu-central-1` the call `S3Write( value="x", bucketName="invoices", objectName="a.txt" )` and `fileWrite( "s3:///invoices/a.txt", "x" )` write to the bucket `invoices-dr`.
+
+**Where it can be configured** (each of the two settings is resolved independently, the most specific wins): environment variable / system property, then `this.s3` / `this.vfs.s3`, then a `this.vfs.s3.<mapping>` entry. A mapping with `bucketSuffixes = {}` has no suffix at all, which is the way to opt a whole mapping out.
+
+```javascript
+this.vfs.s3.archive = {
+    accessKeyId: "...", awsSecretKey: "...", defaultLocation: "eu-central-1",
+    bucketSuffixes: { "eu-central-1": "-archive" }   // overrides this.s3.bucketSuffixes for s3://archive@/...
+};
+```
+
+**How the suffix is selected**
+
+* This applies to all `s3*()` functions and to the bucket part of `s3://` paths.
+* The effective region is the explicit `location`/`region` argument of a function (`S3CreateBucket`, `S3Write`), otherwise the region of the configuration (region of the `s3://` URL, `defaultLocation` of the mapping, `defaultLocation` of `this.s3`, or `LUCEE_S3_REGION`).
+* A region without an entry gets no suffix, an entry with an empty string is the same thing.
+* A bucket in `bucketSuffixExclude` never gets a suffix. This is the opt-out for buckets that are not replicated. There is no per call argument for this.
+* The suffix is added once. Code always uses the logical name, bucket listings (`S3ListBuckets()`, `directoryList( "s3:///" )`) return the logical names and do not show buckets without the suffix of the effective region.
+* A suffix can contain lowercase letters, digits, `.` and `-` (maximum 60 characters). An invalid definition throws an error, it is never ignored.
+
+**Things to be aware of**
+
+* Set the region together with the suffix. The suffix is selected with the configured region (or the explicit region argument), the extension does not look up the region of a bucket to select a suffix. Without a configured region, no suffix is added.
+* Presigned URLs (`S3GeneratePresignedURL`) generated during a failover point to the suffixed bucket.
+* Full bucket names that your application stored (in a database for example) are not rewritten. The `bucketName` in the info structures (`S3GetInfo`, `fileInfo`, ...) is the real bucket name.
+* `application action="update" s3={...}` can not carry `bucketSuffixes` and `bucketSuffixExclude`, define them in `Application.cfc` (`this.s3`, `this.vfs.s3`) or with environment variables / system properties.
+
+**AWS checklist for replicated buckets** (see [AWS: Replicating objects](https://docs.aws.amazon.com/AmazonS3/latest/userguide/replication.html))
+
+* Versioning must be enabled on both buckets.
+* If writes happen during a failover, you need two-way replication rules (one for each direction) and replica modification sync, so changes flow back after the failover.
+* Existing objects are not replicated by a new rule, use S3 Batch Replication for them.
+* Replication of delete markers is optional. Permanent deletes of a specific version are never replicated.
+* Replication is asynchronous. With S3 Replication Time Control (RTC) 99.99% of the objects are replicated within 15 minutes, so the newest objects can be missing in the other bucket right after a failover.
+
+---
+
+---
+
+## Self-Hosted Providers (MinIO, LocalStack)
+
+Self-hosted S3-compatible providers typically need two additional settings:
+
+- **`pathStyleAccess = true`** — forces the SDK to use `host/bucket` URLs instead of `bucket.host`, which fails DNS resolution for non-AWS hostnames. Lucee automatically enables this for unrecognised hostnames, but you can set it explicitly to guarantee the behaviour.
+- **`ssl = false`** — disables HTTPS for providers running over plain HTTP.
+
+```javascript
+this.vfs.s3.accessKeyId     = "minioadmin";
+this.vfs.s3.awsSecretKey    = "minioadmin";
+this.vfs.s3.host            = "minio:9000";
+this.vfs.s3.defaultLocation = "us-east-1";
+this.vfs.s3.pathStyleAccess = true;
+this.vfs.s3.ssl             = false;
+```
+
+Equivalent via environment variables:
+
+```
+LUCEE_S3_ACCESSKEYID=minioadmin
+LUCEE_S3_SECRETACCESSKEY=minioadmin
+LUCEE_S3_HOST=minio:9000
+LUCEE_S3_REGION=us-east-1
+LUCEE_S3_PATHSTYLEACCESS=true
+LUCEE_S3_SSL=false
+```
