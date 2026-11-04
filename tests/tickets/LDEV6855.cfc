@@ -58,8 +58,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 			it( title="credentials and host as arguments instead of the application settings", body=function() {
 				var obj = CustomS3::key( ctx, "direct.txt" );
 				var cred = ctx.cred;
-				// a local server speaks plain http, the scheme is part of the host
-				var host = reFindNoCase( "^(localhost|127\.0\.0\.1)(:|$)", cred.HOST ) ? "http://" & cred.HOST : cred.HOST;
+				// a local server speaks plain http (the scheme is part of the host) and is addressed by IP, see CustomS3::settings()
+				var host = CustomS3::settings().host;
 				s3Write( bucketName=ctx.bucket, objectName=obj, value="direct", accessKeyId=cred.ACCESS_KEY_ID, secretAccessKey=cred.SECRET_KEY, host=host );
 				expect( s3Exists( bucketName=ctx.bucket, objectName=obj, accessKeyId=cred.ACCESS_KEY_ID, secretAccessKey=cred.SECRET_KEY, host=host ) ).toBeTrue();
 				s3Delete( bucketName=ctx.bucket, objectName=obj, accessKeyId=cred.ACCESS_KEY_ID, secretAccessKey=cred.SECRET_KEY, host=host );
