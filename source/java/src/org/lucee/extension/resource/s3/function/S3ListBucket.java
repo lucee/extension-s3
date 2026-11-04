@@ -22,7 +22,7 @@ public class S3ListBucket extends S3Function {
 	public Object invoke(PageContext pc, Object[] args) throws PageException {
 		CFMLEngine eng = CFMLEngineFactory.getInstance();
 		Cast cast = eng.getCastUtil();
-		if (args.length < 1 || args.length > 7) throw eng.getExceptionUtil().createFunctionException(pc, "S3ListBucket", 1, 7, args.length);
+		if (args.length < 1 || args.length > 10) throw eng.getExceptionUtil().createFunctionException(pc, "S3ListBucket", 1, 10, args.length);
 
 		// required
 		String bucketName = cast.toString(args[0]);
@@ -34,6 +34,11 @@ public class S3ListBucket extends S3Function {
 		String secretAccessKey = args.length > 4 && args[4] != null ? cast.toString(args[4]) : null;
 		String host = args.length > 5 && args[5] != null ? cast.toString(args[5]) : null;
 		double timeout = args.length > 6 && !isEmpty(args[6]) ? cast.toDoubleValue(args[6]) : 0;
+		String delimiter = args.length > 7 && !isEmpty(args[7]) ? cast.toString(args[7]) : null;
+		String startAfter = args.length > 8 && !isEmpty(args[8]) ? cast.toString(args[8]) : null;
+		long maxResults = args.length > 9 && !isEmpty(args[9]) ? cast.toLongValue(args[9]) : 0;
+		if (args.length > 9 && !isEmpty(args[9]) && maxResults < 0)
+			throw eng.getExceptionUtil().createFunctionException(pc, "S3ListBucket", 10, "maxResults", "invalid value [" + args[9] + "], it needs to be a number of 0 or more", "");
 
 		// validate
 
@@ -42,12 +47,12 @@ public class S3ListBucket extends S3Function {
 
 			// no listener
 			if (listener == null) {
-				return s3.listObjectsAsQuery(bucketName, blockSize, null);
+				return s3.listObjectsAsQuery(bucketName, blockSize, null, delimiter, startAfter, maxResults);
 			}
 			else {
 				ListListener list = toListener(eng, pc, listener);
 				list.before();
-				s3.listObjectsAsQuery(bucketName, blockSize, toListener(eng, pc, listener));
+				s3.listObjectsAsQuery(bucketName, blockSize, toListener(eng, pc, listener), delimiter, startAfter, maxResults);
 				list.after();
 			}
 		}

@@ -1267,6 +1267,25 @@
 			<default>10000</default>
 			<description>timeout for this execution</description>
 	    </argument>
+		<argument>
+			<name>delimiter</name>
+			<type>string</type>
+			<required>No</required>
+			<description>Group the keys at the first occurrence of this delimiter (usually "/") for a folder like listing. Each group is returned as one row with the column isPrefix set to true, the objectName of that row is the common prefix (for example "images/"). Objects that do not contain the delimiter are returned as usual. By default no grouping is done.</description>
+	    </argument>
+		<argument>
+			<name>startAfter</name>
+			<type>string</type>
+			<required>No</required>
+			<description>Only list keys that come after this key (in the order of the keys), to resume a listing. By default the listing starts with the first key.</description>
+	    </argument>
+		<argument>
+			<name>maxResults</name>
+			<type>numeric</type>
+			<required>No</required>
+			<default>0</default>
+			<description>Stop after this number of rows (objects and common prefixes). This is different from blockfactor, which is the size of the pages requested from the server. 0 (the default) lists all keys.</description>
+	    </argument>
 		<return>
 			<type>query</type>
 		</return>
