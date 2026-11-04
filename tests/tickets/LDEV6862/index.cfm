@@ -18,7 +18,7 @@
 				result.value = S3Read( bucketName=url.bucket, objectName=url.object, accessKeyId=cred.accessKeyId, secretAccessKey=cred.secretAccessKey, host=cred.host );
 			break;
 			case "exists":
-				result.value = S3Exists( bucketName=url.bucket, accessKeyId=cred.accessKeyId, secretAccessKey=cred.secretAccessKey, host=cred.host );
+				result.value = S3Exists( bucketName=url.bucket, objectName=url.object, accessKeyId=cred.accessKeyId, secretAccessKey=cred.secretAccessKey, host=cred.host );
 			break;
 			case "list":
 				result.value = S3ListBucket( bucketName=url.bucket, prefix=url.prefix, accessKeyId=cred.accessKeyId, secretAccessKey=cred.secretAccessKey, host=cred.host ).recordCount;

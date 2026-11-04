@@ -32,7 +32,11 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 			});
 
 			it( title="s3Exists", body=function() {
-				expect( call( "exists", { bucket: ctx.bucket } ) ).toBeTrue();
+				// the object, not only the bucket: the list of buckets is cached by the extension and can be stale
+				var obj = CustomS3::key( ctx, "exists.txt" );
+				call( "write", { bucket: ctx.bucket, object: obj, value: "x" } );
+				expect( call( "exists", { bucket: ctx.bucket, object: obj } ) ).toBeTrue();
+				expect( call( "exists", { bucket: ctx.bucket, object: CustomS3::key( ctx, "missing.txt" ) } ) ).toBeFalse();
 			});
 
 			it( title="s3ListBucket", body=function() {
