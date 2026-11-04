@@ -44,7 +44,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase"	{
 	public function testStoreMetadata() localMode=true {
 		if(!variables.s3Supported) return;
 		
-		var dir="s3://" & server.getTestService("s3").bucket_prefix & Util::createBucketName("store-meta")&"/object/";
+		var bucket="s3://" & server.getTestService("s3").bucket_prefix & Util::createBucketName("store-meta")&"/";
+		var dir=bucket&"object/";
 		if(DirectoryExists(dir)) directoryDelete(dir,true);
 		try {
 			assertFalse(DirectoryExists(dir));
@@ -59,9 +60,10 @@ component extends="org.lucee.cfml.test.LuceeTestCase"	{
 			assertEquals("Susanne",md.susi);
 		}
 		finally {
-    		if(DirectoryExists(dir))
-    			directoryDelete(dir,true);
-    	}  
+			// delete the whole bucket, not only the object dir, otherwise the bucket leaks
+			if(DirectoryExists(bucket))
+				directoryDelete(bucket,true);
+		}
 	}
 } 
 </cfscript>
