@@ -35,9 +35,11 @@ import com.amazonaws.services.s3.model.Owner;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 
 import lucee.commons.io.log.Log;
+import lucee.loader.engine.CFMLEngineFactory;
 import lucee.loader.util.Util;
 import lucee.runtime.type.Array;
 import lucee.runtime.type.Struct;
+import lucee.runtime.util.Cast;
 
 public final class StorageObjectWrapper extends S3InfoSupport {
 
@@ -226,16 +228,22 @@ public final class StorageObjectWrapper extends S3InfoSupport {
 			Iterator<Entry<String, String>> it = umd.entrySet().iterator();
 			Entry<String, String> e;
 			String name;
+			Cast cast = CFMLEngineFactory.getInstance().getCastUtil();
 			while (it.hasNext()) {
 				e = it.next();
 				name = Util.replace(e.getKey(), "-", "", true);
 				name = Character.toLowerCase(name.charAt(0)) + (name.length() > 1 ? name.substring(1) : "");
-				data.setEL(name, e.getValue());
+				// a user metadata entry must not replace one of the fields of the extension (size, owner, exists, ...)
+				if (!data.containsKey(cast.toKey(name))) data.setEL(name, e.getValue());
 			}
 		}
 
 		Array acl = s3.getAccessControlList(getBucketName(), getObjectName());
 		if (acl != null) data.setEL("acl", acl);
+
+		// the same information with the original names, see LDEV-6840
+		data.setEL("metadata", MetaDataStructs.toMetadata(omd));
+		data.setEL("headers", MetaDataStructs.toHeaders(omd));
 		return data;
 	}
 

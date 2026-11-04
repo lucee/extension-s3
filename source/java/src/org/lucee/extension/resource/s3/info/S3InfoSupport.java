@@ -31,17 +31,18 @@ public abstract class S3InfoSupport implements S3Info {
 		String on = getObjectName();
 		if (!Util.isEmpty(on)) data.put("objectName", on);
 		long lm = getLastModified();
-		if (lm > 0) data.put("lastModified", new Date());
+		if (lm > 0) data.put("lastModified", new Date(lm));
 		Owner ow = getOwner();
 		if (ow != null) {
 			data.setEL("owner", ow.getDisplayName());
 			data.setEL("ownerName", ow.getDisplayName());
+			data.setEL("ownerId", ow.getId());
+			// misspelled key of earlier versions, kept for backward compatibility
 			data.setEL("ownerNd", ow.getId());
-
 		}
 		Region r = getRegion();
 		if (r != null) {
-			data.setEL("region", region.getName());
+			data.setEL("region", r.getName());
 		}
 		data.setEL("size", getSize());
 		data.setEL("directory", isDirectory());
