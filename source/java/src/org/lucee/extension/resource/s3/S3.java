@@ -1906,7 +1906,8 @@ public class S3 {
 					List<S3VersionSummary> summeries = versions.getVersionSummaries();
 					sum += summeries.size();
 					for (S3VersionSummary summary: summeries) {
-						client.deleteObject(bucketName, summary.getKey());
+						// with the version id, without it only a delete marker is added and the version stays
+						client.deleteVersion(bucketName, summary.getKey(), summary.getVersionId());
 					}
 
 					if (versions.isTruncated()) {
