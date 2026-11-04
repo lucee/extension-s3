@@ -1,6 +1,7 @@
 package org.lucee.extension.resource.s3.function;
 
 import org.lucee.extension.resource.s3.ObjectOptions;
+import org.lucee.extension.resource.s3.S3Util;
 import org.lucee.extension.resource.s3.S3;
 import org.lucee.extension.resource.s3.S3Exception;
 
@@ -41,7 +42,7 @@ public class S3Move extends S3Function {
 			}
 		}
 		catch (S3Exception s3e) {
-			throw eng.getCastUtil().toPageException(s3e);
+			throw S3Util.toPageException(s3e);
 		}
 		if (eng.getStringUtil().isEmpty(location, true)) location = null;
 
@@ -51,7 +52,7 @@ public class S3Move extends S3Function {
 			s3.moveObject(srcBucketName, srcObjectName, trgBucketName, trgObjectName, acl, location, opts);
 		}
 		catch (Exception e) {
-			throw eng.getCastUtil().toPageException(e);
+			throw S3Util.toPageException(e);
 		}
 		return null;
 	}
