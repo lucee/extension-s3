@@ -916,6 +916,8 @@ public class S3 {
 		if (Util.isEmpty(sseCustomerKey, true)) key = null;
 		else key = new SSECustomerKey(sseCustomerKey.trim());
 
+		if (algorithm != null && key != null) throw new S3Exception("sseAlgorithm (SSE-S3, SSE-KMS) and sseCustomerKey (SSE-C) can not be used together, use one of them");
+
 		// checksum
 		if (Util.isEmpty(checksum, true)) checksum = null;
 		else checksum = checksum.trim();
@@ -970,12 +972,8 @@ public class S3 {
 				generatePresignedUrlRequest.withResponseHeaders(headers);
 			}
 
-			if (algorithm != null) {
-				generatePresignedUrlRequest.withSSEAlgorithm(algorithm);
-				if (key != null) {
-					generatePresignedUrlRequest.withSSECustomerKey(key);
-				}
-			}
+			if (algorithm != null) generatePresignedUrlRequest.withSSEAlgorithm(algorithm);
+			if (key != null) generatePresignedUrlRequest.withSSECustomerKey(key);
 
 			if (expireDate != null) {
 				if (expireDate.getTime() < System.currentTimeMillis()) throw new S3Exception("the optional expire date must be un the future");
