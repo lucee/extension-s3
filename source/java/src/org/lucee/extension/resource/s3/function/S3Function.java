@@ -282,6 +282,16 @@ public abstract class S3Function extends BIF {
 		if (pathStyleAccess != null) props.setPathStyleAccess(pathStyleAccess);
 		if (ssl != null) props.setSsl(ssl);
 		props.setHttpPool(S3HttpPoolSettings.fromEnv());
+
+		// the credentials (and the host) come from the environment, the other settings of this.s3
+		// still apply, same as in S3ResourceProvider.loadWithNewPattern() (LDEV-6848)
+		if (appProps != null) {
+			if (appProps.getPathStyleAccess() != null) props.setPathStyleAccess(appProps.getPathStyleAccess());
+			if (appProps.getSsl() != null) props.setSsl(appProps.getSsl());
+			if (!Util.isEmpty(appProps.getDefaultLocation(), true)) props.setDefaultLocation(appProps.getDefaultLocation());
+			if (appProps.getACL() != null) props.setACL(appProps.getACL());
+			if (appProps.getHttpPool() != null) props.setHttpPool(appProps.getHttpPool());
+		}
 		applyBucketSuffix(pc, props);
 
 		return props;
