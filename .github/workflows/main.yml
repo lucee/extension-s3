@@ -90,7 +90,7 @@ jobs:
       LUCEE_TEST_VERSIONS_PLUS: ${{ vars.LUCEE_TEST_VERSIONS_PLUS }}
     strategy:
       matrix:
-        lucee: [ {"version":"light-6.2.9.4","query":"6.2/all/light"} ] # DIAG6854 temporary
+        lucee: ${{ fromJSON(vars.LUCEE_TEST_VERSIONS_PLUS) }}
     services:
       minio:
         image: fclairamb/minio-github-actions
@@ -138,7 +138,7 @@ jobs:
         env:
           testLabels: s3
           testAdditional: ${{ github.workspace }}/tests
-          testFilter: LDEV6854 # DIAG6854 temporary
+          testFilter: functions
 
       # always run, so a failure in the first step does not hide the results of the second
       - name: Run Lucee Test Suite (tickets, general, vfs, core)
@@ -153,7 +153,7 @@ jobs:
         env:
           testLabels: s3
           testAdditional: ${{ github.workspace }}/tests
-          testFilter: LDEV6854 # DIAG6854 temporary
+          testFilter: tickets,general,vfs,extension
 
   deploy:
     runs-on: ubuntu-latest
