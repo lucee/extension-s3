@@ -241,6 +241,9 @@ public class S3 {
 		this.cacheTimeout = cacheTimeout;
 		this.liveTimeout = liveTimeout;
 		this.httpPool = httpPool == null ? S3HttpPoolSettings.fromEnv() : httpPool;
+		if (isCustomEndpoint(host)) {
+			defaultLocation = S3Util.extractLocationFromHostIfNecessary(defaultLocation, host);
+		}
 		if (!Util.isEmpty(defaultLocation, true)) {
 			try {
 				defaultRegion = toString(RegionFactory.getInstance(defaultLocation));
@@ -601,6 +604,8 @@ public class S3 {
 		if (Util.isEmpty(sseCustomerKey, true)) key = null;
 		else key = new SSECustomerKey(sseCustomerKey.trim());
 
+		if (algorithm != null && key != null) throw new S3Exception("sseAlgorithm (SSE-S3, SSE-KMS) and sseCustomerKey (SSE-C) can not be used together, use one of them");
+
 		// checksum
 		if (Util.isEmpty(checksum, true)) checksum = null;
 		else checksum = checksum.trim();
@@ -654,12 +659,8 @@ public class S3 {
 				generatePresignedUrlRequest.withResponseHeaders(headers);
 			}
 
-			if (algorithm != null) {
-				generatePresignedUrlRequest.withSSEAlgorithm(algorithm);
-				if (key != null) {
-					generatePresignedUrlRequest.withSSECustomerKey(key);
-				}
-			}
+			if (algorithm != null) generatePresignedUrlRequest.withSSEAlgorithm(algorithm);
+			if (key != null) generatePresignedUrlRequest.withSSECustomerKey(key);
 
 			if (expireDate != null) {
 				if (expireDate.getTime() < System.currentTimeMillis()) throw new S3Exception("the optional expire date must be un the future");
@@ -1509,7 +1510,9 @@ public class S3 {
 				versions = client.listVersions(new ListVersionsRequest().withBucketName(bucketName));
 			}
 			catch (AmazonServiceException ase) {
-				if (!"NoSuchBucket".equals(ase.getErrorCode())) {
+				// NoSuchBucket: nothing to delete. NotImplemented: the server (for example older MinIO) can not list versions,
+				// so it has no versions to delete beyond the objects removed above.
+				if (!"NoSuchBucket".equals(ase.getErrorCode()) && !"NotImplemented".equals(ase.getErrorCode()) && ase.getStatusCode() != 501) {
 					throw ase;
 				}
 			}
@@ -1520,7 +1523,8 @@ public class S3 {
 					List<S3VersionSummary> summeries = versions.getVersionSummaries();
 					sum += summeries.size();
 					for (S3VersionSummary summary: summeries) {
-						client.deleteObject(bucketName, summary.getKey());
+						// with the version id, without it only a delete marker is added and the version stays
+						client.deleteVersion(bucketName, summary.getKey(), summary.getVersionId());
 					}
 
 					if (versions.isTruncated()) {
@@ -2607,10 +2611,25 @@ public class S3 {
 		if (!Util.isEmpty(strRegion, true)) {
 			return RegionFactory.getInstance(strRegion);
 		}
-		else if (!Util.isEmpty(bucketName)) {
+		if (!Util.isEmpty(bucketName)) {
+			Region cached = cache.bucketRegions.get(improveBucketName(bucketName));
+			if (cached != null && cached != RegionFactory.ERROR) return cached;
+		}
+		// Custom S3-compatible endpoint: configured or host-derived region is authoritative
+		if (isCustomEndpoint(host) && !Util.isEmpty(defaultRegion, true)) {
+			return RegionFactory.getInstance(defaultRegion);
+		}
+		if (!Util.isEmpty(bucketName)) {
 			return getBucketRegion(bucketName, true);
 		}
-		return Util.isEmpty(defaultRegion, true) ? null : RegionFactory.getInstance(defaultRegion);
+		if (!Util.isEmpty(defaultRegion, true)) {
+			return RegionFactory.getInstance(defaultRegion);
+		}
+		return null;
+	}
+
+	static boolean isCustomEndpoint(String host) {
+		return !Util.isEmpty(host, true) && !host.equalsIgnoreCase(DEFAULT_HOST);
 	}
 
 	public static String toString(Region region) {

@@ -3,6 +3,32 @@ component  {
 	static function createBucketName(name) {
 		return "ldev-"&lcase(name)&"-"&listFirst(replace(server.lucee.version,".","","all"),"-")&"-"&lcase(left(createUUID(),5));
 	}
+	/**
+	 * A freshly created bucket/object is not always visible right away (AWS answers NoSuchBucket/NoSuchKey
+	 * for a short time after the bucket was created by S3Write). Polls with a short backoff until the object
+	 * can be read, gives up after timeoutMs and rethrows the last error. Any other error is rethrown at once.
+	 */
+	static function waitUntilReadable(cred,bucketName,objectName,timeoutMs=30000) {
+		var start=getTickCount();
+		var pause=100;
+		while(true) {
+			try {
+				S3ReadBinary( 
+					bucketName:bucketName,  objectName:objectName, 
+					accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST));
+				return getTickCount()-start;
+			}
+			catch(e) {
+				var msg=(e.message?:"")&" "&(e.detail?:"");
+				var notYetVisible=findNoCase("NoSuchBucket",msg) || findNoCase("NoSuchKey",msg);
+				if(!notYetVisible || (getTickCount()-start+pause)>timeoutMs) rethrow;
+			}
+			sleep(pause);
+			pause=min(pause*2,2000);
+		}
+	}
+
+
 	static function deleteBucketEL(cred,bucketName,objectName) {
 		try {
 			if(S3Exists( 
@@ -37,8 +63,9 @@ component  {
 		var SECRET_KEY=server.system.environment.S3_AMAZON_SECRET_KEY?:nullValue();
 		if(isNull(SECRET_KEY) || isEmpty(SECRET_KEY)) return {};
 		
-		var PREFIX=server.system.environment.S3_AMAZON_BUCKET_PREFIX?:nullValue();
-		if(isNull(PREFIX) || isEmpty(PREFIX)) local.prefix="ldev";
+		// without S3_AMAZON_BUCKET_PREFIX the prefix falls back to "ldev", it must never be returned as null
+		var PREFIX=server.system.environment.S3_AMAZON_BUCKET_PREFIX?:"ldev";
+		if(isEmpty(PREFIX)) PREFIX="ldev";
 
 		return {ACCESS_KEY_ID:ACCESS_KEY_ID,SECRET_KEY:SECRET_KEY,PREFIX:PREFIX};
 	}
@@ -66,25 +93,6 @@ component  {
 		return {ACCESS_KEY_ID:ACCESS_KEY_ID,SECRET_KEY:SECRET_KEY,HOST:HOST,PREFIX:PREFIX};
 	}
 
-	public static boolean function isWasabiNotSupported() {
-		res= getWasabiCredentials();
-		return isNull(res) || len(res)==0;
-	}
-	public static struct function getWasabiCredentials() {
-		var ACCESS_KEY_ID=server.system.environment.S3_WASABI_ACCESS_KEY_ID?:nullValue();
-		if(isNull(ACCESS_KEY_ID) || isEmpty(ACCESS_KEY_ID)) return {};
-		
-		var SECRET_KEY=server.system.environment.S3_WASABI_SECRET_KEY?:nullValue();
-		if(isNull(SECRET_KEY) || isEmpty(SECRET_KEY)) return {};
-		
-		var HOST=server.system.environment.S3_WASABI_HOST?:nullValue();
-		if(isNull(HOST) || isEmpty(HOST)) return {};
-		
-		var PREFIX=server.system.environment.S3_WASABI_BUCKET_PREFIX?:nullValue();
-		if(isNull(PREFIX) || isEmpty(PREFIX)) return {};
-
-		return {ACCESS_KEY_ID:ACCESS_KEY_ID,SECRET_KEY:SECRET_KEY,HOST:HOST,PREFIX:PREFIX};
-	}
 	public static boolean function isWasabiNotSupported() {
 		res= getWasabiCredentials();
 		return isNull(res) || len(res)==0;

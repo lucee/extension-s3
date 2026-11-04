@@ -6,7 +6,6 @@ import java.util.Map;
 
 import org.lucee.extension.resource.s3.info.S3Info;
 import org.lucee.extension.resource.s3.listener.S3InfoListener;
-import org.lucee.extension.resource.s3.util.print;
 
 import lucee.commons.io.res.filter.ResourceFilter;
 import lucee.commons.io.res.filter.ResourceNameFilter;
@@ -24,7 +23,6 @@ public class S3ResourceS3InfoListener implements S3InfoListener {
 	private ResourceFilter filter;
 
 	public S3ResourceS3InfoListener(S3ResourceProvider provider, S3 s3, S3Properties props, String location, ResourceNameFilter nameFilter, ResourceFilter filter) {
-		print.e("S3ResourceS3InfoListener:init");
 		engine = CFMLEngineFactory.getInstance();
 		this.provider = provider;
 		this.s3 = s3;
