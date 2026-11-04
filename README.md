@@ -78,6 +78,8 @@ component {
 | `LUCEE_S3_POOL_WARNUTILIZATION` | `lucee.s3.pool.warnutilization` | Log when in-flight requests reach this fraction of `maxConnections` (default: 0.8; use `0` to disable) |
 | `LUCEE_S3_BUCKETSUFFIXES`     | `lucee.s3.bucketsuffixes`        | JSON map of region to bucket name suffix, e.g. `{"eu-west-1":"-dr"}` (see [Bucket Name Suffix per Region](#bucket-name-suffix-per-region-dr-failover)) |
 | `LUCEE_S3_BUCKETSUFFIXEXCLUDE` | `lucee.s3.bucketsuffixexclude`  | Comma separated bucket names (or `prefix*`) that never get a suffix |
+| `LUCEE_S3_BUCKETPREFIXES`     | `lucee.s3.bucketprefixes`        | JSON map of region to bucket name prefix, e.g. `{"us-west-2":"livestock-"}` (see [Bucket Name Prefix per Region](#bucket-name-prefix-per-region)) |
+| `LUCEE_S3_BUCKETPREFIXEXCLUDE` | `lucee.s3.bucketprefixexclude`  | Comma separated bucket names (or `prefix*`) that never get a prefix |
 
 Pool messages are written to the S3 log channel (`s3` or `application`). When the pool is exhausted you get an ERROR with `Timeout waiting for connection from pool`; high utilization logs WARN at most once per minute.
 
@@ -155,7 +157,7 @@ uri = s3generateUri("my-bucket", "hello.txt");
 
 Cross-region replication (CRR) needs two buckets with different names, because bucket names are global. With a bucket suffix per region your code keeps using **one logical bucket name** and the extension adds the suffix of the effective region in one central place, right before the request is sent. Switching the region (for example to fail over to a replica region) then switches to the replica bucket, without touching the code.
 
-Nothing is configured by default, so nothing changes unless you define a suffix.
+Nothing is configured by default, so nothing changes unless you define a suffix. A [prefix per region](#bucket-name-prefix-per-region) works the same way and can be combined with the suffix.
 
 ```javascript
 component {
@@ -213,6 +215,46 @@ this.vfs.s3.archive = {
 * Existing objects are not replicated by a new rule, use S3 Batch Replication for them.
 * Replication of delete markers is optional. Permanent deletes of a specific version are never replicated.
 * Replication is asynchronous. With S3 Replication Time Control (RTC) 99.99% of the objects are replicated within 15 minutes, so the newest objects can be missing in the other bucket right after a failover.
+
+## Bucket Name Prefix per Region
+
+The prefix is the counterpart of the [bucket name suffix](#bucket-name-suffix-per-region-dr-failover): your code keeps using **one logical bucket name** and the extension adds the prefix of the effective region in the same central place, right before the request is sent. With the prefix `livestock-` for `us-west-2`, the bucket `susi` is the bucket `livestock-susi` on S3 when the effective region is `us-west-2`.
+
+Nothing is configured by default, so nothing changes unless you define a prefix.
+
+```javascript
+component {
+    this.s3.accessKeyId     = "my-access-key";
+    this.s3.awsSecretKey    = "my-secret-key";
+    this.s3.defaultLocation = "us-west-2";   // set the region together with the prefix
+
+    // region -> prefix
+    this.s3.bucketPrefixes = { "us-west-2": "livestock-" };
+
+    // optional: buckets that never get a prefix (exact name or prefix*)
+    this.s3.bucketPrefixExclude = [ "shared-assets", "tmp-*" ];
+}
+```
+
+Or with environment variables / system properties:
+
+```bash
+LUCEE_S3_REGION=us-west-2
+LUCEE_S3_BUCKETPREFIXES={"us-west-2":"livestock-"}
+LUCEE_S3_BUCKETPREFIXEXCLUDE=shared-assets,tmp-*
+```
+
+With the configuration above `S3Write( value="x", bucketName="susi", objectName="a.txt" )` and `fileWrite( "s3:///susi/a.txt", "x" )` write to the bucket `livestock-susi`.
+
+The prefix works exactly like the suffix:
+
+* It is configured at the same places with the same precedence (environment variable / system property, then `this.s3` / `this.vfs.s3`, then `this.vfs.s3.<mapping>.bucketPrefixes`). `bucketPrefixes` and `bucketPrefixExclude` are resolved independently of each other and independently of the suffix settings. A mapping with `bucketPrefixes = {}` has no prefix, a mapping with `bucketPrefixes = {}` **and** `bucketSuffixes = {}` is not touched at all.
+* The effective region, the region without an entry (or an entry with an empty string), the bucket listings that show logical names only, the presigned URLs and the `application action="update"` limitation are the same as for the suffix, see above.
+* A bucket in `bucketPrefixExclude` never gets a prefix. This list is independent of `bucketSuffixExclude`: a bucket can be excluded from the prefix and still get the suffix and the other way around.
+* A prefix can contain lowercase letters, digits, `.` and `-`, has to start with a letter or a digit (maximum 60 characters). An invalid definition throws an error, it is never ignored.
+* The prefix is added once, code always uses the logical name.
+
+**Prefix and suffix together:** when a region has both, the bucket on S3 is `prefix + bucket + suffix`. With `bucketPrefixes = { "us-west-2": "livestock-" }` and `bucketSuffixes = { "us-west-2": "-dr" }` the bucket `susi` is `livestock-susi-dr`. Bucket listings only show buckets that have the prefix and the suffix of the effective region (apart from the buckets in the exclude lists), with the logical name.
 
 ---
 
