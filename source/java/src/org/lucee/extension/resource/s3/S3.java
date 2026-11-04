@@ -372,8 +372,9 @@ public class S3 {
 		return listObjectsAsQueryRaw(rb(bucketName), maxKeys, listener);
 	}
 
-	public Query listObjectsAsQuery(String bucketName, int maxKeys, ListListener listener, String delimiter, String startAfter, long maxResults) throws S3Exception, PageException {
-		return listObjectsAsQueryRaw(rb(bucketName), maxKeys, listener, delimiter, startAfter, maxResults);
+	public Query listObjectsAsQuery(String bucketName, int maxKeys, ListListener listener, String delimiter, String startAfter, long maxResults, String prefix)
+			throws S3Exception, PageException {
+		return listObjectsAsQueryRaw(rb(bucketName), maxKeys, listener, delimiter, startAfter, maxResults, prefix);
 	}
 
 	public List<S3Info> list(String bucketName, final String objectName, boolean recursive, boolean listPseudoFolder, boolean onlyChildren, boolean noCache,
@@ -1160,7 +1161,7 @@ public class S3 {
 	}
 
 	public Query listObjectsAsQueryRaw(String bucketName, int maxKeys, ListListener listener) throws S3Exception, PageException {
-		return listObjectsAsQueryRaw(bucketName, maxKeys, listener, null, null, 0);
+		return listObjectsAsQueryRaw(bucketName, maxKeys, listener, null, null, 0, null);
 	}
 
 	/**
@@ -1169,8 +1170,11 @@ public class S3 {
 	 *            start of the key); a group is returned as a row with isPrefix=true
 	 * @param startAfter if set, only keys that come after this key are listed
 	 * @param maxResults maximal number of rows (objects and prefixes) to return, 0 for no limit
+	 * @param prefix only list objects whose key starts with this prefix, evaluated by S3 itself
+	 *            (LDEV-5170). null or an empty string lists the whole bucket.
 	 */
-	public Query listObjectsAsQueryRaw(String bucketName, int maxKeys, ListListener listener, String delimiter, String startAfter, long maxResults) throws S3Exception, PageException {
+	public Query listObjectsAsQueryRaw(String bucketName, int maxKeys, ListListener listener, String delimiter, String startAfter, long maxResults, String prefix)
+			throws S3Exception, PageException {
 		AmazonS3Client client = getAmazonS3(bucketName, null);
 		try {
 			CFMLEngine eng = CFMLEngineFactory.getInstance();
@@ -1187,6 +1191,7 @@ public class S3 {
 			Query qry = listener == null ? eng.getCreationUtil().createQuery(columns, 0, "buckets") : null;
 			ListObjectsRequest lor = new ListObjectsRequest();
 			lor.setBucketName(bucketName);
+			if (!Util.isEmpty(prefix)) lor.setPrefix(prefix);
 
 			if (maxKeys < 1 || maxKeys > 1000) throw new S3Exception("invalid maxKeys [" + maxKeys + "] must be an number between 1 and 1000");
 			if (maxResults < 0) throw new S3Exception("invalid maxResults [" + maxResults + "] must be a number of 0 or more");
@@ -1249,7 +1254,7 @@ public class S3 {
 						break;
 					}
 				}
-				if (log != null) log.debug("S3", "list objects as query (" + sum + ") for [" + bucketName + "/" + "]");
+				if (log != null) log.debug("S3", "list objects as query (" + sum + ") for [" + bucketName + "/" + (Util.isEmpty(prefix) ? "" : prefix) + "]");
 			}
 			return listener == null ? qry : null;
 		}
