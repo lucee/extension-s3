@@ -38,8 +38,9 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 		});
 	}
 	  
-	private function setUp(s3){
-		if(!isNull(s3.accessKeyId)) {
+	// sets this test's own credentials as the Application s3 settings, so it does not depend on what an earlier test left there
+	private function applyCredentials(s3){
+		if(!isNull(s3.ACCESS_KEY_ID)) {
 			application action="update" s3={
 				accessKeyId: s3.ACCESS_KEY_ID,
 				awsSecretKey: s3.SECRET_KEY,
@@ -49,7 +50,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 	}
 
 	private function testit(cred) localMode=true {
-		setUp(cred);
+		applyCredentials(cred);
 		var bucketName=Util::createBucketName("metadata");
 		var objectName="object";
 		var dir="s3://#bucketName#/#objectName#/";
