@@ -257,7 +257,7 @@ public class S3 {
 
 		this.log = getLog(config);
 		if (!this.bucketSuffix.isEmpty() && this.log != null) {
-			this.log.info("S3", "bucket name suffixes are active (the suffix of the region of a call is appended to the bucket name): " + this.bucketSuffix);
+			this.log.info("S3", "bucket name prefixes or suffixes are active (the prefix and the suffix of the region of a call are added to the bucket name): " + this.bucketSuffix);
 		}
 		if (cacheRegions) {
 			new CacheRegions(this.log).start();
