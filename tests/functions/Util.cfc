@@ -8,19 +8,25 @@ component  {
 	/**
 	 * A freshly created bucket/object is not always visible right away (AWS answers NoSuchBucket/NoSuchKey
 	 * for a short time after the bucket was created by S3Write). Polls with a short backoff until the object
-	 * can be read, gives up after timeoutMs and rethrows the last error. Any other error is rethrown at once.
+	 * can be read (consecutive times in a row, a single success was not enough on AWS), gives up after timeoutMs and rethrows the last error. Any other error is rethrown at once.
 	 */
-	static function waitUntilReadable(cred,bucketName,objectName,timeoutMs=30000) {
+	static function waitUntilReadable(cred,bucketName,objectName,timeoutMs=30000,consecutive=3) {
 		var start=getTickCount();
 		var pause=100;
+		var hits=0;
 		while(true) {
 			try {
 				S3ReadBinary( 
 					bucketName:bucketName,  objectName:objectName, 
 					accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST));
-				return getTickCount()-start;
+				// the answer can come from another node than the next call: only trust a run of consecutive successes
+				hits++;
+				if(hits>=arguments.consecutive) return getTickCount()-start;
+				sleep(200);
+				continue;
 			}
 			catch(e) {
+				hits=0;
 				var msg=(e.message?:"")&" "&(e.detail?:"");
 				var notYetVisible=findNoCase("NoSuchBucket",msg) || findNoCase("NoSuchKey",msg);
 				if(!notYetVisible || (getTickCount()-start+pause)>timeoutMs) rethrow;
@@ -35,17 +41,23 @@ component  {
 	 * node than the read of an object, so a successful S3ReadBinary does not mean S3ListBucket already finds the bucket.
 	 * Polls S3ListBucket until it no longer answers NoSuchBucket, gives up after timeoutMs and rethrows the last error.
 	 */
-	static function waitUntilListable(cred,bucketName,timeoutMs=30000) {
+	static function waitUntilListable(cred,bucketName,timeoutMs=30000,consecutive=3) {
 		var start=getTickCount();
 		var pause=100;
+		var hits=0;
 		while(true) {
 			try {
 				S3ListBucket( 
 					bucketName:bucketName, 
 					accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST));
-				return getTickCount()-start;
+				// the answer can come from another node than the next call: only trust a run of consecutive successes
+				hits++;
+				if(hits>=arguments.consecutive) return getTickCount()-start;
+				sleep(200);
+				continue;
 			}
 			catch(e) {
+				hits=0;
 				var msg=(e.message?:"")&" "&(e.detail?:"");
 				if(!findNoCase("NoSuchBucket",msg) || (getTickCount()-start+pause)>timeoutMs) rethrow;
 			}
