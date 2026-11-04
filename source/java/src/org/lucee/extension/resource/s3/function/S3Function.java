@@ -20,6 +20,7 @@ package org.lucee.extension.resource.s3.function;
 
 import java.nio.charset.Charset;
 
+import org.lucee.extension.resource.s3.S3Exception;
 import org.lucee.extension.resource.s3.S3HttpPoolSettings;
 import org.lucee.extension.resource.s3.S3Properties;
 import org.lucee.extension.resource.s3.S3Resource;
@@ -54,19 +55,29 @@ public abstract class S3Function extends BIF {
 			}
 			props.setCustomCredentials(true);
 			props.setHttpPool(S3HttpPoolSettings.fromEnv());
+			applyBucketSuffix(pc, props);
 			return props;
 		}
 
+		Struct appData = null;
 		try {
-			Struct appData = S3Properties.getApplicationData(pc);
-			if (appData != null) {
-				S3Properties props = S3Properties.load(pc, appData, null);
-				if (props != null && !Util.isEmpty(props.getAccessKeyId(), true) && !Util.isEmpty(props.getSecretAccessKey(), true)) {
-					return props;
-				}
-			}
+			appData = S3Properties.getApplicationData(pc);
 		}
 		catch (Exception e) {
+		}
+		// an invalid bucket suffix definition is reported and never ignored (the lookup below
+		// would otherwise end up with a misleading "missing credentials" error)
+		if (appData != null) S3Properties.loadBucketSuffix(appData, null);
+		S3Properties appProps = null;
+		try {
+			if (appData != null) appProps = S3Properties.load(pc, appData, null);
+		}
+		catch (Exception e) {
+			// fall through to env var / system property lookup
+		}
+		if (appProps != null && !Util.isEmpty(appProps.getAccessKeyId(), true) && !Util.isEmpty(appProps.getSecretAccessKey(), true)) {
+			applyBucketSuffix(pc, appProps);
+			return appProps;
 		}
 
 		if (Util.isEmpty(secretAccessKey, true)) secretAccessKey = S3Util.getSystemPropOrEnvVar("lucee.s3.secretaccesskey", null);
@@ -97,8 +108,27 @@ public abstract class S3Function extends BIF {
 		else props.setCustomHost(false);
 		if (cacheRegion != null) props.setCacheRegion(cacheRegion.booleanValue());
 		props.setHttpPool(S3HttpPoolSettings.fromEnv());
+		applyBucketSuffix(pc, props);
 
 		return props;
+	}
+
+	/**
+	 * sets the bucket suffix configuration (environment variable / system property and
+	 * Application.cfc) to the properties, does nothing when nothing is configured
+	 */
+	protected static void applyBucketSuffix(PageContext pc, S3Properties props) throws PageException {
+		try {
+			S3Properties app = null;
+			if (pc != null) {
+				Struct appData = S3Properties.getApplicationData(pc);
+				if (appData != null) app = S3Properties.loadBucketSuffix(appData, null);
+			}
+			S3Properties.applyBucketSuffix(props, app, null, null);
+		}
+		catch (S3Exception e) {
+			throw CFMLEngineFactory.getInstance().getCastUtil().toPageException(e);
+		}
 	}
 
 	protected static long toTimeout(double timeout) {
@@ -155,6 +185,12 @@ public abstract class S3Function extends BIF {
 				}
 				props.setCustomCredentials(true);
 				props.setHttpPool(S3HttpPoolSettings.fromEnv());
+				try {
+					applyBucketSuffix(eng.getThreadPageContext(), props);
+				}
+				catch (PageException e) {
+					throw eng.getCastUtil().toPageRuntimeException(e);
+				}
 			}
 		}
 		return new PropsAndEndpoint(props, bucketName, objectName);
