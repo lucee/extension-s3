@@ -244,6 +244,7 @@ public final class StorageObjectWrapper extends S3InfoSupport {
 		// the same information with the original names, see LDEV-6840
 		data.setEL("metadata", MetaDataStructs.toMetadata(omd));
 		data.setEL("headers", MetaDataStructs.toHeaders(omd));
+		if (omd.getVersionId() != null) data.setEL("versionId", omd.getVersionId());
 		return data;
 	}
 
