@@ -31,6 +31,30 @@ component  {
 	}
 
 	/**
+	 * Same as waitUntilReadable, but for listing: AWS can serve the listing of a freshly created bucket from another
+	 * node than the read of an object, so a successful S3ReadBinary does not mean S3ListBucket already finds the bucket.
+	 * Polls S3ListBucket until it no longer answers NoSuchBucket, gives up after timeoutMs and rethrows the last error.
+	 */
+	static function waitUntilListable(cred,bucketName,timeoutMs=30000) {
+		var start=getTickCount();
+		var pause=100;
+		while(true) {
+			try {
+				S3ListBucket( 
+					bucketName:bucketName, 
+					accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST));
+				return getTickCount()-start;
+			}
+			catch(e) {
+				var msg=(e.message?:"")&" "&(e.detail?:"");
+				if(!findNoCase("NoSuchBucket",msg) || (getTickCount()-start+pause)>timeoutMs) rethrow;
+			}
+			sleep(pause);
+			pause=min(pause*2,2000);
+		}
+	}
+
+	/**
 	 * true when the ACL (array of structs as returned by S3GetACL) contains a grant of the given
 	 * permission to the given group, for example hasGrant(acl,"authenticated","READ")
 	 */
@@ -104,8 +128,9 @@ component  {
 		var SECRET_KEY=server.system.environment.S3_AMAZON_SECRET_KEY?:nullValue();
 		if(isNull(SECRET_KEY) || isEmpty(SECRET_KEY)) return {};
 		
-		var PREFIX=server.system.environment.S3_AMAZON_BUCKET_PREFIX?:nullValue();
-		if(isNull(PREFIX) || isEmpty(PREFIX)) local.prefix="ldev";
+		// without S3_AMAZON_BUCKET_PREFIX the prefix falls back to "ldev", it must never be returned as null
+		var PREFIX=server.system.environment.S3_AMAZON_BUCKET_PREFIX?:"ldev";
+		if(isEmpty(PREFIX)) PREFIX="ldev";
 
 		return {ACCESS_KEY_ID:ACCESS_KEY_ID,SECRET_KEY:SECRET_KEY,PREFIX:PREFIX};
 	}
@@ -133,25 +158,6 @@ component  {
 		return {ACCESS_KEY_ID:ACCESS_KEY_ID,SECRET_KEY:SECRET_KEY,HOST:HOST,PREFIX:PREFIX};
 	}
 
-	public static boolean function isWasabiNotSupported() {
-		res= getWasabiCredentials();
-		return isNull(res) || len(res)==0;
-	}
-	public static struct function getWasabiCredentials() {
-		var ACCESS_KEY_ID=server.system.environment.S3_WASABI_ACCESS_KEY_ID?:nullValue();
-		if(isNull(ACCESS_KEY_ID) || isEmpty(ACCESS_KEY_ID)) return {};
-		
-		var SECRET_KEY=server.system.environment.S3_WASABI_SECRET_KEY?:nullValue();
-		if(isNull(SECRET_KEY) || isEmpty(SECRET_KEY)) return {};
-		
-		var HOST=server.system.environment.S3_WASABI_HOST?:nullValue();
-		if(isNull(HOST) || isEmpty(HOST)) return {};
-		
-		var PREFIX=server.system.environment.S3_WASABI_BUCKET_PREFIX?:nullValue();
-		if(isNull(PREFIX) || isEmpty(PREFIX)) return {};
-
-		return {ACCESS_KEY_ID:ACCESS_KEY_ID,SECRET_KEY:SECRET_KEY,HOST:HOST,PREFIX:PREFIX};
-	}
 	public static boolean function isWasabiNotSupported() {
 		res= getWasabiCredentials();
 		return isNull(res) || len(res)==0;

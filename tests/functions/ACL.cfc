@@ -23,7 +23,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 		describe( title="Test suite for ACL funcions", body=function() {
 			
 		// AWS
-			/*it(title="check with amazon add acl for bucket store style",skip=Util::isAWSNotSupported(), body = function( currentSpec ) {
+			it(title="check with amazon add acl for bucket store style",skip=Util::isAWSNotSupported(), body = function( currentSpec ) {
 				var cred=Util::getAWSCredentials();
 				if(!setup(cred)) return;
 				testStoreAddACLBucketStore(cred);
@@ -57,7 +57,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3"	{
 				var cred=Util::getAWSCredentials();
 				if(!setup(cred)) return;
 				testStoreAddACLObjectS3(cred);
-			});	*/
+			});	
 		
 		// Blackbaze
 			it(title="check with Blackbaze add acl for bucket store style",skip=Util::isBackBlazeNotSupported(), body = function( currentSpec ) {
