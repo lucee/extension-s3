@@ -30,23 +30,33 @@ component {
 	}
 
 	/**
+	 * The application settings for the custom endpoint.
+	 * @extra additional settings (like pool), they overrule the defaults
+	 */
+	static struct function settings( struct extra = {} ) {
+		var cred = getCredentials();
+		var result = {
+			accessKeyId: cred.ACCESS_KEY_ID,
+			awsSecretKey: cred.SECRET_KEY,
+			host: cred.HOST,
+			pathStyleAccess: true
+		};
+		if ( len( cred.REGION ) ) result.defaultLocation = cred.REGION;
+		// a local server (MinIO) speaks plain HTTP: the application setting "ssl" is not passed on to the extension
+		// by every Lucee version, a scheme in the host is
+		if ( reFindNoCase( "^(localhost|127\.0\.0\.1)(:|$)", cred.HOST ) ) result.host = "http://" & cred.HOST;
+		structAppend( result, arguments.extra );
+		return result;
+	}
+
+	/**
 	 * Sets the application settings for the custom endpoint and prepares a bucket (or, if S3_CUSTOM_BUCKET is set,
 	 * a unique key prefix in that bucket).
 	 * @return struct with bucket, prefix (empty or "xyz/"), created (true if the bucket was created), and cred
 	 */
 	static struct function prepare( required string name ) {
 		var cred = getCredentials();
-		var settings = {
-			accessKeyId: cred.ACCESS_KEY_ID,
-			awsSecretKey: cred.SECRET_KEY,
-			host: cred.HOST,
-			pathStyleAccess: true
-		};
-		if ( len( cred.REGION ) ) settings.defaultLocation = cred.REGION;
-		// a local server (MinIO) speaks plain HTTP: the application setting "ssl" is not passed on to the extension
-		// by every Lucee version, a scheme in the host is
-		if ( reFindNoCase( "^(localhost|127\.0\.0\.1)(:|$)", cred.HOST ) ) settings.host = "http://" & cred.HOST;
-		application action="update" s3=settings;
+		application action="update" s3=settings();
 
 		var ctx = { cred: cred, created: false, bucket: cred.BUCKET, prefix: "" };
 		var unique = "ldev-" & lcase( arguments.name ) & "-" & lcase( left( createUUID(), 8 ) );
