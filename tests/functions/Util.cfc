@@ -7,26 +7,30 @@ component  {
 
 	/**
 	 * A freshly created bucket/object is not always visible right away (AWS answers NoSuchBucket/NoSuchKey
-	 * for a short time after the bucket was created by S3Write). Polls with a short backoff until the object
-	 * can be read (consecutive times in a row, a single success was not enough on AWS), gives up after timeoutMs and rethrows the last error. Any other error is rethrown at once.
+	 * for a short time after the bucket was created by S3Write), and the answer can differ from one request
+	 * to the next while the change propagates. So a single successful read is not enough: the object has to
+	 * be readable AND the bucket listable for "consecutive" rounds in a row (a failed round starts counting
+	 * again). Polls with a short backoff, gives up after timeoutMs and rethrows the last error. Any other
+	 * error is rethrown at once.
 	 */
 	static function waitUntilReadable(cred,bucketName,objectName,timeoutMs=30000,consecutive=3) {
 		var start=getTickCount();
 		var pause=100;
-		var hits=0;
+		var okInARow=0;
 		while(true) {
 			try {
 				S3ReadBinary( 
 					bucketName:bucketName,  objectName:objectName, 
 					accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST));
-				// the answer can come from another node than the next call: only trust a run of consecutive successes
-				hits++;
-				if(hits>=arguments.consecutive) return getTickCount()-start;
+				// listing is a different request than reading, the clear/delete bucket tests depend on it
+				S3ListBucket(bucketName:bucketName, accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST));
+				okInARow++;
+				if(okInARow>=consecutive) return getTickCount()-start;
 				sleep(200);
 				continue;
 			}
 			catch(e) {
-				hits=0;
+				okInARow=0;
 				var msg=(e.message?:"")&" "&(e.detail?:"");
 				var notYetVisible=findNoCase("NoSuchBucket",msg) || findNoCase("NoSuchKey",msg);
 				if(!notYetVisible || (getTickCount()-start+pause)>timeoutMs) rethrow;
