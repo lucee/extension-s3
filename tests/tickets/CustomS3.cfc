@@ -42,9 +42,12 @@ component {
 			pathStyleAccess: true
 		};
 		if ( len( cred.REGION ) ) result.defaultLocation = cred.REGION;
-		// a local server (MinIO) speaks plain HTTP: the application setting "ssl" is not passed on to the extension
-		// by every Lucee version, a scheme in the host is
-		if ( reFindNoCase( "^(localhost|127\.0\.0\.1)(:|$)", cred.HOST ) ) result.host = "http://" & cred.HOST;
+		// a local server (MinIO) speaks plain HTTP: this version of the extension has no "ssl" / "pathStyleAccess"
+		// setting, a scheme in the host is used instead. The AWS SDK addresses the buckets virtual hosted
+		// (bucket.localhost) except for an IP address, MinIO does not serve that, so the IP is used.
+		if ( reFindNoCase( "^(localhost|127\.0\.0\.1)(:|$)", cred.HOST ) ) {
+			result.host = "http://" & reReplaceNoCase( cred.HOST, "^localhost", "127.0.0.1" );
+		}
 		structAppend( result, arguments.extra );
 		return result;
 	}
