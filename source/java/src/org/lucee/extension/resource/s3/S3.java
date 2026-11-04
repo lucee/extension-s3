@@ -22,6 +22,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.lucee.extension.resource.s3.info.MetaDataStructs;
 import org.lucee.extension.resource.s3.info.NotExisting;
 import org.lucee.extension.resource.s3.info.ParentObject;
 import org.lucee.extension.resource.s3.info.S3BucketWrapper;
@@ -35,9 +36,11 @@ import org.lucee.extension.resource.s3.util.XMLUtil;
 
 import com.amazonaws.AmazonServiceException;
 import com.amazonaws.HttpMethod;
+import com.amazonaws.services.s3.Headers;
 import com.amazonaws.services.s3.model.AccessControlList;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
 import com.amazonaws.services.s3.model.Bucket;
+import com.amazonaws.services.s3.model.CanonicalGrantee;
 import com.amazonaws.services.s3.model.CannedAccessControlList;
 import com.amazonaws.services.s3.model.CompleteMultipartUploadRequest;
 import com.amazonaws.services.s3.model.CopyObjectRequest;
@@ -45,6 +48,9 @@ import com.amazonaws.services.s3.model.CreateBucketRequest;
 import com.amazonaws.services.s3.model.DeleteObjectsRequest;
 import com.amazonaws.services.s3.model.DeleteObjectsRequest.KeyVersion;
 import com.amazonaws.services.s3.model.GeneratePresignedUrlRequest;
+import com.amazonaws.services.s3.model.Grant;
+import com.amazonaws.services.s3.model.Grantee;
+import com.amazonaws.services.s3.model.GroupGrantee;
 import com.amazonaws.services.s3.model.InitiateMultipartUploadRequest;
 import com.amazonaws.services.s3.model.InitiateMultipartUploadResult;
 import com.amazonaws.services.s3.model.ListObjectsRequest;
@@ -53,12 +59,14 @@ import com.amazonaws.services.s3.model.ObjectListing;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.Owner;
 import com.amazonaws.services.s3.model.PartETag;
+import com.amazonaws.services.s3.model.Permission;
 import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.s3.model.ResponseHeaderOverrides;
 import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.amazonaws.services.s3.model.S3VersionSummary;
 import com.amazonaws.services.s3.model.SSEAlgorithm;
+import com.amazonaws.services.s3.model.SSEAwsKeyManagementParams;
 import com.amazonaws.services.s3.model.SSECustomerKey;
 import com.amazonaws.services.s3.model.UploadPartRequest;
 import com.amazonaws.services.s3.model.UploadPartResult;
@@ -81,6 +89,8 @@ import lucee.runtime.util.Creation;
 import lucee.runtime.util.Strings;
 
 public class S3 {
+	private static final String USER_METADATA_PREFIX = "x-amz-meta-";
+
 	private static final short CHECK_EXISTS = 1;
 	private static final short CHECK_IS_DIR = 2;
 	private static final short CHECK_IS_FILE = 4;
@@ -1257,9 +1267,12 @@ public class S3 {
 			catch (Exception e) {
 				if (e instanceof AmazonS3Exception) {
 					AmazonS3Exception ase = (AmazonS3Exception) e;
-					if ("NoSuchBucket".equals(ase.getErrorCode()) || "404".equals(ase.getStatusCode())) return null;
+					if ("NoSuchBucket".equals(ase.getErrorCode()) || ase.getStatusCode() == 404) return null;
 				}
+				// LDEV-6680 any other problem (pool timeout, no response, ...) does not mean the object is missing,
+				// so we do not answer "does not exist" and we never cache it as NotExisting
 				if (log != null) log.error("s3", e);
+				throw toS3Exception(e);
 			}
 
 			/* Recursively delete all the objects inside given bucket */
@@ -2091,6 +2104,8 @@ public class S3 {
 					sct.setEL(e.getKey().replace('-', '_'), e.getValue());
 				}
 				sct.setEL("lastModified", md.getLastModified());
+				sct.setEL("metadata", MetaDataStructs.toMetadata(md));
+				sct.setEL("headers", MetaDataStructs.toHeaders(md));
 
 			}
 		}
@@ -2170,56 +2185,181 @@ public class S3 {
 		setMetaDataAsMap(bucketName, objectName, data);
 	}
 
+	/**
+	 * Replaces the user metadata of an object with the given one. The system metadata of the object
+	 * (Content-Type, Cache-Control, Content-Disposition, Content-Encoding, Content-Language, Expires,
+	 * redirect location, server side encryption, storage class) and the ACL are kept, because the copy that
+	 * is used to change the metadata would reset them otherwise. System headers that are part of the given
+	 * metadata (for example "content-type") replace the current value of that header.
+	 */
 	public void setMetaDataAsMap(String bucketName, String objectName, Map<String, String> metadata) throws S3Exception {
-
-		Iterator<Entry<String, String>> it = metadata.entrySet().iterator();
-		Entry<String, String> e;
-		ObjectMetadata metadataCopy = new ObjectMetadata();
-		while (it.hasNext()) {
-			e = it.next();
-			metadataCopy.addUserMetadata(toMetaDataKey(e.getKey()), e.getValue());
-		}
 
 		bucketName = improveBucketName(bucketName);
 		objectName = improveObjectName(objectName);
 
-		if (!Util.isEmpty(objectName)) {
-			AmazonS3Client client = getAmazonS3(bucketName, null);
+		if (Util.isEmpty(objectName)) throw new S3Exception("cannot set metadata for a bucket"); // TOOD possible?
+
+		AmazonS3Client client = getAmazonS3(bucketName, null);
+		try {
 			S3BucketWrapper bw = get(bucketName);
 			if (bw == null) throw new S3Exception("there is no bucket [" + bucketName + "]");
+
+			// the current metadata, a folder can be stored with or without the trailing slash
+			String on = objectName;
+			ObjectMetadata current;
 			try {
-				CopyObjectRequest request = new CopyObjectRequest(bucketName, objectName, bucketName, objectName).withNewObjectMetadata(metadataCopy);
-				client.copyObject(request);
-				flushExists(bucketName, objectName);
+				current = client.getObjectMetadata(bucketName, on);
 			}
 			catch (AmazonServiceException se) {
-				if (se.getErrorCode().equals("NoSuchKey")) { // we know at this point objectname is not empty, so we do not have to check that
-					try {
-						String on = oppositeObjectName(objectName);
-						CopyObjectRequest request = new CopyObjectRequest(bucketName, on, bucketName, on).withNewObjectMetadata(metadataCopy);
-						client.copyObject(request);
-						flushExists(bucketName, on);
-						return;
-					}
-					catch (AmazonServiceException ise) {
-						S3Info src = get(bucketName, objectName);
-						if (src.isVirtual()) {
-							throw new S3Exception("Cannot set meta data to a virtual folder", se);
-						}
-						throw toS3Exception(ise);
-					}
+				if (!isNotFound(se)) throw toS3Exception(se);
+				on = oppositeObjectName(objectName);
+				try {
+					current = client.getObjectMetadata(bucketName, on);
 				}
-				throw toS3Exception(se);
+				catch (AmazonServiceException ise) {
+					if (isNotFound(ise)) {
+						S3Info src = get(bucketName, objectName);
+						if (src != null && src.isVirtual()) throw new S3Exception("Cannot set meta data to a virtual folder", se);
+					}
+					throw toS3Exception(ise);
+				}
 			}
-			finally {
-				client.release();
-			}
-		}
-		else throw new S3Exception("cannot set metadata for a bucket"); // TOOD possible?
 
+			ObjectMetadata newMetadata = new ObjectMetadata();
+			keepSystemMetaData(current, newMetadata);
+			Iterator<Entry<String, String>> it = metadata.entrySet().iterator();
+			Entry<String, String> e;
+			String key;
+			while (it.hasNext()) {
+				e = it.next();
+				key = toMetaDataKey(removeMetaDataPrefix(e.getKey()));
+				if ("Content-Type".equals(key)) newMetadata.setContentType(e.getValue());
+				else if ("Content-Disposition".equals(key)) newMetadata.setContentDisposition(e.getValue());
+				else if ("Content-Encoding".equals(key)) newMetadata.setContentEncoding(e.getValue());
+				else if ("Content-Language".equals(key)) newMetadata.setHeader(Headers.CONTENT_LANGUAGE, e.getValue());
+				else if ("Cache-Control".equals(key)) newMetadata.setCacheControl(e.getValue());
+				else newMetadata.addUserMetadata(key, e.getValue());
+			}
+
+			String storageClass = current.getStorageClass();
+			String kmsKeyId = (String) current.getRawMetadataValue(Headers.SERVER_SIDE_ENCRYPTION_AWS_KMS_KEYID);
+			Object acl = aclToKeep(client, bucketName, on);
+
+			if (on.endsWith("/") && current.getContentLength() == 0) {
+				// a folder placeholder has no content, so it is written again (not every server can copy such an object onto itself)
+				newMetadata.setContentLength(0);
+				PutObjectRequest por = new PutObjectRequest(bucketName, on, new ByteArrayInputStream(new byte[0]), newMetadata);
+				if (!Util.isEmpty(storageClass)) por.setStorageClass(storageClass);
+				if (!Util.isEmpty(kmsKeyId)) por.setSSEAwsKeyManagementParams(new SSEAwsKeyManagementParams(kmsKeyId));
+				if (acl instanceof CannedAccessControlList) por.setCannedAcl((CannedAccessControlList) acl);
+				else if (acl instanceof AccessControlList) por.setAccessControlList((AccessControlList) acl);
+				try {
+					client.putObject(por);
+				}
+				catch (AmazonServiceException se) {
+					throw toS3Exception(se);
+				}
+			}
+			else {
+				CopyObjectRequest request = new CopyObjectRequest(bucketName, on, bucketName, on).withNewObjectMetadata(newMetadata);
+				if (!Util.isEmpty(storageClass)) request.setStorageClass(storageClass);
+				if (!Util.isEmpty(kmsKeyId)) request.setSSEAwsKeyManagementParams(new SSEAwsKeyManagementParams(kmsKeyId));
+				if (acl instanceof CannedAccessControlList) request.setCannedAccessControlList((CannedAccessControlList) acl);
+				else if (acl instanceof AccessControlList) request.setAccessControlList((AccessControlList) acl);
+				try {
+					client.copyObject(request);
+				}
+				catch (AmazonServiceException se) {
+					throw toS3Exception(se);
+				}
+			}
+			flushExists(bucketName, on);
+		}
+		finally {
+			client.release();
+		}
+	}
+
+	private static boolean isNotFound(AmazonServiceException ase) {
+		// a HEAD request has no body, so the error code is the status text and not "NoSuchKey"
+		return ase.getStatusCode() == 404 || "NoSuchKey".equals(ase.getErrorCode());
+	}
+
+	/** copies the headers a REPLACE copy would reset from the current object */
+	private void keepSystemMetaData(ObjectMetadata from, ObjectMetadata to) {
+		if (from.getContentType() != null) to.setContentType(from.getContentType());
+		if (from.getContentDisposition() != null) to.setContentDisposition(from.getContentDisposition());
+		if (from.getContentEncoding() != null) to.setContentEncoding(from.getContentEncoding());
+		if (from.getContentLanguage() != null) to.setHeader(Headers.CONTENT_LANGUAGE, from.getContentLanguage());
+		if (from.getCacheControl() != null) to.setCacheControl(from.getCacheControl());
+		if (from.getHttpExpiresDate() != null) to.setHttpExpiresDate(from.getHttpExpiresDate());
+		if (from.getSSEAlgorithm() != null) to.setSSEAlgorithm(from.getSSEAlgorithm());
+		Object redirect = from.getRawMetadataValue(Headers.REDIRECT_LOCATION);
+		if (redirect != null) to.setHeader(Headers.REDIRECT_LOCATION, redirect);
+	}
+
+	/**
+	 * Keeps the ACL of the object in the copy. Nothing is set when the ACL is only the default (full control for
+	 * the owner), this way buckets that do not allow ACLs (bucket owner enforced) are not sent an ACL they would
+	 * reject. The common ACLs are sent as canned ACL (supported by all S3 compatible servers), everything else as
+	 * the list of grants.
+	 */
+	/**
+	 * @return the ACL of the object as a canned ACL or an access control list, null if the object has the default ACL or the ACL cannot
+	 *         be read
+	 */
+	private Object aclToKeep(AmazonS3Client client, String bucketName, String objectName) {
+		AccessControlList acl;
+		try {
+			acl = client.getObjectAcl(bucketName, objectName);
+		}
+		catch (AmazonServiceException ase) {
+			// servers without ACL support, or a user that is not allowed to read the ACL: the copy then
+			// behaves like before and the object gets the default ACL
+			if (ase.getStatusCode() == 501 || ase.getStatusCode() == 403) {
+				if (log != null) log.warn("S3", "could not read the ACL of [" + bucketName + "/" + objectName + "], the ACL is not kept: " + ase.getMessage());
+				return null;
+			}
+			throw ase;
+		}
+		if (acl == null) return null;
+		String ownerId = acl.getOwner() == null ? null : acl.getOwner().getId();
+		boolean other = false, allRead = false, allWrite = false, authRead = false;
+		for (Grant grant: acl.getGrantsAsList()) {
+			Grantee grantee = grant.getGrantee();
+			Permission permission = grant.getPermission();
+			String id = grantee == null ? null : grantee.getIdentifier();
+			if (permission == Permission.FullControl && grantee instanceof CanonicalGrantee && ownerId != null && ownerId.equals(id)) continue;
+			if (permission == Permission.Read && GroupGrantee.AllUsers.getIdentifier().equals(id)) allRead = true;
+			else if (permission == Permission.Write && GroupGrantee.AllUsers.getIdentifier().equals(id)) allWrite = true;
+			else if (permission == Permission.Read && GroupGrantee.AuthenticatedUsers.getIdentifier().equals(id)) authRead = true;
+			else other = true;
+		}
+		if (!other && !allRead && !allWrite && !authRead) return null; // default ACL
+		if (!other && allRead && allWrite && !authRead) return CannedAccessControlList.PublicReadWrite;
+		else if (!other && allRead && !allWrite && !authRead) return CannedAccessControlList.PublicRead;
+		else if (!other && authRead && !allRead && !allWrite) return CannedAccessControlList.AuthenticatedRead;
+		return acl;
+	}
+
+	/**
+	 * The SDK adds the prefix "x-amz-meta-" to the name of every user metadata entry when it sends it, so
+	 * a name that already has the prefix (as header name) would get it twice.
+	 */
+	private static String removeMetaDataPrefix(String key) throws S3Exception {
+		if (key != null && key.regionMatches(true, 0, USER_METADATA_PREFIX, 0, USER_METADATA_PREFIX.length())) {
+			key = key.substring(USER_METADATA_PREFIX.length());
+			if (key.trim().isEmpty()) throw new S3Exception("the name of a metadata entry cannot be empty, it is only the prefix [" + USER_METADATA_PREFIX + "]");
+		}
+		return key;
 	}
 
 	private String toMetaDataKey(String key) {
+		if (key.equalsIgnoreCase("cache-control")) return "Cache-Control";
+		if (key.equalsIgnoreCase("cache_control")) return "Cache-Control";
+		if (key.equalsIgnoreCase("cache control")) return "Cache-Control";
+		if (key.equalsIgnoreCase("cachecontrol")) return "Cache-Control";
+
 		if (key.equalsIgnoreCase("content-disposition")) return "Content-Disposition";
 		if (key.equalsIgnoreCase("content_disposition")) return "Content-Disposition";
 		if (key.equalsIgnoreCase("content disposition")) return "Content-Disposition";
