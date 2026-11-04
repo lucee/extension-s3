@@ -268,7 +268,8 @@ public final class S3Resource extends ResourceSupport {
 			 */
 
 			S3ResourceOutputStream os = new S3ResourceOutputStream(s3, bucketName, objectName, getInnerPath(), acl, location);
-			if (append) {
+			// LDEV-6865: appending to a file that does not exist just creates it
+			if (append && exists()) {
 				engine.getIOUtil().copy(getInputStream(), os, true, false);
 			}
 			return os;
