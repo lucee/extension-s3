@@ -6,6 +6,8 @@ component  {
 	}
 
 	static function deleteBucketEL(cred,bucketName,objectName) {
+		// callers pass "s3://name" or "name"; S3Exists/S3Delete need the plain bucket name
+		if(left(bucketName,5)=="s3://") arguments.bucketName=mid(bucketName,6);
 		try {
 			if(S3Exists( 
 				bucketName:bucketName,  objectName:objectName?:nullValue(), 
