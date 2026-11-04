@@ -946,10 +946,11 @@ public class S3 {
 		if (Util.isEmpty(versionId, true)) versionId = null;
 		else versionId = versionId.trim();
 
-		// . in bucket?
+		// a . in the bucket name does not work with virtual host style (certificate), so always path style, otherwise
+		// use the setting (null: decided by the client, a custom host like MinIO needs path style)
 		boolean isDotInBucket = bucketName.indexOf('.') != -1;
 
-		AmazonS3Client client = getAmazonS3(bucketName, null, isDotInBucket);
+		AmazonS3Client client = getAmazonS3(bucketName, null, isDotInBucket ? Boolean.TRUE : this.pathStyleAccess);
 		try {
 			GeneratePresignedUrlRequest generatePresignedUrlRequest = new GeneratePresignedUrlRequest(bucketName, objectName).withMethod(method);
 			if (versionId != null) {
