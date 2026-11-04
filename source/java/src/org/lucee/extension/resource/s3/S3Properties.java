@@ -48,6 +48,9 @@ public class S3Properties {
 	// bucket suffix as defined in this settings, null when not defined (is then inherited)
 	private Map<String, String> bucketSuffixes = null;
 	private Set<String> bucketSuffixExclude = null;
+	// bucket prefix as defined in this settings, null when not defined (is then inherited)
+	private Map<String, String> bucketPrefixes = null;
+	private Set<String> bucketPrefixExclude = null;
 	// the resolved bucket suffix configuration used by S3
 	private S3BucketSuffix bucketSuffix = S3BucketSuffix.EMPTY;
 
@@ -189,7 +192,34 @@ public class S3Properties {
 	}
 
 	/**
-	 * the resolved bucket suffix configuration (never null)
+	 * the bucket prefixes defined in this settings (this.s3.bucketPrefixes, this.vfs.s3.bucketPrefixes
+	 * or this.vfs.s3.{mapping}.bucketPrefixes)
+	 *
+	 * @return null if not defined, an empty map if defined as empty (that disables the prefixes
+	 *         inherited from a less specific definition)
+	 */
+	public Map<String, String> getBucketPrefixes() {
+		return bucketPrefixes;
+	}
+
+	public void setBucketPrefixes(Map<String, String> bucketPrefixes) {
+		this.bucketPrefixes = bucketPrefixes;
+	}
+
+	/**
+	 * the logical bucket names that do not get a prefix, as defined in this settings, null if not
+	 * defined
+	 */
+	public Set<String> getBucketPrefixExclude() {
+		return bucketPrefixExclude;
+	}
+
+	public void setBucketPrefixExclude(Set<String> bucketPrefixExclude) {
+		this.bucketPrefixExclude = bucketPrefixExclude;
+	}
+
+	/**
+	 * the resolved bucket suffix and prefix configuration (never null)
 	 */
 	public S3BucketSuffix getBucketSuffix() {
 		return bucketSuffix;
@@ -200,10 +230,10 @@ public class S3Properties {
 	}
 
 	/**
-	 * Resolves the bucket suffix configuration and sets it to the target. The more specific definition
-	 * replaces the less specific: environment variable / system property, then Application.cfc, then
-	 * the mapping (this.vfs.s3.{mapping}). Suffixes and the list of excluded buckets are replaced
-	 * independent of each other.
+	 * Resolves the bucket suffix and prefix configuration and sets it to the target. The more specific
+	 * definition replaces the less specific: environment variable / system property, then
+	 * Application.cfc, then the mapping (this.vfs.s3.{mapping}). Suffixes, prefixes and the lists of
+	 * excluded buckets are replaced independent of each other.
 	 *
 	 * @param target the properties to set the configuration to
 	 * @param app the settings from the Application.cfc, can be null
@@ -215,15 +245,21 @@ public class S3Properties {
 	public static void applyBucketSuffix(S3Properties target, S3Properties app, S3Properties mapping, String region) throws S3Exception {
 		Map<String, String> suffixes = S3BucketSuffix.suffixesFromEnv();
 		Set<String> exclude = S3BucketSuffix.excludeFromEnv();
+		Map<String, String> prefixes = S3BucketSuffix.prefixesFromEnv();
+		Set<String> prefixExclude = S3BucketSuffix.prefixExcludeFromEnv();
 		if (app != null) {
 			if (app.bucketSuffixes != null) suffixes = app.bucketSuffixes;
 			if (app.bucketSuffixExclude != null) exclude = app.bucketSuffixExclude;
+			if (app.bucketPrefixes != null) prefixes = app.bucketPrefixes;
+			if (app.bucketPrefixExclude != null) prefixExclude = app.bucketPrefixExclude;
 		}
 		if (mapping != null) {
 			if (mapping.bucketSuffixes != null) suffixes = mapping.bucketSuffixes;
 			if (mapping.bucketSuffixExclude != null) exclude = mapping.bucketSuffixExclude;
+			if (mapping.bucketPrefixes != null) prefixes = mapping.bucketPrefixes;
+			if (mapping.bucketPrefixExclude != null) prefixExclude = mapping.bucketPrefixExclude;
 		}
-		if (suffixes == null || suffixes.isEmpty()) {
+		if ((suffixes == null || suffixes.isEmpty()) && (prefixes == null || prefixes.isEmpty())) {
 			target.setBucketSuffix(S3BucketSuffix.EMPTY);
 			return;
 		}
@@ -234,7 +270,7 @@ public class S3Properties {
 			if (Util.isEmpty(region, true)) region = S3Util.getSystemPropOrEnvVar("lucee.s3.defaultLocation", null);
 			if (Util.isEmpty(region, true)) region = S3Util.getSystemPropOrEnvVar("lucee.s3.region", null);
 		}
-		target.setBucketSuffix(S3BucketSuffix.create(suffixes, exclude, region));
+		target.setBucketSuffix(S3BucketSuffix.create(prefixes, prefixExclude, suffixes, exclude, region));
 	}
 
 	@Override
@@ -358,8 +394,8 @@ public class S3Properties {
 	}
 
 	/**
-	 * loads only the bucket suffix definition (bucketSuffixes and bucketSuffixExclude) from the same
-	 * places as {@link #load(PageContext, Struct, String)}, an invalid definition is never ignored.
+	 * loads only the bucket suffix and prefix definition (bucketSuffixes, bucketSuffixExclude,
+	 * bucketPrefixes and bucketPrefixExclude) from the same places as {@link #load(PageContext, Struct, String)}, an invalid definition is never ignored.
 	 *
 	 * @return null if there is no definition at this place
 	 */
@@ -377,9 +413,13 @@ public class S3Properties {
 			if (data == null) return null;
 			S3Properties s3 = new S3Properties();
 			Object suffixes = data.get("bucketSuffixes", null);
-			if (suffixes != null) s3.setBucketSuffixes(toSuffixMap(eng, suffixes));
+			if (suffixes != null) s3.setBucketSuffixes(toRegionMap(eng, suffixes, true));
 			Object exclude = data.get("bucketSuffixExclude", null);
-			if (exclude != null) s3.setBucketSuffixExclude(toExcludeSet(exclude));
+			if (exclude != null) s3.setBucketSuffixExclude(toExcludeSet(exclude, "bucketSuffixExclude"));
+			Object prefixes = data.get("bucketPrefixes", null);
+			if (prefixes != null) s3.setBucketPrefixes(toRegionMap(eng, prefixes, false));
+			Object prefixExclude = data.get("bucketPrefixExclude", null);
+			if (prefixExclude != null) s3.setBucketPrefixExclude(toExcludeSet(prefixExclude, "bucketPrefixExclude"));
 			return s3;
 		}
 		catch (Exception e) {
@@ -406,30 +446,36 @@ public class S3Properties {
 		s3.setHttpPool(S3HttpPoolSettings.load(eng, sct));
 
 		Object suffixes = sct.get("bucketSuffixes", null);
-		if (suffixes != null) s3.setBucketSuffixes(toSuffixMap(eng, suffixes));
+		if (suffixes != null) s3.setBucketSuffixes(toRegionMap(eng, suffixes, true));
 		Object exclude = sct.get("bucketSuffixExclude", null);
-		if (exclude != null) s3.setBucketSuffixExclude(toExcludeSet(exclude));
+		if (exclude != null) s3.setBucketSuffixExclude(toExcludeSet(exclude, "bucketSuffixExclude"));
+		Object prefixes = sct.get("bucketPrefixes", null);
+		if (prefixes != null) s3.setBucketPrefixes(toRegionMap(eng, prefixes, false));
+		Object prefixExclude = sct.get("bucketPrefixExclude", null);
+		if (prefixExclude != null) s3.setBucketPrefixExclude(toExcludeSet(prefixExclude, "bucketPrefixExclude"));
 		return s3;
 
 	}
 
-	private static Map<String, String> toSuffixMap(CFMLEngine eng, Object value) throws S3Exception {
+	private static Map<String, String> toRegionMap(CFMLEngine eng, Object value, boolean suffix) throws S3Exception {
+		String name = suffix ? "bucketSuffixes" : "bucketPrefixes";
+		String kind = suffix ? "suffix" : "prefix";
 		if (value instanceof Map) {
 			Map<String, String> result = new LinkedHashMap<String, String>();
 			for (Entry<?, ?> e: ((Map<?, ?>) value).entrySet()) {
-				if (e.getValue() == null) throw new S3Exception("invalid bucketSuffixes definition, the suffix for the region [" + e.getKey() + "] is null");
+				if (e.getValue() == null) throw new S3Exception("invalid " + name + " definition, the " + kind + " for the region [" + e.getKey() + "] is null");
 				String key = e.getKey().toString();
-				if (result.containsKey(key)) throw new S3Exception("invalid bucketSuffixes definition, duplicate region [" + key + "]");
+				if (result.containsKey(key)) throw new S3Exception("invalid " + name + " definition, duplicate region [" + key + "]");
 				result.put(key, eng.getCastUtil().toString(e.getValue(), null));
 			}
 			return result;
 		}
-		if (value instanceof CharSequence) return S3BucketSuffix.parseSuffixes(value.toString());
-		throw new S3Exception("invalid bucketSuffixes definition, expected a struct like {\"eu-west-1\":\"-dr\"} or a json string with that struct, but got [" + value.getClass().getName()
-				+ "]");
+		if (value instanceof CharSequence) return suffix ? S3BucketSuffix.parseSuffixes(value.toString()) : S3BucketSuffix.parsePrefixes(value.toString());
+		throw new S3Exception("invalid " + name + " definition, expected a struct like " + (suffix ? "{\"eu-west-1\":\"-dr\"}" : "{\"us-west-2\":\"livestock-\"}")
+				+ " or a json string with that struct, but got [" + value.getClass().getName() + "]");
 	}
 
-	private static Set<String> toExcludeSet(Object value) throws S3Exception {
+	private static Set<String> toExcludeSet(Object value, String name) throws S3Exception {
 		if (value instanceof List) {
 			Set<String> result = new LinkedHashSet<String>();
 			for (Object o: (List<?>) value) {
@@ -438,7 +484,7 @@ public class S3Properties {
 			return result;
 		}
 		if (value instanceof CharSequence) return S3BucketSuffix.parseExclude(value.toString());
-		throw new S3Exception("invalid bucketSuffixExclude definition, expected an array or a comma separated list of bucket names, but got [" + value.getClass().getName() + "]");
+		throw new S3Exception("invalid " + name + " definition, expected an array or a comma separated list of bucket names, but got [" + value.getClass().getName() + "]");
 	}
 
 	private static S3Properties toS3(String accessKeyId, String awsSecretKey, String defaultLocation, String host, String bucket, String acl, Boolean cacheRegion, TimeSpan cache,
