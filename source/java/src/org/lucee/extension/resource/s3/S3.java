@@ -196,8 +196,7 @@ public class S3 {
 									}
 								}
 							}
-							catch (Exception e) {
-							}
+							catch (Exception e) {}
 						}
 						if (logName == null) {
 							logName = "application";
@@ -2264,11 +2263,17 @@ public class S3 {
 		acl.grantAllPermissions(AccessControlListUtil.toGrantAndPermissions(objACL));
 
 		try {
-			client.setObjectAcl(bucketName, objectName, acl);
-			if (log != null) log.debug("S3", "added ACL to [" + bucketName + "/" + objectName + "]");
+			if (Util.isEmpty(objectName, true)) {
+				client.setBucketAcl(bucketName, acl);
+				if (log != null) log.debug("S3", "added ACL to bucket [" + bucketName + "]");
+			}
+			else {
+				client.setObjectAcl(bucketName, objectName, acl);
+				if (log != null) log.debug("S3", "added ACL to [" + bucketName + "/" + objectName + "]");
+			}
 		}
 		catch (AmazonServiceException se) {
-			if (se.getErrorCode().equals("NoSuchKey")) { // we know at this point objectname is not empty, so we do not have to check that
+			if (!Util.isEmpty(objectName, true) && se.getErrorCode().equals("NoSuchKey")) {
 				try {
 					client.setObjectAcl(bucketName, oppositeObjectName(objectName), acl);
 					if (log != null) log.debug("S3", "added ACL to [" + bucketName + "/" + objectName + "]");
@@ -2287,7 +2292,6 @@ public class S3 {
 		finally {
 			client.release();
 		}
-
 	}
 
 	public void setAccessControlList(AmazonS3Client client, String bucketName, String objectName, Object objACL) throws S3Exception {
@@ -2507,8 +2511,7 @@ public class S3 {
 			if (Util.isEmpty(str)) return defaultValue;
 			return toACL(str, defaultValue);
 		}
-		catch (Exception e) {
-		}
+		catch (Exception e) {}
 		return defaultValue;
 	}
 
@@ -2601,8 +2604,7 @@ public class S3 {
 								try {
 									proposedSize = Long.parseLong(xmlProposedSize.trim());
 								}
-								catch (Exception ee) {
-								}
+								catch (Exception ee) {}
 							}
 						}
 					}
