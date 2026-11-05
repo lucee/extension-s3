@@ -339,9 +339,10 @@ public class S3 {
 	}
 
 	public URL generatePresignedURL(String bucketName, String objectName, Date expireDate, String httpMethod, String sseAlgorithm, String sseCustomerKey, String checksum,
-			String contentType, String contentDisposition, String contentEncoding, String versionId, Boolean zeroByteContent, Struct customResponseHeaders) throws S3Exception {
+			String contentType, String contentDisposition, String contentEncoding, String versionId, Boolean zeroByteContent, Struct customResponseHeaders,
+			String cacheControl, String expires, String contentLanguage) throws S3Exception {
 		return generatePresignedURLRaw(rb(bucketName), objectName, expireDate, httpMethod, sseAlgorithm, sseCustomerKey, checksum, contentType, contentDisposition, contentEncoding,
-				versionId, zeroByteContent, customResponseHeaders);
+				versionId, zeroByteContent, customResponseHeaders, cacheControl, expires, contentLanguage);
 	}
 
 	public String generateURI(String bucketName, String objectName, short uriStyle, boolean secure) throws S3Exception {
@@ -845,8 +846,12 @@ public class S3 {
 	 * @param contentEncoding Specifies content encodings applied to the object, like gzip.
 	 * @param versionId The version ID of the object if versioning is enabled.
 	 * @param zeroByteContent A flag to specify if the object has zero-byte content.
-	 * @param customResponseHeaders Struct of custom response headers for custom metadata prefixed with
-	 *            "x-amz-meta-" (prefix is optional).
+	 * @param customResponseHeaders Struct of custom response headers. Keys starting with "response-"
+	 *            (e.g. "response-cache-control") are S3 response header overrides, all other keys are
+	 *            custom metadata prefixed with "x-amz-meta-" (prefix is optional).
+	 * @param cacheControl Cache-Control header S3 returns with the response (GET only).
+	 * @param expires Expires header S3 returns with the response (GET only).
+	 * @param contentLanguage Content-Language header S3 returns with the response (GET only).
 	 * 
 	 * @return The generated pre-signed URL.
 	 * 
@@ -854,7 +859,8 @@ public class S3 {
 	 *             parameters.
 	 */
 	public URL generatePresignedURLRaw(String bucketName, String objectName, Date expireDate, String httpMethod, String sseAlgorithm, String sseCustomerKey, String checksum,
-			String contentType, String contentDisposition, String contentEncoding, String versionId, Boolean zeroByteContent, Struct customResponseHeaders) throws S3Exception {
+			String contentType, String contentDisposition, String contentEncoding, String versionId, Boolean zeroByteContent, Struct customResponseHeaders,
+			String cacheControl, String expires, String contentLanguage) throws S3Exception {
 		bucketName = improveBucketName(bucketName);
 		objectName = improveObjectName(objectName);
 		if (log != null) log.debug("S3", "generate presigned URL for  [" + bucketName + "/" + objectName + "]");
@@ -915,6 +921,61 @@ public class S3 {
 			else contentType = contentType.trim();
 		}
 
+		// cache control, expires, content language
+		if (!Util.isEmpty(cacheControl, true)) {
+			if (headers == null) headers = new ResponseHeaderOverrides();
+			headers.setCacheControl(cacheControl.trim()); // example input: public, max-age=86400
+		}
+		if (!Util.isEmpty(expires, true)) {
+			if (headers == null) headers = new ResponseHeaderOverrides();
+			headers.setExpires(expires.trim());
+		}
+		if (!Util.isEmpty(contentLanguage, true)) {
+			if (headers == null) headers = new ResponseHeaderOverrides();
+			headers.setContentLanguage(contentLanguage.trim());
+		}
+
+		// custom response headers: "response-*" keys are response header overrides, all others are user
+		// metadata (prefixed with "x-amz-meta-")
+		Map<String, String> customMetadata = null;
+		if (customResponseHeaders != null && !customResponseHeaders.isEmpty()) {
+			CFMLEngine eng = CFMLEngineFactory.getInstance();
+			Cast caster = eng.getCastUtil();
+			Iterator<Entry<Key, Object>> it = customResponseHeaders.entryIterator();
+			Entry<Key, Object> e;
+			String name, lcName, value;
+			try {
+				while (it.hasNext()) {
+					e = it.next();
+					name = e.getKey().getString().trim();
+					value = caster.toString(e.getValue());
+					lcName = name.toLowerCase();
+					if (lcName.startsWith("response-")) {
+						if (headers == null && isResponseHeaderOverride(lcName)) headers = new ResponseHeaderOverrides();
+						if (ResponseHeaderOverrides.RESPONSE_HEADER_CACHE_CONTROL.equals(lcName)) headers.setCacheControl(value);
+						else if (ResponseHeaderOverrides.RESPONSE_HEADER_CONTENT_DISPOSITION.equals(lcName)) headers.setContentDisposition(value);
+						else if (ResponseHeaderOverrides.RESPONSE_HEADER_CONTENT_ENCODING.equals(lcName)) headers.setContentEncoding(value);
+						else if (ResponseHeaderOverrides.RESPONSE_HEADER_CONTENT_LANGUAGE.equals(lcName)) headers.setContentLanguage(value);
+						else if (ResponseHeaderOverrides.RESPONSE_HEADER_CONTENT_TYPE.equals(lcName)) headers.setContentType(value);
+						else if (ResponseHeaderOverrides.RESPONSE_HEADER_EXPIRES.equals(lcName)) headers.setExpires(value);
+						else {
+							// any other response-* parameter is passed through unprefixed
+							if (customMetadata == null) customMetadata = new LinkedHashMap<String, String>();
+							customMetadata.put(name, value);
+						}
+					}
+					else {
+						if (!lcName.startsWith(USER_METADATA_PREFIX)) name = USER_METADATA_PREFIX + name;
+						if (customMetadata == null) customMetadata = new LinkedHashMap<String, String>();
+						customMetadata.put(name, value);
+					}
+				}
+			}
+			catch (PageException pe) {
+				throw toS3Exception(pe);
+			}
+		}
+
 		// version id
 		if (Util.isEmpty(versionId, true)) versionId = null;
 		else versionId = versionId.trim();
@@ -950,25 +1011,13 @@ public class S3 {
 				generatePresignedUrlRequest.withExpiration(expireDate);
 			}
 
-			if (customResponseHeaders != null && !customResponseHeaders.isEmpty()) {
-				Iterator<Entry<Key, Object>> it = customResponseHeaders.entryIterator();
-				Entry<Key, Object> e;
-				String name;
-				CFMLEngine eng = CFMLEngineFactory.getInstance();
-				Strings util = CFMLEngineFactory.getInstance().getStringUtil();
-				Cast caster = eng.getCastUtil();
-				while (it.hasNext()) {
-					e = it.next();
-					name = e.getKey().getString();
-					if (!util.startsWithIgnoreCase(name, "x-amz-meta-")) name = "x-amz-meta-" + name;
-					generatePresignedUrlRequest.addRequestParameter(name, caster.toString(e.getValue()));
+			if (customMetadata != null) {
+				for (Entry<String, String> md: customMetadata.entrySet()) {
+					generatePresignedUrlRequest.addRequestParameter(md.getKey(), md.getValue());
 				}
 			}
 
 			return client.generatePresignedUrl(generatePresignedUrlRequest);
-		}
-		catch (PageException pe) {
-			throw toS3Exception(pe);
 		}
 		catch (AmazonServiceException ase) {
 			throw toS3Exception(ase);
@@ -977,6 +1026,12 @@ public class S3 {
 			client.release();
 		}
 
+	}
+
+	private static boolean isResponseHeaderOverride(String lcName) {
+		return ResponseHeaderOverrides.RESPONSE_HEADER_CACHE_CONTROL.equals(lcName) || ResponseHeaderOverrides.RESPONSE_HEADER_CONTENT_DISPOSITION.equals(lcName)
+				|| ResponseHeaderOverrides.RESPONSE_HEADER_CONTENT_ENCODING.equals(lcName) || ResponseHeaderOverrides.RESPONSE_HEADER_CONTENT_LANGUAGE.equals(lcName)
+				|| ResponseHeaderOverrides.RESPONSE_HEADER_CONTENT_TYPE.equals(lcName) || ResponseHeaderOverrides.RESPONSE_HEADER_EXPIRES.equals(lcName);
 	}
 
 	public String generateURIRaw(String bucketName, String objectName, short uriStyle, boolean secure) throws S3Exception {
