@@ -15,11 +15,14 @@ import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.lucee.extension.resource.s3.info.MetaDataStructs;
@@ -46,6 +49,8 @@ import com.amazonaws.services.s3.model.CompleteMultipartUploadRequest;
 import com.amazonaws.services.s3.model.CopyObjectRequest;
 import com.amazonaws.services.s3.model.CreateBucketRequest;
 import com.amazonaws.services.s3.model.DeleteObjectsRequest;
+import com.amazonaws.services.s3.model.MultiObjectDeleteException;
+import com.amazonaws.services.s3.model.MultiObjectDeleteException.DeleteError;
 import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.DeleteObjectsRequest.KeyVersion;
 import com.amazonaws.services.s3.model.GeneratePresignedUrlRequest;
@@ -92,6 +97,8 @@ import lucee.runtime.util.Strings;
 public class S3 {
 	/** maximum number of keys S3 accepts in one delete request */
 	private static final int DELETE_BATCH_SIZE = 1000;
+	// above this number of keys it is cheaper to clear the cache of the bucket than to clear it per key
+	private static final int DELETE_FLUSH_KEYS_MAX = 100;
 
 	private static final String USER_METADATA_PREFIX = "x-amz-meta-";
 
@@ -518,6 +525,16 @@ public class S3 {
 
 	public void delete(String bucketName, String objectName, boolean force, boolean ignoreMissing) throws S3Exception {
 		deleteRaw(rb(bucketName), objectName, force, ignoreMissing);
+	}
+
+	/**
+	 * deletes several objects, the requests are sent in batches of 1000 keys (the maximum of the
+	 * DeleteObjects operation of S3)
+	 * 
+	 * @param keys the objects to delete, with a version id only that version is deleted
+	 */
+	public S3DeleteResult deleteObjects(String bucketName, List<KeyVersion> keys) throws S3Exception {
+		return deleteObjectsRaw(rb(bucketName), keys);
 	}
 
 	public void copyObject(String srcBucketName, String srcObjectName, String trgBucketName, String trgObjectName, Object acl, String targetRegion, ObjectOptions opts)
@@ -1848,6 +1865,105 @@ public class S3 {
 			flushExists(bucketName, objectName);
 			client.release();
 		}
+	}
+
+	/**
+	 * Deletes the given objects with the DeleteObjects operation, 1000 keys per request. The keys are
+	 * the exact object names, there is no directory handling (to delete a "directory" with everything
+	 * below it use the delete with a single object name). A key that does not exist counts as
+	 * deleted. An object that can not be deleted does not stop the others, it is part of the result.
+	 * 
+	 * @param keys the objects to delete, a leading slash is removed and duplicates are ignored
+	 * @return the deleted objects and the errors
+	 * @throws S3Exception if the request as a whole fails (for example no such bucket or access
+	 *             denied)
+	 */
+	public S3DeleteResult deleteObjectsRaw(String bucketName, List<KeyVersion> keys) throws S3Exception {
+		bucketName = improveBucketName(bucketName);
+
+		// normalize and remove duplicates, the order is kept
+		Map<String, KeyVersion> unique = new LinkedHashMap<>();
+		for (KeyVersion kv: keys) {
+			String key = improveObjectName(kv.getKey());
+			if (Util.isEmpty(key, true)) throw new S3Exception("can't delete an object with an empty name");
+			String versionId = Util.isEmpty(kv.getVersion(), true) ? null : kv.getVersion().trim();
+			unique.putIfAbsent(deleteId(key, versionId), new KeyVersion(key, versionId));
+		}
+
+		S3DeleteResult result = new S3DeleteResult();
+		if (unique.isEmpty()) return result;
+
+		List<KeyVersion> all = new ArrayList<>(unique.values());
+
+		// the directories of the objects that exist, an object that does not exist is no reason to create a directory
+		Set<String> keyNames = new HashSet<>();
+		for (KeyVersion kv: all) {
+			keyNames.add(kv.getKey());
+		}
+		Set<String> parents = new LinkedHashSet<>();
+		for (KeyVersion kv: all) {
+			String parent = getParent(kv.getKey());
+			if (parent == null || keyNames.contains(parent) || parents.contains(parent)) continue;
+			flushExists(bucketName, parent);
+			if (existsRaw(bucketName, parent)) parents.add(parent);
+		}
+
+		AmazonS3Client client = getAmazonS3(bucketName, null);
+		try {
+			for (int from = 0; from < all.size(); from += DELETE_BATCH_SIZE) {
+				List<KeyVersion> batch = all.subList(from, Math.min(from + DELETE_BATCH_SIZE, all.size()));
+				Set<String> failed = new HashSet<>();
+				try {
+					// quiet: the response only contains the errors
+					client.deleteObjects(new DeleteObjectsRequest(bucketName).withKeys(new ArrayList<>(batch)).withQuiet(true));
+				}
+				catch (MultiObjectDeleteException mode) {
+					for (DeleteError de: mode.getErrors()) {
+						String key = improveObjectName(de.getKey());
+						String versionId = Util.isEmpty(de.getVersionId(), true) ? null : de.getVersionId();
+						// not every server reports the version id, if only one version of the key was requested we know it
+						if (versionId == null) {
+							int matches = 0;
+							for (KeyVersion kv: batch) {
+								if (kv.getKey().equals(key)) {
+									versionId = kv.getVersion();
+									matches++;
+								}
+							}
+							if (matches != 1) versionId = null;
+						}
+						failed.add(deleteId(key, versionId));
+						result.getErrors().add(new S3DeleteResult.Failure(key, versionId, de.getCode(), de.getMessage()));
+					}
+				}
+				for (KeyVersion kv: batch) {
+					if (!failed.contains(deleteId(kv.getKey(), kv.getVersion()))) result.getDeleted().add(kv);
+				}
+			}
+			if (log != null) log.debug("S3", "deleted " + result.getDeleted().size() + " of " + all.size() + " objects in bucket [" + bucketName + "]");
+		}
+		catch (AmazonServiceException se) {
+			throw toS3Exception(se);
+		}
+		finally {
+			// the cache is cleared for every key, also for the ones that failed, we do not know their state
+			if (all.size() > DELETE_FLUSH_KEYS_MAX) flushExists(bucketName, false);
+			else for (KeyVersion kv: all) {
+				flushExists(bucketName, kv.getKey());
+			}
+			client.release();
+		}
+
+		// a parent that existed before maybe was only a pseudo directory, so we make sure it still exists
+		for (String parent: parents) {
+			flushExists(bucketName, parent);
+			if (!existsRaw(bucketName, parent)) createDirectoryRaw(bucketName, parent, null, null);
+		}
+		return result;
+	}
+
+	private static String deleteId(String key, String versionId) {
+		return key + "\u0000" + (versionId == null ? "" : versionId);
 	}
 
 	/*
