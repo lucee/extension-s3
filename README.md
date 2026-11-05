@@ -150,6 +150,7 @@ acl  = s3getACL("my-bucket", "hello.txt");
 
 // URLs
 url = s3generatePresignedUrl("my-bucket", "hello.txt", 3600);
+url = s3generatePresignedUrl(bucket="my-bucket", object="hello.txt", expire=dateAdd("n", 5, now()), cacheControl="public, max-age=86400"); // also expires, contentLanguage, or responseHeaders={ "response-cache-control": "no-cache" } (other keys are sent as x-amz-meta- metadata)
 uri = s3generateUri("my-bucket", "hello.txt");
 ```
 
