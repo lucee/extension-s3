@@ -1720,7 +1720,7 @@
 			<alias>customResponseHeaders</alias>
 			<type>struct</type>
 			<required>No</required>
-			<description>Struct of custom response headers for custom metadata prefixed with "x-amz-meta-" (prefix is optional, function will add it if missed).</description>
+			<description>Struct of custom response headers. Keys starting with "response-" are S3 response header overrides the presigned URL forces on the response (valid keys: response-cache-control, response-content-disposition, response-content-encoding, response-content-language, response-content-type, response-expires). All other keys are custom metadata prefixed with "x-amz-meta-" (prefix is optional, function will add it if missed).</description>
 	    </argument>
 		<argument>
 			<name>accessKeyId</name>
@@ -1758,6 +1758,24 @@
 			<required>No</required>
 			<default>10000</default>
 			<description>timeout for this execution</description>
+	    </argument>
+		<argument>
+			<name>cacheControl</name>
+			<type>string</type>
+			<required>No</required>
+			<description>Cache-Control header S3 returns with the response (e.g. "public, max-age=86400"), only supported for GET.</description>
+	    </argument>
+		<argument>
+			<name>expires</name>
+			<type>string</type>
+			<required>No</required>
+			<description>Expires header S3 returns with the response (e.g. "Thu, 01 Dec 2030 16:00:00 GMT"), only supported for GET.</description>
+	    </argument>
+		<argument>
+			<name>contentLanguage</name>
+			<type>string</type>
+			<required>No</required>
+			<description>Content-Language header S3 returns with the response (e.g. "en-US"), only supported for GET.</description>
 	    </argument>
 		<return>
 			<type>string</type>
