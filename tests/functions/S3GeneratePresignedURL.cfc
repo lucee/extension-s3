@@ -68,7 +68,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 
 			it( title="LDEV-6885 cacheControl, expires and contentLanguage are set as response header overrides", skip=isNotSupported(), body=function(currentSpec){
 				var cred=Util::getAWSCredentials();
-				var url = S3GeneratePresignedURL(
+				var presignedUrl = S3GeneratePresignedURL(
 					bucketName:"bundle-downloadx"
 					,objectName:"sentry-log4j-1.7.22.jar"
 					,expire:dateAdd("n", 5, now())
@@ -78,12 +78,12 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 					,expires:"Thu, 01 Dec 2033 16:00:00 GMT"
 					,contentLanguage:"en-US"
 				);
-				expect( url ).toInclude( "response-cache-control=" );
-				expect( url ).toInclude( "response-expires=" );
-				expect( url ).toInclude( "response-content-language=" );
-				expect( url ).notToInclude( "x-amz-meta-response-" );
+				expect( presignedUrl ).toInclude( "response-cache-control=" );
+				expect( presignedUrl ).toInclude( "response-expires=" );
+				expect( presignedUrl ).toInclude( "response-content-language=" );
+				expect( presignedUrl ).notToInclude( "x-amz-meta-response-" );
 
-				http url=url result="local.res";
+				http url=presignedUrl result="local.res";
 				expect( res.status_code ).toBe( 200 );
 				expect( res.responseheader["Cache-Control"] ).toBe( "public, max-age=86400" );
 				expect( res.responseheader["Expires"] ).toBe( "Thu, 01 Dec 2033 16:00:00 GMT" );
@@ -92,7 +92,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 
 			it( title="LDEV-6885 response-* keys in responseHeaders are not prefixed with x-amz-meta-", skip=isNotSupported(), body=function(currentSpec){
 				var cred=Util::getAWSCredentials();
-				var url = S3GeneratePresignedURL(
+				var presignedUrl = S3GeneratePresignedURL(
 					bucketName:"bundle-downloadx"
 					,objectName:"sentry-log4j-1.7.22.jar"
 					,expire:dateAdd("n", 5, now())
@@ -100,11 +100,11 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 					,secretAccessKey:cred.SECRET_KEY
 					,responseHeaders:{ "response-cache-control":"no-cache", "Response-Content-Type":"application/java-archive" }
 				);
-				expect( url ).toInclude( "response-cache-control=no-cache" );
-				expect( url ).toInclude( "response-content-type=" );
-				expect( url ).notToInclude( "x-amz-meta-response-" );
+				expect( presignedUrl ).toInclude( "response-cache-control=no-cache" );
+				expect( presignedUrl ).toInclude( "response-content-type=" );
+				expect( presignedUrl ).notToInclude( "x-amz-meta-response-" );
 
-				http url=url result="local.res";
+				http url=presignedUrl result="local.res";
 				expect( res.status_code ).toBe( 200 );
 				expect( res.responseheader["Cache-Control"] ).toBe( "no-cache" );
 				expect( res.responseheader["Content-Type"] ).toBe( "application/java-archive" );
@@ -112,7 +112,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 
 			it( title="LDEV-6885 other responseHeaders keys still get the x-amz-meta- prefix", skip=isNotSupported(), body=function(currentSpec){
 				var cred=Util::getAWSCredentials();
-				var url = S3GeneratePresignedURL(
+				var presignedUrl = S3GeneratePresignedURL(
 					bucketName:"bundle-downloadx"
 					,objectName:"ldev6885-upload.txt"
 					,httpMethod:"PUT"
@@ -121,9 +121,9 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 					,secretAccessKey:cred.SECRET_KEY
 					,responseHeaders:{ "foo":"bar", "x-amz-meta-baz":"qux" }
 				);
-				expect( url ).toInclude( "x-amz-meta-foo=bar" );
-				expect( url ).toInclude( "x-amz-meta-baz=qux" );
-				expect( url ).notToInclude( "x-amz-meta-x-amz-meta-" );
+				expect( presignedUrl ).toInclude( "x-amz-meta-foo=bar" );
+				expect( presignedUrl ).toInclude( "x-amz-meta-baz=qux" );
+				expect( presignedUrl ).notToInclude( "x-amz-meta-x-amz-meta-" );
 			});
 		});
 	}
