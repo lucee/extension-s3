@@ -1049,9 +1049,6 @@ public class S3 {
 
 			return client.generatePresignedUrl(generatePresignedUrlRequest);
 		}
-		catch (PageException pe) {
-			throw toS3Exception(pe);
-		}
 		catch (AmazonServiceException ase) {
 			throw toS3Exception(ase);
 		}
