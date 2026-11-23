@@ -1021,7 +1021,7 @@
 	<function>
 		<name>S3Delete</name>
 		<class maven="{maven}">org.lucee.extension.resource.s3.function.S3Delete</class>
-		<description>deletes a bucket or an object within a bucket.</description>
+		<description>deletes a bucket, an object within a bucket or several objects at once. Passing an array of objects returns a struct with the keys deleted (the deleted objects) and errors (the objects that could not be deleted, each a struct with key, versionId, code and message).</description>
 		<argument>
 			<name>bucketName</name>
 			<alias>bucket</alias>
@@ -1032,9 +1032,9 @@
 		<argument>
 			<name>objectName</name>
 			<alias>object</alias>
-			<type>string</type>
+			<type>any</type>
 			<required>No</required>
-			<description>Name of the object to delete, if not defined the bucket itself is deleted.</description>
+			<description>Name of the object to delete, if not defined the bucket itself is deleted. Can also be an array to delete several objects with one call (in batches of 1000 per request): each entry is an object name or a struct with the keys key and versionId to delete a specific version. The names of an array are exact object names (there is no directory handling, a leading slash is removed), an object that does not exist counts as deleted and an object that can not be deleted is reported in the result instead of stopping the call (see throwOnError). With an array the arguments force and ignoreMissing have no effect.</description>
 	    </argument>
 		<argument>
 			<name>force</name>
@@ -1087,8 +1087,15 @@
 			<default>false</default>
 			<description>If true, an object that does not exist is not an error (like the DeleteObject operation of S3 itself, which does not fail for a missing key), and a bucket that does not exist is not an error when deleting a bucket. By default a missing object or bucket throws an exception.</description>
 	    </argument>
+		<argument>
+			<name>throwOnError</name>
+			<type>boolean</type>
+			<required>No</required>
+			<default>false</default>
+			<description>Only used if objectName is an array. If true an exception is thrown (after all objects were processed) when at least one object could not be deleted. By default the errors are returned in the result.</description>
+	    </argument>
 		<return>
-			<type>query</type>
+			<type>any</type>
 		</return>
 	</function>
 

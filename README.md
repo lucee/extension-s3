@@ -142,6 +142,11 @@ s3copy("my-bucket", "hello.txt", "other-bucket", "copy.txt");
 s3move("my-bucket", "hello.txt", "other-bucket", "moved.txt");
 s3delete("my-bucket", "hello.txt");
 
+// delete many objects with one call (1000 keys per request), an entry is a key or a struct with key and versionId
+result = s3delete("my-bucket", ["a.txt", "b.txt", { key: "c.txt", versionId: "3HL4kqtJlcpXroDTDmJ" }]);
+// result.deleted = the deleted keys (a missing key counts as deleted), result.errors = [ { key, versionId, code, message } ]
+s3delete(bucketName="my-bucket", objectName=keys, throwOnError=true); // throws if at least one key could not be deleted
+
 // metadata / ACL
 meta = s3getMetaData("my-bucket", "hello.txt");
 s3setMetaData("my-bucket", "hello.txt", { "x-custom-tag": "value" });
