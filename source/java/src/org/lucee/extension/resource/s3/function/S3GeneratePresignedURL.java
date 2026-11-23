@@ -20,7 +20,7 @@ public class S3GeneratePresignedURL extends S3Function {
 
 		CFMLEngine eng = CFMLEngineFactory.getInstance();
 		Cast cast = eng.getCastUtil();
-		if (args.length < 1 || args.length > 17) throw eng.getExceptionUtil().createFunctionException(pc, "S3GeneratePresignedURL", 1, 17, args.length);
+		if (args.length < 1 || args.length > 20) throw eng.getExceptionUtil().createFunctionException(pc, "S3GeneratePresignedURL", 1, 20, args.length);
 		String tmp;
 
 		// required
@@ -43,6 +43,9 @@ public class S3GeneratePresignedURL extends S3Function {
 		String secretAccessKey = args.length > 14 && args[14] != null ? cast.toString(args[14]) : null;
 		String host = args.length > 15 && args[15] != null ? cast.toString(args[15]) : null;
 		double timeout = args.length > 16 && !isEmpty(args[16]) ? cast.toDoubleValue(args[16]) : 0;
+		String cacheControl = args.length > 17 && args[17] != null ? cast.toString(args[17]) : null;
+		String expires = args.length > 18 && args[18] != null ? cast.toString(args[18]) : null;
+		String contentLanguage = args.length > 19 && args[19] != null ? cast.toString(args[19]) : null;
 
 		// for backward compatibility, when host was not existing
 		if (eng.getDecisionUtil().isNumber(host)) {
@@ -55,7 +58,7 @@ public class S3GeneratePresignedURL extends S3Function {
 			// create S3 Instance
 			S3 s3 = S3.getInstance(pae.props != null ? pae.props : toS3Properties(pc, accessKeyId, secretAccessKey, host), toTimeout(timeout), pc.getConfig());
 			return s3.generatePresignedURL(pae.bucketName, pae.objectName, expireDate, httpMethod, sseAlgorithm, sseCustomerKey, checksum, contentType, contentDisposition,
-					contentEncoding, versionId, zeroByteContent, customResponseHeaders).toExternalForm();
+					contentEncoding, versionId, zeroByteContent, customResponseHeaders, cacheControl, expires, contentLanguage).toExternalForm();
 		}
 		catch (Exception e) {
 			throw S3Util.toPageException(e);
