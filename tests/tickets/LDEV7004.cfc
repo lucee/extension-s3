@@ -60,14 +60,14 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 							var obj = variables.expired.getObject( "ldev7004-bucket", "some/file.txt" );
 							var content = obj.getObjectContent();
 							try {
-								thread.result = createObject( "java", "java.lang.String" ).init( content.readAllBytes(), "UTF-8" );
+								thread.readBody = charsetEncode( content.readAllBytes(), "UTF-8" );
 							}
 							finally {
 								content.close();
 							}
 						}
 						catch ( any e ) {
-							thread.result = fullMessage( e );
+							thread.readBody = fullMessage( e );
 						}
 					}
 					// wait until the request in the thread has leased its connection (it then waits for the rest of the body)
@@ -89,10 +89,11 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 
 					variables.released = true;
 					joinThreads( [ threadName, serverName ], 30000 );
-					var res = cfthread[ threadName ].result ?: "";
+					var th = cfthread[ threadName ];
+					var res = th.readBody ?: "";
 					// public API only: the request in the thread reads the whole object, get() did not shut its pool down
 					expect( res ).notToInclude( "pool shut down", "the request in the thread failed because the expired client was shut down: " & res );
-					expect( res ).toBe( "0123456789", "the request in the thread failed: " & res );
+					expect( res ).toBe( "0123456789", "the request in the thread failed (status #th.status#): " & res );
 
 					// nothing listens anymore, a request with the expired client fails fast, but not with a shut down pool
 					variables.sock.close();
@@ -145,17 +146,17 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 					thread action="run" name=threadName {
 						try {
 							variables.shared.getObjectMetadata( "ldev7004-bucket", "some/file.txt" );
-							thread.result = "ok";
+							thread.readBody = "ok";
 						}
 						catch ( any e ) {
-							thread.result = fullMessage( e );
+							thread.readBody = fullMessage( e );
 						}
 					}
 				}
 				joinThreads( names, 60000 );
 
 				for ( var threadName in names ) {
-					var res = cfthread[ threadName ].result ?: "";
+					var res = cfthread[ threadName ].readBody ?: "";
 					expect( res ).notToInclude( "pool shut down", "a request failed with the shut down client: " & res );
 				}
 				var current = innerClient( variables.shared );

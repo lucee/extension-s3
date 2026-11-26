@@ -107,6 +107,7 @@ jobs:
       S3_GOOGLE_BUCKET_PREFIX: lucee-ldev-e-
       LUCEE_TEST_VERSIONS_PLUS: ${{ vars.LUCEE_TEST_VERSIONS_PLUS }}
     strategy:
+      fail-fast: false
       matrix:
         lucee: ${{ fromJSON(needs.setup.outputs.lucee_matrix) }}
     services:
