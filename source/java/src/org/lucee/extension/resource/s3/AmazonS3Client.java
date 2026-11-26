@@ -2,11 +2,15 @@ package org.lucee.extension.resource.s3;
 
 import java.io.File;
 import java.io.InputStream;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.net.URL;
 import java.util.Date;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 import org.lucee.extension.resource.s3.region.RegionFactory;
 
@@ -36,10 +40,31 @@ public class AmazonS3Client implements AmazonS3 {
 
 	private static Map<String, AmazonS3Client> pool = new ConcurrentHashMap<String, AmazonS3Client>();
 
+	/*
+	 * LDEV-7004: inner clients that are no longer used for new operations (the wrapper expired, or the inner client was
+	 * replaced by invalidateAmazonS3). Other threads can still be in the middle of an operation with them, or still read
+	 * a response stream that holds one of their pooled connections, so they are not shut down right away but by
+	 * shutdownRetired() once their connection pool is idle.
+	 */
+	private static final ConcurrentLinkedQueue<Retired> retired = new ConcurrentLinkedQueue<Retired>();
+	// a retired client is never shut down before this; covers a thread that got the client but has not leased a connection yet
+	static final long RETIRED_MIN_AGE = 10_000L;
+	// if the state of the connection pool cannot be read, shut down after this
+	static final long RETIRED_UNKNOWN_STATE_AGE = 300_000L;
+	// shut down after this in any case, even when a connection is still leased (a response stream that is never closed)
+	static final long RETIRED_MAX_AGE = 3_600_000L;
+	private static final long SHUTDOWN_RETIRED_INTERVAL = 1_000L;
+	private static volatile long lastShutdownRetired;
+	// LDEV-7004: the state of the connection pool could not be read by reflection, logged once
+	private static volatile boolean poolStatsFallbackLogged;
+
 	// private S3 s3;
 	private org.lucee.extension.resource.s3.region.RegionFactory.Region region;
 
-	private AmazonS3 client;
+	// LDEV-7004: volatile and only replaced under the lock of this instance (see invalidateAmazonS3)
+	private volatile AmazonS3 client;
+	// LDEV-7004: true once this wrapper was removed from the pool, an inner client it creates after that is retired too
+	private volatile boolean removedFromPool;
 	private Log log;
 
 	private long created;
@@ -64,7 +89,8 @@ public class AmazonS3Client implements AmazonS3 {
 			synchronized (pool) {
 				AmazonS3Client existing = pool.get(key);
 				if (existing == null || existing.isExpired()) {
-					if (existing != null) existing.shutdownQuietly();
+					// LDEV-7004: other threads can still use the expired client, it is shut down once it is idle
+					if (existing != null) existing.removeFromPool();
 					pool.put(key, client = new AmazonS3Client(accessKeyId, secretAccessKey, host, region, key, liveTimeout, pathStyleAccess, poolSettings, log));
 					if (log != null) log.debug("S3", "create client for  [" + accessKeyId + ":...@" + host + "] maxConnections=" + poolSettings.getEffectiveMaxConnections());
 				}
@@ -74,6 +100,7 @@ public class AmazonS3Client implements AmazonS3 {
 			}
 
 		}
+		shutdownRetired(System.currentTimeMillis(), false);
 		return client;
 	}
 
@@ -134,122 +161,122 @@ public class AmazonS3Client implements AmazonS3 {
 
 	@Override
 	public void abortMultipartUpload(AbortMultipartUploadRequest amur) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			client.abortMultipartUpload(amur);
+			c.abortMultipartUpload(amur);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			client.abortMultipartUpload(amur);
+		catch (RuntimeException e) {
+			retry(c, e).abortMultipartUpload(amur);
 		}
 	}
 
 	@Override
 	public void changeObjectStorageClass(String arg0, String arg1, StorageClass arg2) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			client.changeObjectStorageClass(arg0, arg1, arg2);
+			c.changeObjectStorageClass(arg0, arg1, arg2);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			client.changeObjectStorageClass(arg0, arg1, arg2);
+		catch (RuntimeException e) {
+			retry(c, e).changeObjectStorageClass(arg0, arg1, arg2);
 		}
 	}
 
 	@Override
 	public CompleteMultipartUploadResult completeMultipartUpload(CompleteMultipartUploadRequest arg0) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			return client.completeMultipartUpload(arg0);
+			return c.completeMultipartUpload(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.completeMultipartUpload(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).completeMultipartUpload(arg0);
 		}
 	}
 
 	@Override
 	public CopyObjectResult copyObject(CopyObjectRequest arg0) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			return client.copyObject(arg0);
+			return c.copyObject(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.copyObject(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).copyObject(arg0);
 		}
 	}
 
 	@Override
 	public CopyObjectResult copyObject(String arg0, String arg1, String arg2, String arg3) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			return client.copyObject(arg0, arg1, arg2, arg3);
+			return c.copyObject(arg0, arg1, arg2, arg3);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.copyObject(arg0, arg1, arg2, arg3);
+		catch (RuntimeException e) {
+			return retry(c, e).copyObject(arg0, arg1, arg2, arg3);
 		}
 	}
 
 	@Override
 	public CopyPartResult copyPart(CopyPartRequest arg0) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			return client.copyPart(arg0);
+			return c.copyPart(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.copyPart(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).copyPart(arg0);
 		}
 	}
 
 	@Override
 	public Bucket createBucket(CreateBucketRequest arg0) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			return client.createBucket(arg0);
+			return c.createBucket(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.createBucket(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).createBucket(arg0);
 		}
 	}
 
 	@Override
 	public Bucket createBucket(String arg0) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			return client.createBucket(arg0);
+			return c.createBucket(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.createBucket(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).createBucket(arg0);
 		}
 	}
 
 	@Override
 	public Bucket createBucket(String arg0, Region arg1) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			return client.createBucket(arg0, arg1);
+			return c.createBucket(arg0, arg1);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.createBucket(arg0, arg1);
+		catch (RuntimeException e) {
+			return retry(c, e).createBucket(arg0, arg1);
 		}
 	}
 
 	@Override
 	public Bucket createBucket(String arg0, String arg1) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			return client.createBucket(arg0, arg1);
+			return c.createBucket(arg0, arg1);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.createBucket(arg0, arg1);
+		catch (RuntimeException e) {
+			return retry(c, e).createBucket(arg0, arg1);
 		}
 	}
 
 	@Override
 	public void deleteBucket(DeleteBucketRequest arg0) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			client.deleteBucket(arg0);
+			c.deleteBucket(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			client.deleteBucket(arg0);
+		catch (RuntimeException e) {
+			retry(c, e).deleteBucket(arg0);
 		}
 	}
 
@@ -257,2033 +284,2186 @@ public class AmazonS3Client implements AmazonS3 {
 	public void deleteBucket(String bucketName) throws SdkClientException, AmazonServiceException {
 		DeleteBucketRequest dbr = new DeleteBucketRequest(bucketName);
 
+		AmazonS3 c = client;
 		try {
-			client.deleteBucket(dbr);
+			c.deleteBucket(dbr);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			client.deleteBucket(dbr);
+		catch (RuntimeException e) {
+			retry(c, e).deleteBucket(dbr);
 		}
 	}
 
 	@Override
 	public DeleteBucketAnalyticsConfigurationResult deleteBucketAnalyticsConfiguration(DeleteBucketAnalyticsConfigurationRequest arg0)
 			throws AmazonServiceException, SdkClientException {
+		AmazonS3 c = client;
 		try {
-			return client.deleteBucketAnalyticsConfiguration(arg0);
+			return c.deleteBucketAnalyticsConfiguration(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.deleteBucketAnalyticsConfiguration(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).deleteBucketAnalyticsConfiguration(arg0);
 		}
 	}
 
 	@Override
 	public DeleteBucketAnalyticsConfigurationResult deleteBucketAnalyticsConfiguration(String arg0, String arg1) throws AmazonServiceException, SdkClientException {
+		AmazonS3 c = client;
 		try {
-			return client.deleteBucketAnalyticsConfiguration(arg0, arg1);
+			return c.deleteBucketAnalyticsConfiguration(arg0, arg1);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.deleteBucketAnalyticsConfiguration(arg0, arg1);
+		catch (RuntimeException e) {
+			return retry(c, e).deleteBucketAnalyticsConfiguration(arg0, arg1);
 		}
 	}
 
 	@Override
 	public void deleteBucketCrossOriginConfiguration(String arg0) {
+		AmazonS3 c = client;
 		try {
-			client.deleteBucketCrossOriginConfiguration(arg0);
+			c.deleteBucketCrossOriginConfiguration(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			client.deleteBucketCrossOriginConfiguration(arg0);
+		catch (RuntimeException e) {
+			retry(c, e).deleteBucketCrossOriginConfiguration(arg0);
 		}
 	}
 
 	@Override
 	public void deleteBucketCrossOriginConfiguration(DeleteBucketCrossOriginConfigurationRequest arg0) {
+		AmazonS3 c = client;
 		try {
-			client.deleteBucketCrossOriginConfiguration(arg0);
+			c.deleteBucketCrossOriginConfiguration(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			client.deleteBucketCrossOriginConfiguration(arg0);
+		catch (RuntimeException e) {
+			retry(c, e).deleteBucketCrossOriginConfiguration(arg0);
 		}
 	}
 
 	@Override
 	public DeleteBucketEncryptionResult deleteBucketEncryption(String arg0) throws AmazonServiceException, SdkClientException {
+		AmazonS3 c = client;
 		try {
-			return client.deleteBucketEncryption(arg0);
+			return c.deleteBucketEncryption(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.deleteBucketEncryption(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).deleteBucketEncryption(arg0);
 		}
 	}
 
 	@Override
 	public DeleteBucketEncryptionResult deleteBucketEncryption(DeleteBucketEncryptionRequest arg0) throws AmazonServiceException, SdkClientException {
+		AmazonS3 c = client;
 		try {
-			return client.deleteBucketEncryption(arg0);
+			return c.deleteBucketEncryption(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.deleteBucketEncryption(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).deleteBucketEncryption(arg0);
 		}
 	}
 
 	@Override
 	public DeleteBucketIntelligentTieringConfigurationResult deleteBucketIntelligentTieringConfiguration(DeleteBucketIntelligentTieringConfigurationRequest arg0)
 			throws AmazonServiceException, SdkClientException {
+		AmazonS3 c = client;
 		try {
-			return client.deleteBucketIntelligentTieringConfiguration(arg0);
+			return c.deleteBucketIntelligentTieringConfiguration(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.deleteBucketIntelligentTieringConfiguration(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).deleteBucketIntelligentTieringConfiguration(arg0);
 		}
 	}
 
 	@Override
 	public DeleteBucketIntelligentTieringConfigurationResult deleteBucketIntelligentTieringConfiguration(String arg0, String arg1)
 			throws AmazonServiceException, SdkClientException {
+		AmazonS3 c = client;
 		try {
-			return client.deleteBucketIntelligentTieringConfiguration(arg0, arg1);
+			return c.deleteBucketIntelligentTieringConfiguration(arg0, arg1);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.deleteBucketIntelligentTieringConfiguration(arg0, arg1);
+		catch (RuntimeException e) {
+			return retry(c, e).deleteBucketIntelligentTieringConfiguration(arg0, arg1);
 		}
 	}
 
 	@Override
 	public DeleteBucketInventoryConfigurationResult deleteBucketInventoryConfiguration(DeleteBucketInventoryConfigurationRequest arg0)
 			throws AmazonServiceException, SdkClientException {
+		AmazonS3 c = client;
 		try {
-			return client.deleteBucketInventoryConfiguration(arg0);
+			return c.deleteBucketInventoryConfiguration(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.deleteBucketInventoryConfiguration(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).deleteBucketInventoryConfiguration(arg0);
 		}
 	}
 
 	@Override
 	public DeleteBucketInventoryConfigurationResult deleteBucketInventoryConfiguration(String arg0, String arg1) throws AmazonServiceException, SdkClientException {
+		AmazonS3 c = client;
 		try {
-			return client.deleteBucketInventoryConfiguration(arg0, arg1);
+			return c.deleteBucketInventoryConfiguration(arg0, arg1);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.deleteBucketInventoryConfiguration(arg0, arg1);
+		catch (RuntimeException e) {
+			return retry(c, e).deleteBucketInventoryConfiguration(arg0, arg1);
 		}
 	}
 
 	@Override
 	public void deleteBucketLifecycleConfiguration(String arg0) {
+		AmazonS3 c = client;
 		try {
-			client.deleteBucketLifecycleConfiguration(arg0);
+			c.deleteBucketLifecycleConfiguration(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			client.deleteBucketLifecycleConfiguration(arg0);
+		catch (RuntimeException e) {
+			retry(c, e).deleteBucketLifecycleConfiguration(arg0);
 		}
 	}
 
 	@Override
 	public void deleteBucketLifecycleConfiguration(DeleteBucketLifecycleConfigurationRequest arg0) {
+		AmazonS3 c = client;
 		try {
-			client.deleteBucketLifecycleConfiguration(arg0);
+			c.deleteBucketLifecycleConfiguration(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			client.deleteBucketLifecycleConfiguration(arg0);
+		catch (RuntimeException e) {
+			retry(c, e).deleteBucketLifecycleConfiguration(arg0);
 		}
 	}
 
 	@Override
 	public DeleteBucketMetricsConfigurationResult deleteBucketMetricsConfiguration(DeleteBucketMetricsConfigurationRequest arg0) throws AmazonServiceException, SdkClientException {
+		AmazonS3 c = client;
 		try {
-			return client.deleteBucketMetricsConfiguration(arg0);
+			return c.deleteBucketMetricsConfiguration(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.deleteBucketMetricsConfiguration(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).deleteBucketMetricsConfiguration(arg0);
 		}
 	}
 
 	@Override
 	public DeleteBucketMetricsConfigurationResult deleteBucketMetricsConfiguration(String arg0, String arg1) throws AmazonServiceException, SdkClientException {
+		AmazonS3 c = client;
 		try {
-			return client.deleteBucketMetricsConfiguration(arg0, arg1);
+			return c.deleteBucketMetricsConfiguration(arg0, arg1);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.deleteBucketMetricsConfiguration(arg0, arg1);
+		catch (RuntimeException e) {
+			return retry(c, e).deleteBucketMetricsConfiguration(arg0, arg1);
 		}
 	}
 
 	@Override
 	public DeleteBucketOwnershipControlsResult deleteBucketOwnershipControls(DeleteBucketOwnershipControlsRequest arg0) throws AmazonServiceException, SdkClientException {
+		AmazonS3 c = client;
 		try {
-			return client.deleteBucketOwnershipControls(arg0);
+			return c.deleteBucketOwnershipControls(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.deleteBucketOwnershipControls(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).deleteBucketOwnershipControls(arg0);
 		}
 	}
 
 	@Override
 	public void deleteBucketPolicy(String arg0) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			client.deleteBucketPolicy(arg0);
+			c.deleteBucketPolicy(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			client.deleteBucketPolicy(arg0);
+		catch (RuntimeException e) {
+			retry(c, e).deleteBucketPolicy(arg0);
 		}
 	}
 
 	@Override
 	public void deleteBucketPolicy(DeleteBucketPolicyRequest arg0) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			client.deleteBucketPolicy(arg0);
+			c.deleteBucketPolicy(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			client.deleteBucketPolicy(arg0);
+		catch (RuntimeException e) {
+			retry(c, e).deleteBucketPolicy(arg0);
 		}
 	}
 
 	@Override
 	public void deleteBucketReplicationConfiguration(String arg0) throws AmazonServiceException, SdkClientException {
+		AmazonS3 c = client;
 		try {
-			client.deleteBucketReplicationConfiguration(arg0);
+			c.deleteBucketReplicationConfiguration(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			client.deleteBucketReplicationConfiguration(arg0);
+		catch (RuntimeException e) {
+			retry(c, e).deleteBucketReplicationConfiguration(arg0);
 		}
 	}
 
 	@Override
 	public void deleteBucketReplicationConfiguration(DeleteBucketReplicationConfigurationRequest arg0) throws AmazonServiceException, SdkClientException {
+		AmazonS3 c = client;
 		try {
-			client.deleteBucketReplicationConfiguration(arg0);
+			c.deleteBucketReplicationConfiguration(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			client.deleteBucketReplicationConfiguration(arg0);
+		catch (RuntimeException e) {
+			retry(c, e).deleteBucketReplicationConfiguration(arg0);
 		}
 	}
 
 	@Override
 	public void deleteBucketTaggingConfiguration(String arg0) {
+		AmazonS3 c = client;
 		try {
-			client.deleteBucketTaggingConfiguration(arg0);
+			c.deleteBucketTaggingConfiguration(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			client.deleteBucketTaggingConfiguration(arg0);
+		catch (RuntimeException e) {
+			retry(c, e).deleteBucketTaggingConfiguration(arg0);
 		}
 	}
 
 	@Override
 	public void deleteBucketTaggingConfiguration(DeleteBucketTaggingConfigurationRequest arg0) {
+		AmazonS3 c = client;
 		try {
-			client.deleteBucketTaggingConfiguration(arg0);
+			c.deleteBucketTaggingConfiguration(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			client.deleteBucketTaggingConfiguration(arg0);
+		catch (RuntimeException e) {
+			retry(c, e).deleteBucketTaggingConfiguration(arg0);
 		}
 	}
 
 	@Override
 	public void deleteBucketWebsiteConfiguration(String arg0) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			client.deleteBucketWebsiteConfiguration(arg0);
+			c.deleteBucketWebsiteConfiguration(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			client.deleteBucketWebsiteConfiguration(arg0);
+		catch (RuntimeException e) {
+			retry(c, e).deleteBucketWebsiteConfiguration(arg0);
 		}
 	}
 
 	@Override
 	public void deleteBucketWebsiteConfiguration(DeleteBucketWebsiteConfigurationRequest arg0) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			client.deleteBucketWebsiteConfiguration(arg0);
+			c.deleteBucketWebsiteConfiguration(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			client.deleteBucketWebsiteConfiguration(arg0);
+		catch (RuntimeException e) {
+			retry(c, e).deleteBucketWebsiteConfiguration(arg0);
 		}
 	}
 
 	@Override
 	public void deleteObject(DeleteObjectRequest arg0) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			client.deleteObject(arg0);
+			c.deleteObject(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			client.deleteObject(arg0);
+		catch (RuntimeException e) {
+			retry(c, e).deleteObject(arg0);
 		}
 	}
 
 	@Override
 	public void deleteObject(String arg0, String arg1) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			client.deleteObject(arg0, arg1);
+			c.deleteObject(arg0, arg1);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			client.deleteObject(arg0, arg1);
+		catch (RuntimeException e) {
+			retry(c, e).deleteObject(arg0, arg1);
 		}
 	}
 
 	@Override
 	public DeleteObjectTaggingResult deleteObjectTagging(DeleteObjectTaggingRequest arg0) {
+		AmazonS3 c = client;
 		try {
-			return client.deleteObjectTagging(arg0);
+			return c.deleteObjectTagging(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.deleteObjectTagging(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).deleteObjectTagging(arg0);
 		}
 	}
 
 	@Override
 	public DeleteObjectsResult deleteObjects(DeleteObjectsRequest arg0) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			return client.deleteObjects(arg0);
+			return c.deleteObjects(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.deleteObjects(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).deleteObjects(arg0);
 		}
 	}
 
 	@Override
 	public DeletePublicAccessBlockResult deletePublicAccessBlock(DeletePublicAccessBlockRequest arg0) {
+		AmazonS3 c = client;
 		try {
-			return client.deletePublicAccessBlock(arg0);
+			return c.deletePublicAccessBlock(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.deletePublicAccessBlock(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).deletePublicAccessBlock(arg0);
 		}
 	}
 
 	@Override
 	public void deleteVersion(DeleteVersionRequest arg0) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			client.deleteVersion(arg0);
+			c.deleteVersion(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			client.deleteVersion(arg0);
+		catch (RuntimeException e) {
+			retry(c, e).deleteVersion(arg0);
 		}
 	}
 
 	@Override
 	public void deleteVersion(String arg0, String arg1, String arg2) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			client.deleteVersion(arg0, arg1, arg2);
+			c.deleteVersion(arg0, arg1, arg2);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			client.deleteVersion(arg0, arg1, arg2);
+		catch (RuntimeException e) {
+			retry(c, e).deleteVersion(arg0, arg1, arg2);
 		}
 	}
 
 	@Override
 	public void disableRequesterPays(String arg0) throws AmazonServiceException, SdkClientException {
+		AmazonS3 c = client;
 		try {
-			client.disableRequesterPays(arg0);
+			c.disableRequesterPays(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			client.disableRequesterPays(arg0);
+		catch (RuntimeException e) {
+			retry(c, e).disableRequesterPays(arg0);
 		}
 	}
 
 	@Override
 	public boolean doesBucketExist(String arg0) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			return client.doesBucketExist(arg0);
+			return c.doesBucketExist(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.doesBucketExist(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).doesBucketExist(arg0);
 		}
 	}
 
 	@Override
 	public boolean doesBucketExistV2(String arg0) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			return client.doesBucketExistV2(arg0);
+			return c.doesBucketExistV2(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.doesBucketExistV2(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).doesBucketExistV2(arg0);
 		}
 	}
 
 	@Override
 	public boolean doesObjectExist(String arg0, String arg1) throws AmazonServiceException, SdkClientException {
+		AmazonS3 c = client;
 		try {
-			return client.doesObjectExist(arg0, arg1);
+			return c.doesObjectExist(arg0, arg1);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.doesObjectExist(arg0, arg1);
+		catch (RuntimeException e) {
+			return retry(c, e).doesObjectExist(arg0, arg1);
 		}
 	}
 
 	@Override
 	public PresignedUrlDownloadResult download(PresignedUrlDownloadRequest arg0) {
+		AmazonS3 c = client;
 		try {
-			return client.download(arg0);
+			return c.download(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.download(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).download(arg0);
 		}
 	}
 
 	@Override
 	public void download(PresignedUrlDownloadRequest arg0, File arg1) {
+		AmazonS3 c = client;
 		try {
-			client.download(arg0, arg1);
+			c.download(arg0, arg1);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			client.download(arg0, arg1);
+		catch (RuntimeException e) {
+			retry(c, e).download(arg0, arg1);
 		}
 	}
 
 	@Override
 	public void enableRequesterPays(String arg0) throws AmazonServiceException, SdkClientException {
+		AmazonS3 c = client;
 		try {
-			client.enableRequesterPays(arg0);
+			c.enableRequesterPays(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			client.enableRequesterPays(arg0);
+		catch (RuntimeException e) {
+			retry(c, e).enableRequesterPays(arg0);
 		}
 	}
 
 	@Override
 	public URL generatePresignedUrl(GeneratePresignedUrlRequest arg0) throws SdkClientException {
+		AmazonS3 c = client;
 		try {
-			return client.generatePresignedUrl(arg0);
+			return c.generatePresignedUrl(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.generatePresignedUrl(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).generatePresignedUrl(arg0);
 		}
 	}
 
 	@Override
 	public URL generatePresignedUrl(String arg0, String arg1, Date arg2) throws SdkClientException {
+		AmazonS3 c = client;
 		try {
-			return client.generatePresignedUrl(arg0, arg1, arg2);
+			return c.generatePresignedUrl(arg0, arg1, arg2);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.generatePresignedUrl(arg0, arg1, arg2);
+		catch (RuntimeException e) {
+			return retry(c, e).generatePresignedUrl(arg0, arg1, arg2);
 		}
 	}
 
 	@Override
 	public URL generatePresignedUrl(String arg0, String arg1, Date arg2, HttpMethod arg3) throws SdkClientException {
+		AmazonS3 c = client;
 		try {
-			return client.generatePresignedUrl(arg0, arg1, arg2, arg3);
+			return c.generatePresignedUrl(arg0, arg1, arg2, arg3);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.generatePresignedUrl(arg0, arg1, arg2, arg3);
+		catch (RuntimeException e) {
+			return retry(c, e).generatePresignedUrl(arg0, arg1, arg2, arg3);
 		}
 	}
 
 	@Override
 	public BucketAccelerateConfiguration getBucketAccelerateConfiguration(String arg0) throws AmazonServiceException, SdkClientException {
+		AmazonS3 c = client;
 		try {
-			return client.getBucketAccelerateConfiguration(arg0);
+			return c.getBucketAccelerateConfiguration(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.getBucketAccelerateConfiguration(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).getBucketAccelerateConfiguration(arg0);
 		}
 	}
 
 	@Override
 	public BucketAccelerateConfiguration getBucketAccelerateConfiguration(GetBucketAccelerateConfigurationRequest arg0) throws AmazonServiceException, SdkClientException {
+		AmazonS3 c = client;
 		try {
-			return client.getBucketAccelerateConfiguration(arg0);
+			return c.getBucketAccelerateConfiguration(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.getBucketAccelerateConfiguration(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).getBucketAccelerateConfiguration(arg0);
 		}
 	}
 
 	@Override
 	public AccessControlList getBucketAcl(String arg0) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			return client.getBucketAcl(arg0);
+			return c.getBucketAcl(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.getBucketAcl(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).getBucketAcl(arg0);
 		}
 	}
 
 	@Override
 	public AccessControlList getBucketAcl(GetBucketAclRequest arg0) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			return client.getBucketAcl(arg0);
+			return c.getBucketAcl(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.getBucketAcl(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).getBucketAcl(arg0);
 		}
 	}
 
 	@Override
 	public GetBucketAnalyticsConfigurationResult getBucketAnalyticsConfiguration(GetBucketAnalyticsConfigurationRequest arg0) throws AmazonServiceException, SdkClientException {
+		AmazonS3 c = client;
 		try {
-			return client.getBucketAnalyticsConfiguration(arg0);
+			return c.getBucketAnalyticsConfiguration(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.getBucketAnalyticsConfiguration(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).getBucketAnalyticsConfiguration(arg0);
 		}
 	}
 
 	@Override
 	public GetBucketAnalyticsConfigurationResult getBucketAnalyticsConfiguration(String arg0, String arg1) throws AmazonServiceException, SdkClientException {
+		AmazonS3 c = client;
 		try {
-			return client.getBucketAnalyticsConfiguration(arg0, arg1);
+			return c.getBucketAnalyticsConfiguration(arg0, arg1);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.getBucketAnalyticsConfiguration(arg0, arg1);
+		catch (RuntimeException e) {
+			return retry(c, e).getBucketAnalyticsConfiguration(arg0, arg1);
 		}
 	}
 
 	@Override
 	public BucketCrossOriginConfiguration getBucketCrossOriginConfiguration(String arg0) {
+		AmazonS3 c = client;
 		try {
-			return client.getBucketCrossOriginConfiguration(arg0);
+			return c.getBucketCrossOriginConfiguration(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.getBucketCrossOriginConfiguration(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).getBucketCrossOriginConfiguration(arg0);
 		}
 	}
 
 	@Override
 	public BucketCrossOriginConfiguration getBucketCrossOriginConfiguration(GetBucketCrossOriginConfigurationRequest arg0) {
+		AmazonS3 c = client;
 		try {
-			return client.getBucketCrossOriginConfiguration(arg0);
+			return c.getBucketCrossOriginConfiguration(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.getBucketCrossOriginConfiguration(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).getBucketCrossOriginConfiguration(arg0);
 		}
 	}
 
 	@Override
 	public GetBucketEncryptionResult getBucketEncryption(String arg0) throws AmazonServiceException, SdkClientException {
+		AmazonS3 c = client;
 		try {
-			return client.getBucketEncryption(arg0);
+			return c.getBucketEncryption(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.getBucketEncryption(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).getBucketEncryption(arg0);
 		}
 	}
 
 	@Override
 	public GetBucketEncryptionResult getBucketEncryption(GetBucketEncryptionRequest arg0) throws AmazonServiceException, SdkClientException {
+		AmazonS3 c = client;
 		try {
-			return client.getBucketEncryption(arg0);
+			return c.getBucketEncryption(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.getBucketEncryption(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).getBucketEncryption(arg0);
 		}
 	}
 
 	@Override
 	public GetBucketIntelligentTieringConfigurationResult getBucketIntelligentTieringConfiguration(GetBucketIntelligentTieringConfigurationRequest arg0)
 			throws AmazonServiceException, SdkClientException {
+		AmazonS3 c = client;
 		try {
-			return client.getBucketIntelligentTieringConfiguration(arg0);
+			return c.getBucketIntelligentTieringConfiguration(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.getBucketIntelligentTieringConfiguration(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).getBucketIntelligentTieringConfiguration(arg0);
 		}
 	}
 
 	@Override
 	public GetBucketIntelligentTieringConfigurationResult getBucketIntelligentTieringConfiguration(String arg0, String arg1) throws AmazonServiceException, SdkClientException {
+		AmazonS3 c = client;
 		try {
-			return client.getBucketIntelligentTieringConfiguration(arg0, arg1);
+			return c.getBucketIntelligentTieringConfiguration(arg0, arg1);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.getBucketIntelligentTieringConfiguration(arg0, arg1);
+		catch (RuntimeException e) {
+			return retry(c, e).getBucketIntelligentTieringConfiguration(arg0, arg1);
 		}
 	}
 
 	@Override
 	public GetBucketInventoryConfigurationResult getBucketInventoryConfiguration(GetBucketInventoryConfigurationRequest arg0) throws AmazonServiceException, SdkClientException {
+		AmazonS3 c = client;
 		try {
-			return client.getBucketInventoryConfiguration(arg0);
+			return c.getBucketInventoryConfiguration(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.getBucketInventoryConfiguration(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).getBucketInventoryConfiguration(arg0);
 		}
 	}
 
 	@Override
 	public GetBucketInventoryConfigurationResult getBucketInventoryConfiguration(String arg0, String arg1) throws AmazonServiceException, SdkClientException {
+		AmazonS3 c = client;
 		try {
-			return client.getBucketInventoryConfiguration(arg0, arg1);
+			return c.getBucketInventoryConfiguration(arg0, arg1);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.getBucketInventoryConfiguration(arg0, arg1);
+		catch (RuntimeException e) {
+			return retry(c, e).getBucketInventoryConfiguration(arg0, arg1);
 		}
 	}
 
 	@Override
 	public BucketLifecycleConfiguration getBucketLifecycleConfiguration(String arg0) {
+		AmazonS3 c = client;
 		try {
-			return client.getBucketLifecycleConfiguration(arg0);
+			return c.getBucketLifecycleConfiguration(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.getBucketLifecycleConfiguration(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).getBucketLifecycleConfiguration(arg0);
 		}
 	}
 
 	@Override
 	public BucketLifecycleConfiguration getBucketLifecycleConfiguration(GetBucketLifecycleConfigurationRequest arg0) {
+		AmazonS3 c = client;
 		try {
-			return client.getBucketLifecycleConfiguration(arg0);
+			return c.getBucketLifecycleConfiguration(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.getBucketLifecycleConfiguration(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).getBucketLifecycleConfiguration(arg0);
 		}
 	}
 
 	@Override
 	public String getBucketLocation(String arg0) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			return client.getBucketLocation(arg0);
+			return c.getBucketLocation(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.getBucketLocation(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).getBucketLocation(arg0);
 		}
 	}
 
 	@Override
 	public String getBucketLocation(GetBucketLocationRequest arg0) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			return client.getBucketLocation(arg0);
+			return c.getBucketLocation(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.getBucketLocation(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).getBucketLocation(arg0);
 		}
 	}
 
 	@Override
 	public BucketLoggingConfiguration getBucketLoggingConfiguration(String arg0) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			return client.getBucketLoggingConfiguration(arg0);
+			return c.getBucketLoggingConfiguration(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.getBucketLoggingConfiguration(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).getBucketLoggingConfiguration(arg0);
 		}
 	}
 
 	@Override
 	public BucketLoggingConfiguration getBucketLoggingConfiguration(GetBucketLoggingConfigurationRequest arg0) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			return client.getBucketLoggingConfiguration(arg0);
+			return c.getBucketLoggingConfiguration(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.getBucketLoggingConfiguration(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).getBucketLoggingConfiguration(arg0);
 		}
 	}
 
 	@Override
 	public GetBucketMetricsConfigurationResult getBucketMetricsConfiguration(GetBucketMetricsConfigurationRequest arg0) throws AmazonServiceException, SdkClientException {
+		AmazonS3 c = client;
 		try {
-			return client.getBucketMetricsConfiguration(arg0);
+			return c.getBucketMetricsConfiguration(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.getBucketMetricsConfiguration(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).getBucketMetricsConfiguration(arg0);
 		}
 	}
 
 	@Override
 	public GetBucketMetricsConfigurationResult getBucketMetricsConfiguration(String arg0, String arg1) throws AmazonServiceException, SdkClientException {
+		AmazonS3 c = client;
 		try {
-			return client.getBucketMetricsConfiguration(arg0, arg1);
+			return c.getBucketMetricsConfiguration(arg0, arg1);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.getBucketMetricsConfiguration(arg0, arg1);
+		catch (RuntimeException e) {
+			return retry(c, e).getBucketMetricsConfiguration(arg0, arg1);
 		}
 	}
 
 	@Override
 	public BucketNotificationConfiguration getBucketNotificationConfiguration(String arg0) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			return client.getBucketNotificationConfiguration(arg0);
+			return c.getBucketNotificationConfiguration(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.getBucketNotificationConfiguration(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).getBucketNotificationConfiguration(arg0);
 		}
 	}
 
 	@Override
 	public BucketNotificationConfiguration getBucketNotificationConfiguration(GetBucketNotificationConfigurationRequest arg0) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			return client.getBucketNotificationConfiguration(arg0);
+			return c.getBucketNotificationConfiguration(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.getBucketNotificationConfiguration(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).getBucketNotificationConfiguration(arg0);
 		}
 	}
 
 	@Override
 	public GetBucketOwnershipControlsResult getBucketOwnershipControls(GetBucketOwnershipControlsRequest arg0) throws AmazonServiceException, SdkClientException {
+		AmazonS3 c = client;
 		try {
-			return client.getBucketOwnershipControls(arg0);
+			return c.getBucketOwnershipControls(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.getBucketOwnershipControls(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).getBucketOwnershipControls(arg0);
 		}
 	}
 
 	@Override
 	public BucketPolicy getBucketPolicy(String arg0) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			return client.getBucketPolicy(arg0);
+			return c.getBucketPolicy(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.getBucketPolicy(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).getBucketPolicy(arg0);
 		}
 	}
 
 	@Override
 	public BucketPolicy getBucketPolicy(GetBucketPolicyRequest arg0) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			return client.getBucketPolicy(arg0);
+			return c.getBucketPolicy(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.getBucketPolicy(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).getBucketPolicy(arg0);
 		}
 	}
 
 	@Override
 	public GetBucketPolicyStatusResult getBucketPolicyStatus(GetBucketPolicyStatusRequest arg0) {
+		AmazonS3 c = client;
 		try {
-			return client.getBucketPolicyStatus(arg0);
+			return c.getBucketPolicyStatus(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.getBucketPolicyStatus(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).getBucketPolicyStatus(arg0);
 		}
 	}
 
 	@Override
 	public BucketReplicationConfiguration getBucketReplicationConfiguration(String arg0) throws AmazonServiceException, SdkClientException {
+		AmazonS3 c = client;
 		try {
-			return client.getBucketReplicationConfiguration(arg0);
+			return c.getBucketReplicationConfiguration(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.getBucketReplicationConfiguration(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).getBucketReplicationConfiguration(arg0);
 		}
 	}
 
 	@Override
 	public BucketReplicationConfiguration getBucketReplicationConfiguration(GetBucketReplicationConfigurationRequest arg0) throws AmazonServiceException, SdkClientException {
+		AmazonS3 c = client;
 		try {
-			return client.getBucketReplicationConfiguration(arg0);
+			return c.getBucketReplicationConfiguration(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.getBucketReplicationConfiguration(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).getBucketReplicationConfiguration(arg0);
 		}
 	}
 
 	@Override
 	public BucketTaggingConfiguration getBucketTaggingConfiguration(String arg0) {
+		AmazonS3 c = client;
 		try {
-			return client.getBucketTaggingConfiguration(arg0);
+			return c.getBucketTaggingConfiguration(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.getBucketTaggingConfiguration(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).getBucketTaggingConfiguration(arg0);
 		}
 	}
 
 	@Override
 	public BucketTaggingConfiguration getBucketTaggingConfiguration(GetBucketTaggingConfigurationRequest arg0) {
+		AmazonS3 c = client;
 		try {
-			return client.getBucketTaggingConfiguration(arg0);
+			return c.getBucketTaggingConfiguration(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.getBucketTaggingConfiguration(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).getBucketTaggingConfiguration(arg0);
 		}
 	}
 
 	@Override
 	public BucketVersioningConfiguration getBucketVersioningConfiguration(String arg0) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			return client.getBucketVersioningConfiguration(arg0);
+			return c.getBucketVersioningConfiguration(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.getBucketVersioningConfiguration(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).getBucketVersioningConfiguration(arg0);
 		}
 	}
 
 	@Override
 	public BucketVersioningConfiguration getBucketVersioningConfiguration(GetBucketVersioningConfigurationRequest arg0) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			return client.getBucketVersioningConfiguration(arg0);
+			return c.getBucketVersioningConfiguration(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.getBucketVersioningConfiguration(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).getBucketVersioningConfiguration(arg0);
 		}
 	}
 
 	@Override
 	public BucketWebsiteConfiguration getBucketWebsiteConfiguration(String arg0) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			return client.getBucketWebsiteConfiguration(arg0);
+			return c.getBucketWebsiteConfiguration(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.getBucketWebsiteConfiguration(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).getBucketWebsiteConfiguration(arg0);
 		}
 	}
 
 	@Override
 	public BucketWebsiteConfiguration getBucketWebsiteConfiguration(GetBucketWebsiteConfigurationRequest arg0) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			return client.getBucketWebsiteConfiguration(arg0);
+			return c.getBucketWebsiteConfiguration(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.getBucketWebsiteConfiguration(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).getBucketWebsiteConfiguration(arg0);
 		}
 	}
 
 	@Override
 	public S3ResponseMetadata getCachedResponseMetadata(AmazonWebServiceRequest arg0) {
+		AmazonS3 c = client;
 		try {
-			return client.getCachedResponseMetadata(arg0);
+			return c.getCachedResponseMetadata(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.getCachedResponseMetadata(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).getCachedResponseMetadata(arg0);
 		}
 	}
 
 	@Override
 	public S3Object getObject(GetObjectRequest arg0) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			return client.getObject(arg0);
+			return c.getObject(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.getObject(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).getObject(arg0);
 		}
 	}
 
 	@Override
 	public S3Object getObject(String arg0, String arg1) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			return client.getObject(arg0, arg1);
+			return c.getObject(arg0, arg1);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.getObject(arg0, arg1);
+		catch (RuntimeException e) {
+			return retry(c, e).getObject(arg0, arg1);
 		}
 	}
 
 	@Override
 	public ObjectMetadata getObject(GetObjectRequest arg0, File arg1) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			return client.getObject(arg0, arg1);
+			return c.getObject(arg0, arg1);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.getObject(arg0, arg1);
+		catch (RuntimeException e) {
+			return retry(c, e).getObject(arg0, arg1);
 		}
 	}
 
 	@Override
 	public AccessControlList getObjectAcl(GetObjectAclRequest arg0) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			return client.getObjectAcl(arg0);
+			return c.getObjectAcl(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.getObjectAcl(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).getObjectAcl(arg0);
 		}
 	}
 
 	@Override
 	public AccessControlList getObjectAcl(String arg0, String arg1) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			return client.getObjectAcl(arg0, arg1);
+			return c.getObjectAcl(arg0, arg1);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.getObjectAcl(arg0, arg1);
+		catch (RuntimeException e) {
+			return retry(c, e).getObjectAcl(arg0, arg1);
 		}
 	}
 
 	@Override
 	public AccessControlList getObjectAcl(String arg0, String arg1, String arg2) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			return client.getObjectAcl(arg0, arg1, arg2);
+			return c.getObjectAcl(arg0, arg1, arg2);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.getObjectAcl(arg0, arg1, arg2);
+		catch (RuntimeException e) {
+			return retry(c, e).getObjectAcl(arg0, arg1, arg2);
 		}
 	}
 
 	@Override
 	public String getObjectAsString(String arg0, String arg1) throws AmazonServiceException, SdkClientException {
+		AmazonS3 c = client;
 		try {
-			return client.getObjectAsString(arg0, arg1);
+			return c.getObjectAsString(arg0, arg1);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.getObjectAsString(arg0, arg1);
+		catch (RuntimeException e) {
+			return retry(c, e).getObjectAsString(arg0, arg1);
 		}
 	}
 
 	@Override
 	public GetObjectLegalHoldResult getObjectLegalHold(GetObjectLegalHoldRequest arg0) {
+		AmazonS3 c = client;
 		try {
-			return client.getObjectLegalHold(arg0);
+			return c.getObjectLegalHold(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.getObjectLegalHold(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).getObjectLegalHold(arg0);
 		}
 	}
 
 	@Override
 	public GetObjectLockConfigurationResult getObjectLockConfiguration(GetObjectLockConfigurationRequest arg0) {
+		AmazonS3 c = client;
 		try {
-			return client.getObjectLockConfiguration(arg0);
+			return c.getObjectLockConfiguration(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.getObjectLockConfiguration(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).getObjectLockConfiguration(arg0);
 		}
 	}
 
 	@Override
 	public ObjectMetadata getObjectMetadata(GetObjectMetadataRequest arg0) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			return client.getObjectMetadata(arg0);
+			return c.getObjectMetadata(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.getObjectMetadata(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).getObjectMetadata(arg0);
 		}
 	}
 
 	@Override
 	public ObjectMetadata getObjectMetadata(String arg0, String arg1) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			return client.getObjectMetadata(arg0, arg1);
+			return c.getObjectMetadata(arg0, arg1);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.getObjectMetadata(arg0, arg1);
+		catch (RuntimeException e) {
+			return retry(c, e).getObjectMetadata(arg0, arg1);
 		}
 	}
 
 	@Override
 	public GetObjectRetentionResult getObjectRetention(GetObjectRetentionRequest arg0) {
+		AmazonS3 c = client;
 		try {
-			return client.getObjectRetention(arg0);
+			return c.getObjectRetention(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.getObjectRetention(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).getObjectRetention(arg0);
 		}
 	}
 
 	@Override
 	public GetObjectTaggingResult getObjectTagging(GetObjectTaggingRequest arg0) {
+		AmazonS3 c = client;
 		try {
-			return client.getObjectTagging(arg0);
+			return c.getObjectTagging(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.getObjectTagging(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).getObjectTagging(arg0);
 		}
 	}
 
 	@Override
 	public GetPublicAccessBlockResult getPublicAccessBlock(GetPublicAccessBlockRequest arg0) {
+		AmazonS3 c = client;
 		try {
-			return client.getPublicAccessBlock(arg0);
+			return c.getPublicAccessBlock(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.getPublicAccessBlock(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).getPublicAccessBlock(arg0);
 		}
 	}
 
 	@Override
 	public Region getRegion() {
+		AmazonS3 c = client;
 		try {
-			return client.getRegion();
+			return c.getRegion();
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.getRegion();
+		catch (RuntimeException e) {
+			return retry(c, e).getRegion();
 		}
 	}
 
 	@Override
 	public String getRegionName() {
+		AmazonS3 c = client;
 		try {
-			return client.getRegionName();
+			return c.getRegionName();
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.getRegionName();
+		catch (RuntimeException e) {
+			return retry(c, e).getRegionName();
 		}
 	}
 
 	@Override
 	public Owner getS3AccountOwner() throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			return client.getS3AccountOwner();
+			return c.getS3AccountOwner();
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.getS3AccountOwner();
+		catch (RuntimeException e) {
+			return retry(c, e).getS3AccountOwner();
 		}
 	}
 
 	@Override
 	public Owner getS3AccountOwner(GetS3AccountOwnerRequest arg0) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			return client.getS3AccountOwner(arg0);
+			return c.getS3AccountOwner(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.getS3AccountOwner(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).getS3AccountOwner(arg0);
 		}
 	}
 
 	@Override
 	public URL getUrl(String arg0, String arg1) {
+		AmazonS3 c = client;
 		try {
-			return client.getUrl(arg0, arg1);
+			return c.getUrl(arg0, arg1);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.getUrl(arg0, arg1);
+		catch (RuntimeException e) {
+			return retry(c, e).getUrl(arg0, arg1);
 		}
 	}
 
 	@Override
 	public HeadBucketResult headBucket(HeadBucketRequest arg0) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			return client.headBucket(arg0);
+			return c.headBucket(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.headBucket(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).headBucket(arg0);
 		}
 	}
 
 	@Override
 	public InitiateMultipartUploadResult initiateMultipartUpload(InitiateMultipartUploadRequest arg0) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			return client.initiateMultipartUpload(arg0);
+			return c.initiateMultipartUpload(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.initiateMultipartUpload(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).initiateMultipartUpload(arg0);
 		}
 	}
 
 	@Override
 	public boolean isRequesterPaysEnabled(String arg0) throws AmazonServiceException, SdkClientException {
+		AmazonS3 c = client;
 		try {
-			return client.isRequesterPaysEnabled(arg0);
+			return c.isRequesterPaysEnabled(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.isRequesterPaysEnabled(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).isRequesterPaysEnabled(arg0);
 		}
 	}
 
 	@Override
 	public ListBucketAnalyticsConfigurationsResult listBucketAnalyticsConfigurations(ListBucketAnalyticsConfigurationsRequest arg0)
 			throws AmazonServiceException, SdkClientException {
+		AmazonS3 c = client;
 		try {
-			return client.listBucketAnalyticsConfigurations(arg0);
+			return c.listBucketAnalyticsConfigurations(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.listBucketAnalyticsConfigurations(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).listBucketAnalyticsConfigurations(arg0);
 		}
 	}
 
 	@Override
 	public ListBucketIntelligentTieringConfigurationsResult listBucketIntelligentTieringConfigurations(ListBucketIntelligentTieringConfigurationsRequest arg0)
 			throws AmazonServiceException, SdkClientException {
+		AmazonS3 c = client;
 		try {
-			return client.listBucketIntelligentTieringConfigurations(arg0);
+			return c.listBucketIntelligentTieringConfigurations(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.listBucketIntelligentTieringConfigurations(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).listBucketIntelligentTieringConfigurations(arg0);
 		}
 	}
 
 	@Override
 	public ListBucketInventoryConfigurationsResult listBucketInventoryConfigurations(ListBucketInventoryConfigurationsRequest arg0)
 			throws AmazonServiceException, SdkClientException {
+		AmazonS3 c = client;
 		try {
-			return client.listBucketInventoryConfigurations(arg0);
+			return c.listBucketInventoryConfigurations(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.listBucketInventoryConfigurations(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).listBucketInventoryConfigurations(arg0);
 		}
 	}
 
 	@Override
 	public ListBucketMetricsConfigurationsResult listBucketMetricsConfigurations(ListBucketMetricsConfigurationsRequest arg0) throws AmazonServiceException, SdkClientException {
+		AmazonS3 c = client;
 		try {
-			return client.listBucketMetricsConfigurations(arg0);
+			return c.listBucketMetricsConfigurations(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.listBucketMetricsConfigurations(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).listBucketMetricsConfigurations(arg0);
 		}
 	}
 
 	@Override
 	public List<Bucket> listBuckets() throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			return client.listBuckets();
+			return c.listBuckets();
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.listBuckets();
+		catch (RuntimeException e) {
+			return retry(c, e).listBuckets();
 		}
 	}
 
 	@Override
 	public List<Bucket> listBuckets(ListBucketsRequest arg0) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			return client.listBuckets(arg0);
+			return c.listBuckets(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.listBuckets(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).listBuckets(arg0);
 		}
 	}
 
 	@Override
 	public MultipartUploadListing listMultipartUploads(ListMultipartUploadsRequest arg0) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			return client.listMultipartUploads(arg0);
+			return c.listMultipartUploads(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.listMultipartUploads(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).listMultipartUploads(arg0);
 		}
 	}
 
 	@Override
 	public ObjectListing listNextBatchOfObjects(ObjectListing arg0) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			return client.listNextBatchOfObjects(arg0);
+			return c.listNextBatchOfObjects(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.listNextBatchOfObjects(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).listNextBatchOfObjects(arg0);
 		}
 	}
 
 	@Override
 	public ObjectListing listNextBatchOfObjects(ListNextBatchOfObjectsRequest arg0) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			return client.listNextBatchOfObjects(arg0);
+			return c.listNextBatchOfObjects(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.listNextBatchOfObjects(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).listNextBatchOfObjects(arg0);
 		}
 	}
 
 	@Override
 	public VersionListing listNextBatchOfVersions(VersionListing arg0) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			return client.listNextBatchOfVersions(arg0);
+			return c.listNextBatchOfVersions(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.listNextBatchOfVersions(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).listNextBatchOfVersions(arg0);
 		}
 	}
 
 	@Override
 	public VersionListing listNextBatchOfVersions(ListNextBatchOfVersionsRequest arg0) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			return client.listNextBatchOfVersions(arg0);
+			return c.listNextBatchOfVersions(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.listNextBatchOfVersions(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).listNextBatchOfVersions(arg0);
 		}
 	}
 
 	@Override
 	public ObjectListing listObjects(String arg0) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			return client.listObjects(arg0);
+			return c.listObjects(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.listObjects(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).listObjects(arg0);
 		}
 	}
 
 	@Override
 	public ObjectListing listObjects(ListObjectsRequest arg0) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			return client.listObjects(arg0);
+			return c.listObjects(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.listObjects(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).listObjects(arg0);
 		}
 	}
 
 	@Override
 	public ObjectListing listObjects(String arg0, String arg1) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			return client.listObjects(arg0, arg1);
+			return c.listObjects(arg0, arg1);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.listObjects(arg0, arg1);
+		catch (RuntimeException e) {
+			return retry(c, e).listObjects(arg0, arg1);
 		}
 	}
 
 	@Override
 	public ListObjectsV2Result listObjectsV2(String arg0) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			return client.listObjectsV2(arg0);
+			return c.listObjectsV2(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.listObjectsV2(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).listObjectsV2(arg0);
 		}
 	}
 
 	@Override
 	public ListObjectsV2Result listObjectsV2(ListObjectsV2Request arg0) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			return client.listObjectsV2(arg0);
+			return c.listObjectsV2(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.listObjectsV2(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).listObjectsV2(arg0);
 		}
 	}
 
 	@Override
 	public ListObjectsV2Result listObjectsV2(String arg0, String arg1) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			return client.listObjectsV2(arg0, arg1);
+			return c.listObjectsV2(arg0, arg1);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.listObjectsV2(arg0, arg1);
+		catch (RuntimeException e) {
+			return retry(c, e).listObjectsV2(arg0, arg1);
 		}
 	}
 
 	@Override
 	public PartListing listParts(ListPartsRequest arg0) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			return client.listParts(arg0);
+			return c.listParts(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.listParts(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).listParts(arg0);
 		}
 	}
 
 	@Override
 	public VersionListing listVersions(ListVersionsRequest arg0) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			return client.listVersions(arg0);
+			return c.listVersions(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.listVersions(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).listVersions(arg0);
 		}
 	}
 
 	@Override
 	public VersionListing listVersions(String arg0, String arg1) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			return client.listVersions(arg0, arg1);
+			return c.listVersions(arg0, arg1);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.listVersions(arg0, arg1);
+		catch (RuntimeException e) {
+			return retry(c, e).listVersions(arg0, arg1);
 		}
 	}
 
 	@Override
 	public VersionListing listVersions(String arg0, String arg1, String arg2, String arg3, String arg4, Integer arg5) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			return client.listVersions(arg0, arg1, arg2, arg3, arg4, arg5);
+			return c.listVersions(arg0, arg1, arg2, arg3, arg4, arg5);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.listVersions(arg0, arg1, arg2, arg3, arg4, arg5);
+		catch (RuntimeException e) {
+			return retry(c, e).listVersions(arg0, arg1, arg2, arg3, arg4, arg5);
 		}
 	}
 
 	@Override
 	public PutObjectResult putObject(PutObjectRequest arg0) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			return client.putObject(arg0);
+			return c.putObject(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.putObject(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).putObject(arg0);
 		}
 	}
 
 	@Override
 	public PutObjectResult putObject(String arg0, String arg1, File arg2) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			return client.putObject(arg0, arg1, arg2);
+			return c.putObject(arg0, arg1, arg2);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.putObject(arg0, arg1, arg2);
+		catch (RuntimeException e) {
+			return retry(c, e).putObject(arg0, arg1, arg2);
 		}
 	}
 
 	@Override
 	public PutObjectResult putObject(String arg0, String arg1, String arg2) throws AmazonServiceException, SdkClientException {
+		AmazonS3 c = client;
 		try {
-			return client.putObject(arg0, arg1, arg2);
+			return c.putObject(arg0, arg1, arg2);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.putObject(arg0, arg1, arg2);
+		catch (RuntimeException e) {
+			return retry(c, e).putObject(arg0, arg1, arg2);
 		}
 	}
 
 	@Override
 	public PutObjectResult putObject(String arg0, String arg1, InputStream arg2, ObjectMetadata arg3) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			return client.putObject(arg0, arg1, arg2, arg3);
+			return c.putObject(arg0, arg1, arg2, arg3);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.putObject(arg0, arg1, arg2, arg3);
+		catch (RuntimeException e) {
+			return retry(c, e).putObject(arg0, arg1, arg2, arg3);
 		}
 	}
 
 	@Override
 	public void restoreObject(RestoreObjectRequest arg0) throws AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			client.restoreObject(arg0);
+			c.restoreObject(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			client.restoreObject(arg0);
+		catch (RuntimeException e) {
+			retry(c, e).restoreObject(arg0);
 		}
 	}
 
 	@Override
 	public void restoreObject(String arg0, String arg1, int arg2) throws AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			client.restoreObject(arg0, arg1, arg2);
+			c.restoreObject(arg0, arg1, arg2);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			client.restoreObject(arg0, arg1, arg2);
+		catch (RuntimeException e) {
+			retry(c, e).restoreObject(arg0, arg1, arg2);
 		}
 	}
 
 	@Override
 	public RestoreObjectResult restoreObjectV2(RestoreObjectRequest arg0) throws AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			return client.restoreObjectV2(arg0);
+			return c.restoreObjectV2(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.restoreObjectV2(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).restoreObjectV2(arg0);
 		}
 	}
 
 	@Override
 	public SelectObjectContentResult selectObjectContent(SelectObjectContentRequest arg0) throws AmazonServiceException, SdkClientException {
+		AmazonS3 c = client;
 		try {
-			return client.selectObjectContent(arg0);
+			return c.selectObjectContent(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.selectObjectContent(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).selectObjectContent(arg0);
 		}
 	}
 
 	@Override
 	public void setBucketAccelerateConfiguration(SetBucketAccelerateConfigurationRequest arg0) throws AmazonServiceException, SdkClientException {
+		AmazonS3 c = client;
 		try {
-			client.setBucketAccelerateConfiguration(arg0);
+			c.setBucketAccelerateConfiguration(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			client.setBucketAccelerateConfiguration(arg0);
+		catch (RuntimeException e) {
+			retry(c, e).setBucketAccelerateConfiguration(arg0);
 		}
 	}
 
 	@Override
 	public void setBucketAccelerateConfiguration(String arg0, BucketAccelerateConfiguration arg1) throws AmazonServiceException, SdkClientException {
+		AmazonS3 c = client;
 		try {
-			client.setBucketAccelerateConfiguration(arg0, arg1);
+			c.setBucketAccelerateConfiguration(arg0, arg1);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			client.setBucketAccelerateConfiguration(arg0, arg1);
+		catch (RuntimeException e) {
+			retry(c, e).setBucketAccelerateConfiguration(arg0, arg1);
 		}
 	}
 
 	@Override
 	public void setBucketAcl(SetBucketAclRequest arg0) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			client.setBucketAcl(arg0);
+			c.setBucketAcl(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			client.setBucketAcl(arg0);
+		catch (RuntimeException e) {
+			retry(c, e).setBucketAcl(arg0);
 		}
 	}
 
 	@Override
 	public void setBucketAcl(String arg0, AccessControlList arg1) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			client.setBucketAcl(arg0, arg1);
+			c.setBucketAcl(arg0, arg1);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			client.setBucketAcl(arg0, arg1);
+		catch (RuntimeException e) {
+			retry(c, e).setBucketAcl(arg0, arg1);
 		}
 	}
 
 	@Override
 	public void setBucketAcl(String arg0, CannedAccessControlList arg1) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			client.setBucketAcl(arg0, arg1);
+			c.setBucketAcl(arg0, arg1);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			client.setBucketAcl(arg0, arg1);
+		catch (RuntimeException e) {
+			retry(c, e).setBucketAcl(arg0, arg1);
 		}
 	}
 
 	@Override
 	public SetBucketAnalyticsConfigurationResult setBucketAnalyticsConfiguration(SetBucketAnalyticsConfigurationRequest arg0) throws AmazonServiceException, SdkClientException {
+		AmazonS3 c = client;
 		try {
-			return client.setBucketAnalyticsConfiguration(arg0);
+			return c.setBucketAnalyticsConfiguration(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.setBucketAnalyticsConfiguration(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).setBucketAnalyticsConfiguration(arg0);
 		}
 	}
 
 	@Override
 	public SetBucketAnalyticsConfigurationResult setBucketAnalyticsConfiguration(String arg0, AnalyticsConfiguration arg1) throws AmazonServiceException, SdkClientException {
+		AmazonS3 c = client;
 		try {
-			return client.setBucketAnalyticsConfiguration(arg0, arg1);
+			return c.setBucketAnalyticsConfiguration(arg0, arg1);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.setBucketAnalyticsConfiguration(arg0, arg1);
+		catch (RuntimeException e) {
+			return retry(c, e).setBucketAnalyticsConfiguration(arg0, arg1);
 		}
 	}
 
 	@Override
 	public void setBucketCrossOriginConfiguration(SetBucketCrossOriginConfigurationRequest arg0) {
+		AmazonS3 c = client;
 		try {
-			client.setBucketCrossOriginConfiguration(arg0);
+			c.setBucketCrossOriginConfiguration(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			client.setBucketCrossOriginConfiguration(arg0);
+		catch (RuntimeException e) {
+			retry(c, e).setBucketCrossOriginConfiguration(arg0);
 		}
 	}
 
 	@Override
 	public void setBucketCrossOriginConfiguration(String arg0, BucketCrossOriginConfiguration arg1) {
+		AmazonS3 c = client;
 		try {
-			client.setBucketCrossOriginConfiguration(arg0, arg1);
+			c.setBucketCrossOriginConfiguration(arg0, arg1);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			client.setBucketCrossOriginConfiguration(arg0, arg1);
+		catch (RuntimeException e) {
+			retry(c, e).setBucketCrossOriginConfiguration(arg0, arg1);
 		}
 	}
 
 	@Override
 	public SetBucketEncryptionResult setBucketEncryption(SetBucketEncryptionRequest arg0) throws AmazonServiceException, SdkClientException {
+		AmazonS3 c = client;
 		try {
-			return client.setBucketEncryption(arg0);
+			return c.setBucketEncryption(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.setBucketEncryption(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).setBucketEncryption(arg0);
 		}
 	}
 
 	@Override
 	public SetBucketIntelligentTieringConfigurationResult setBucketIntelligentTieringConfiguration(SetBucketIntelligentTieringConfigurationRequest arg0)
 			throws AmazonServiceException, SdkClientException {
+		AmazonS3 c = client;
 		try {
-			return client.setBucketIntelligentTieringConfiguration(arg0);
+			return c.setBucketIntelligentTieringConfiguration(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.setBucketIntelligentTieringConfiguration(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).setBucketIntelligentTieringConfiguration(arg0);
 		}
 	}
 
 	@Override
 	public SetBucketIntelligentTieringConfigurationResult setBucketIntelligentTieringConfiguration(String arg0, IntelligentTieringConfiguration arg1)
 			throws AmazonServiceException, SdkClientException {
+		AmazonS3 c = client;
 		try {
-			return client.setBucketIntelligentTieringConfiguration(arg0, arg1);
+			return c.setBucketIntelligentTieringConfiguration(arg0, arg1);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.setBucketIntelligentTieringConfiguration(arg0, arg1);
+		catch (RuntimeException e) {
+			return retry(c, e).setBucketIntelligentTieringConfiguration(arg0, arg1);
 		}
 	}
 
 	@Override
 	public SetBucketInventoryConfigurationResult setBucketInventoryConfiguration(SetBucketInventoryConfigurationRequest arg0) throws AmazonServiceException, SdkClientException {
+		AmazonS3 c = client;
 		try {
-			return client.setBucketInventoryConfiguration(arg0);
+			return c.setBucketInventoryConfiguration(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.setBucketInventoryConfiguration(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).setBucketInventoryConfiguration(arg0);
 		}
 	}
 
 	@Override
 	public SetBucketInventoryConfigurationResult setBucketInventoryConfiguration(String arg0, InventoryConfiguration arg1) throws AmazonServiceException, SdkClientException {
+		AmazonS3 c = client;
 		try {
-			return client.setBucketInventoryConfiguration(arg0, arg1);
+			return c.setBucketInventoryConfiguration(arg0, arg1);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.setBucketInventoryConfiguration(arg0, arg1);
+		catch (RuntimeException e) {
+			return retry(c, e).setBucketInventoryConfiguration(arg0, arg1);
 		}
 	}
 
 	@Override
 	public void setBucketLifecycleConfiguration(SetBucketLifecycleConfigurationRequest arg0) {
+		AmazonS3 c = client;
 		try {
-			client.setBucketLifecycleConfiguration(arg0);
+			c.setBucketLifecycleConfiguration(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			client.setBucketLifecycleConfiguration(arg0);
+		catch (RuntimeException e) {
+			retry(c, e).setBucketLifecycleConfiguration(arg0);
 		}
 	}
 
 	@Override
 	public void setBucketLifecycleConfiguration(String arg0, BucketLifecycleConfiguration arg1) {
+		AmazonS3 c = client;
 		try {
-			client.setBucketLifecycleConfiguration(arg0, arg1);
+			c.setBucketLifecycleConfiguration(arg0, arg1);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			client.setBucketLifecycleConfiguration(arg0, arg1);
+		catch (RuntimeException e) {
+			retry(c, e).setBucketLifecycleConfiguration(arg0, arg1);
 		}
 	}
 
 	@Override
 	public void setBucketLoggingConfiguration(SetBucketLoggingConfigurationRequest arg0) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			client.setBucketLoggingConfiguration(arg0);
+			c.setBucketLoggingConfiguration(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			client.setBucketLoggingConfiguration(arg0);
+		catch (RuntimeException e) {
+			retry(c, e).setBucketLoggingConfiguration(arg0);
 		}
 	}
 
 	@Override
 	public SetBucketMetricsConfigurationResult setBucketMetricsConfiguration(SetBucketMetricsConfigurationRequest arg0) throws AmazonServiceException, SdkClientException {
+		AmazonS3 c = client;
 		try {
-			return client.setBucketMetricsConfiguration(arg0);
+			return c.setBucketMetricsConfiguration(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.setBucketMetricsConfiguration(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).setBucketMetricsConfiguration(arg0);
 		}
 	}
 
 	@Override
 	public SetBucketMetricsConfigurationResult setBucketMetricsConfiguration(String arg0, MetricsConfiguration arg1) throws AmazonServiceException, SdkClientException {
+		AmazonS3 c = client;
 		try {
-			return client.setBucketMetricsConfiguration(arg0, arg1);
+			return c.setBucketMetricsConfiguration(arg0, arg1);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.setBucketMetricsConfiguration(arg0, arg1);
+		catch (RuntimeException e) {
+			return retry(c, e).setBucketMetricsConfiguration(arg0, arg1);
 		}
 	}
 
 	@Override
 	public void setBucketNotificationConfiguration(SetBucketNotificationConfigurationRequest arg0) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			client.setBucketNotificationConfiguration(arg0);
+			c.setBucketNotificationConfiguration(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			client.setBucketNotificationConfiguration(arg0);
+		catch (RuntimeException e) {
+			retry(c, e).setBucketNotificationConfiguration(arg0);
 		}
 	}
 
 	@Override
 	public void setBucketNotificationConfiguration(String arg0, BucketNotificationConfiguration arg1) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			client.setBucketNotificationConfiguration(arg0, arg1);
+			c.setBucketNotificationConfiguration(arg0, arg1);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			client.setBucketNotificationConfiguration(arg0, arg1);
+		catch (RuntimeException e) {
+			retry(c, e).setBucketNotificationConfiguration(arg0, arg1);
 		}
 	}
 
 	@Override
 	public SetBucketOwnershipControlsResult setBucketOwnershipControls(SetBucketOwnershipControlsRequest arg0) throws AmazonServiceException, SdkClientException {
+		AmazonS3 c = client;
 		try {
-			return client.setBucketOwnershipControls(arg0);
+			return c.setBucketOwnershipControls(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.setBucketOwnershipControls(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).setBucketOwnershipControls(arg0);
 		}
 	}
 
 	@Override
 	public SetBucketOwnershipControlsResult setBucketOwnershipControls(String arg0, OwnershipControls arg1) throws AmazonServiceException, SdkClientException {
+		AmazonS3 c = client;
 		try {
-			return client.setBucketOwnershipControls(arg0, arg1);
+			return c.setBucketOwnershipControls(arg0, arg1);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.setBucketOwnershipControls(arg0, arg1);
+		catch (RuntimeException e) {
+			return retry(c, e).setBucketOwnershipControls(arg0, arg1);
 		}
 	}
 
 	@Override
 	public void setBucketPolicy(SetBucketPolicyRequest arg0) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			client.setBucketPolicy(arg0);
+			c.setBucketPolicy(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			client.setBucketPolicy(arg0);
+		catch (RuntimeException e) {
+			retry(c, e).setBucketPolicy(arg0);
 		}
 	}
 
 	@Override
 	public void setBucketPolicy(String arg0, String arg1) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			client.setBucketPolicy(arg0, arg1);
+			c.setBucketPolicy(arg0, arg1);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			client.setBucketPolicy(arg0, arg1);
+		catch (RuntimeException e) {
+			retry(c, e).setBucketPolicy(arg0, arg1);
 		}
 	}
 
 	@Override
 	public void setBucketReplicationConfiguration(SetBucketReplicationConfigurationRequest arg0) throws AmazonServiceException, SdkClientException {
+		AmazonS3 c = client;
 		try {
-			client.setBucketReplicationConfiguration(arg0);
+			c.setBucketReplicationConfiguration(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			client.setBucketReplicationConfiguration(arg0);
+		catch (RuntimeException e) {
+			retry(c, e).setBucketReplicationConfiguration(arg0);
 		}
 	}
 
 	@Override
 	public void setBucketReplicationConfiguration(String arg0, BucketReplicationConfiguration arg1) throws AmazonServiceException, SdkClientException {
+		AmazonS3 c = client;
 		try {
-			client.setBucketReplicationConfiguration(arg0, arg1);
+			c.setBucketReplicationConfiguration(arg0, arg1);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			client.setBucketReplicationConfiguration(arg0, arg1);
+		catch (RuntimeException e) {
+			retry(c, e).setBucketReplicationConfiguration(arg0, arg1);
 		}
 	}
 
 	@Override
 	public void setBucketTaggingConfiguration(SetBucketTaggingConfigurationRequest arg0) {
+		AmazonS3 c = client;
 		try {
-			client.setBucketTaggingConfiguration(arg0);
+			c.setBucketTaggingConfiguration(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			client.setBucketTaggingConfiguration(arg0);
+		catch (RuntimeException e) {
+			retry(c, e).setBucketTaggingConfiguration(arg0);
 		}
 	}
 
 	@Override
 	public void setBucketTaggingConfiguration(String arg0, BucketTaggingConfiguration arg1) {
+		AmazonS3 c = client;
 		try {
-			client.setBucketTaggingConfiguration(arg0, arg1);
+			c.setBucketTaggingConfiguration(arg0, arg1);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			client.setBucketTaggingConfiguration(arg0, arg1);
+		catch (RuntimeException e) {
+			retry(c, e).setBucketTaggingConfiguration(arg0, arg1);
 		}
 	}
 
 	@Override
 	public void setBucketVersioningConfiguration(SetBucketVersioningConfigurationRequest arg0) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			client.setBucketVersioningConfiguration(arg0);
+			c.setBucketVersioningConfiguration(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			client.setBucketVersioningConfiguration(arg0);
+		catch (RuntimeException e) {
+			retry(c, e).setBucketVersioningConfiguration(arg0);
 		}
 	}
 
 	@Override
 	public void setBucketWebsiteConfiguration(SetBucketWebsiteConfigurationRequest arg0) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			client.setBucketWebsiteConfiguration(arg0);
+			c.setBucketWebsiteConfiguration(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			client.setBucketWebsiteConfiguration(arg0);
+		catch (RuntimeException e) {
+			retry(c, e).setBucketWebsiteConfiguration(arg0);
 		}
 	}
 
 	@Override
 	public void setBucketWebsiteConfiguration(String arg0, BucketWebsiteConfiguration arg1) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			client.setBucketWebsiteConfiguration(arg0, arg1);
+			c.setBucketWebsiteConfiguration(arg0, arg1);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			client.setBucketWebsiteConfiguration(arg0, arg1);
+		catch (RuntimeException e) {
+			retry(c, e).setBucketWebsiteConfiguration(arg0, arg1);
 		}
 	}
 
 	@Override
 	public void setEndpoint(String arg0) {
+		AmazonS3 c = client;
 		try {
-			client.setEndpoint(arg0);
+			c.setEndpoint(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			client.setEndpoint(arg0);
+		catch (RuntimeException e) {
+			retry(c, e).setEndpoint(arg0);
 		}
 	}
 
 	@Override
 	public void setObjectAcl(SetObjectAclRequest arg0) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			client.setObjectAcl(arg0);
+			c.setObjectAcl(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			client.setObjectAcl(arg0);
+		catch (RuntimeException e) {
+			retry(c, e).setObjectAcl(arg0);
 		}
 	}
 
 	@Override
 	public void setObjectAcl(String arg0, String arg1, AccessControlList arg2) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			client.setObjectAcl(arg0, arg1, arg2);
+			c.setObjectAcl(arg0, arg1, arg2);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			client.setObjectAcl(arg0, arg1, arg2);
+		catch (RuntimeException e) {
+			retry(c, e).setObjectAcl(arg0, arg1, arg2);
 		}
 	}
 
 	@Override
 	public void setObjectAcl(String arg0, String arg1, CannedAccessControlList arg2) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			client.setObjectAcl(arg0, arg1, arg2);
+			c.setObjectAcl(arg0, arg1, arg2);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			client.setObjectAcl(arg0, arg1, arg2);
+		catch (RuntimeException e) {
+			retry(c, e).setObjectAcl(arg0, arg1, arg2);
 		}
 	}
 
 	@Override
 	public void setObjectAcl(String arg0, String arg1, String arg2, AccessControlList arg3) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			client.setObjectAcl(arg0, arg1, arg2, arg3);
+			c.setObjectAcl(arg0, arg1, arg2, arg3);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			client.setObjectAcl(arg0, arg1, arg2, arg3);
+		catch (RuntimeException e) {
+			retry(c, e).setObjectAcl(arg0, arg1, arg2, arg3);
 		}
 	}
 
 	@Override
 	public void setObjectAcl(String arg0, String arg1, String arg2, CannedAccessControlList arg3) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			client.setObjectAcl(arg0, arg1, arg2, arg3);
+			c.setObjectAcl(arg0, arg1, arg2, arg3);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			client.setObjectAcl(arg0, arg1, arg2, arg3);
+		catch (RuntimeException e) {
+			retry(c, e).setObjectAcl(arg0, arg1, arg2, arg3);
 		}
 	}
 
 	@Override
 	public SetObjectLegalHoldResult setObjectLegalHold(SetObjectLegalHoldRequest arg0) {
+		AmazonS3 c = client;
 		try {
-			return client.setObjectLegalHold(arg0);
+			return c.setObjectLegalHold(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.setObjectLegalHold(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).setObjectLegalHold(arg0);
 		}
 	}
 
 	@Override
 	public SetObjectLockConfigurationResult setObjectLockConfiguration(SetObjectLockConfigurationRequest arg0) {
+		AmazonS3 c = client;
 		try {
-			return client.setObjectLockConfiguration(arg0);
+			return c.setObjectLockConfiguration(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.setObjectLockConfiguration(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).setObjectLockConfiguration(arg0);
 		}
 	}
 
 	@Override
 	public void setObjectRedirectLocation(String arg0, String arg1, String arg2) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			client.setObjectRedirectLocation(arg0, arg1, arg2);
+			c.setObjectRedirectLocation(arg0, arg1, arg2);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			client.setObjectRedirectLocation(arg0, arg1, arg2);
+		catch (RuntimeException e) {
+			retry(c, e).setObjectRedirectLocation(arg0, arg1, arg2);
 		}
 	}
 
 	@Override
 	public SetObjectRetentionResult setObjectRetention(SetObjectRetentionRequest arg0) {
+		AmazonS3 c = client;
 		try {
-			return client.setObjectRetention(arg0);
+			return c.setObjectRetention(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.setObjectRetention(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).setObjectRetention(arg0);
 		}
 	}
 
 	@Override
 	public SetObjectTaggingResult setObjectTagging(SetObjectTaggingRequest arg0) {
+		AmazonS3 c = client;
 		try {
-			return client.setObjectTagging(arg0);
+			return c.setObjectTagging(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.setObjectTagging(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).setObjectTagging(arg0);
 		}
 	}
 
 	@Override
 	public SetPublicAccessBlockResult setPublicAccessBlock(SetPublicAccessBlockRequest arg0) {
+		AmazonS3 c = client;
 		try {
-			return client.setPublicAccessBlock(arg0);
+			return c.setPublicAccessBlock(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.setPublicAccessBlock(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).setPublicAccessBlock(arg0);
 		}
 	}
 
 	@Override
 	public void setRegion(com.amazonaws.regions.Region arg0) throws IllegalArgumentException {
+		AmazonS3 c = client;
 		try {
-			client.setRegion(arg0);
+			c.setRegion(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			client.setRegion(arg0);
+		catch (RuntimeException e) {
+			retry(c, e).setRegion(arg0);
 		}
 	}
 
 	@Override
 	public void setRequestPaymentConfiguration(SetRequestPaymentConfigurationRequest arg0) {
+		AmazonS3 c = client;
 		try {
-			client.setRequestPaymentConfiguration(arg0);
+			c.setRequestPaymentConfiguration(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			client.setRequestPaymentConfiguration(arg0);
+		catch (RuntimeException e) {
+			retry(c, e).setRequestPaymentConfiguration(arg0);
 		}
 	}
 
 	@Override
 	public void setS3ClientOptions(S3ClientOptions arg0) {
+		AmazonS3 c = client;
 		try {
-			client.setS3ClientOptions(arg0);
+			c.setS3ClientOptions(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			client.setS3ClientOptions(arg0);
+		catch (RuntimeException e) {
+			retry(c, e).setS3ClientOptions(arg0);
 		}
 	}
 
 	@Override
 	public void shutdown() {
+		AmazonS3 c = client;
 		try {
-			client.shutdown();
+			c.shutdown();
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			client.shutdown();
+		catch (RuntimeException e) {
+			retry(c, e).shutdown();
 		}
 	}
 
 	@Override
 	public PresignedUrlUploadResult upload(PresignedUrlUploadRequest arg0) {
+		AmazonS3 c = client;
 		try {
-			return client.upload(arg0);
+			return c.upload(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.upload(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).upload(arg0);
 		}
 	}
 
 	@Override
 	public UploadPartResult uploadPart(UploadPartRequest arg0) throws SdkClientException, AmazonServiceException {
+		AmazonS3 c = client;
 		try {
-			return client.uploadPart(arg0);
+			return c.uploadPart(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.uploadPart(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).uploadPart(arg0);
 		}
 	}
 
 	@Override
 	public AmazonS3Waiters waiters() {
+		AmazonS3 c = client;
 		try {
-			return client.waiters();
+			return c.waiters();
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.waiters();
+		catch (RuntimeException e) {
+			return retry(c, e).waiters();
 		}
 	}
 
 	@Override
 	public WriteGetObjectResponseResult writeGetObjectResponse(WriteGetObjectResponseRequest arg0) {
+		AmazonS3 c = client;
 		try {
-			return client.writeGetObjectResponse(arg0);
+			return c.writeGetObjectResponse(arg0);
 		}
-		catch (IllegalStateException ise) {
-			invalidateAmazonS3(ise);
-			return client.writeGetObjectResponse(arg0);
+		catch (RuntimeException e) {
+			return retry(c, e).writeGetObjectResponse(arg0);
 		}
 	}
 
-	private void shutdownQuietly() {
+	private synchronized void removeFromPool() {
+		if (removedFromPool) return;
+		removedFromPool = true;
+		retire(client, log);
+	}
+
+	/**
+	 * LDEV-7004: called when an operation with the inner client <code>failed</code> threw an exception. If the
+	 * exception shows that the connection pool of that client is shut down, the inner client is replaced (once, by
+	 * the first thread that gets here with it) and the client to retry with is returned, otherwise the exception
+	 * is thrown.
+	 */
+	private AmazonS3 retry(AmazonS3 failed, RuntimeException e) {
+		if (!isPoolShutdown(e)) throw e;
+		if (log != null) {
+			// expected when a thread still holds a wrapper that expired and whose retired client was shut down in the
+			// meantime, so no warning for that case
+			if (removedFromPool) log.debug("S3", "retry with a new client, the client of the expired wrapper was shut down: " + e);
+			else log.log(Log.LEVEL_WARN, "S3", e);
+		}
+		return invalidateAmazonS3(failed);
+	}
+
+	/**
+	 * true if the exception (or one of its causes) shows that the connection pool of the client was shut down: an
+	 * IllegalStateException (as before), "Connection pool shut down" or the RequestAbortedException
+	 * "Request execution failed" of HttpClient (failed to lease a connection from the pool), which the AWS SDK
+	 * wraps in a SdkClientException.
+	 */
+	static boolean isPoolShutdown(Throwable t) {
+		if (t instanceof IllegalStateException) return true;
+		int depth = 0;
+		while (t != null && depth++ < 20) {
+			String msg = t.getMessage();
+			if (msg != null && msg.indexOf("Connection pool shut down") != -1) return true;
+			if (t.getClass().getName().endsWith(".RequestAbortedException") && msg != null && msg.indexOf("Request execution failed") != -1) return true;
+			if (t.getCause() == t) break;
+			t = t.getCause();
+		}
+		return false;
+	}
+
+	/**
+	 * LDEV-7004: replaces the inner client, but only if it is still the instance that failed. Threads that failed
+	 * with the same instance at the same time wait here and then use the replacement created by the first one, so a
+	 * freshly created client is never replaced or shut down. The failed client is retired, not shut down: if the
+	 * failure was not a shut down pool, other threads can still use it.
+	 */
+	private AmazonS3 invalidateAmazonS3(AmazonS3 failed) throws AmazonS3Exception {
+		synchronized (this) {
+			AmazonS3 current = client;
+			if (current != failed && current != null) return current; // already replaced by another thread
+			AmazonS3 fresh;
+			try {
+				fresh = create();
+			}
+			catch (Exception e) {
+				if (log != null) log.error("S3", e);
+				throw new AmazonS3Exception("failed to invalidate client", e);
+			}
+			client = fresh;
+			retire(failed, log);
+			// this wrapper is no longer in the pool, so nothing else would ever shut down the new client
+			if (removedFromPool) retire(fresh, log);
+			return fresh;
+		}
+	}
+
+	private static void retire(AmazonS3 client, Log log) {
 		if (client == null) return;
-		try {
-			client.shutdown();
-		}
-		catch (Exception e) {
-			if (log != null) log.error("S3", e);
+		synchronized (retired) {
+			// never queue the same client twice (identity, not equals)
+			for (Retired r: retired) {
+				if (r.client == client) return;
+			}
+			retired.add(new Retired(client, System.currentTimeMillis(), log));
 		}
 	}
 
-	private void invalidateAmazonS3(IllegalStateException ise) throws AmazonS3Exception {
-		if (log != null) log.log(Log.LEVEL_WARN, "S3", ise);
-		AmazonS3 previous = client;
+	/**
+	 * LDEV-7004: shuts down the retired clients that are no longer used: their connection pool has no leased
+	 * connection and no thread waiting for one, and they are retired for at least RETIRED_MIN_AGE (or for
+	 * RETIRED_MAX_AGE in any case). Runs at most once a second unless forced.
+	 * 
+	 * @return number of clients shut down
+	 */
+	static int shutdownRetired(long now, boolean force) {
+		if (retired.isEmpty()) return 0;
+		if (!force && now - lastShutdownRetired < SHUTDOWN_RETIRED_INTERVAL) return 0;
+		int count = 0;
+		synchronized (retired) {
+			lastShutdownRetired = now;
+			Iterator<Retired> it = retired.iterator();
+			while (it.hasNext()) {
+				Retired r = it.next();
+				if (r.canShutdown(now)) {
+					it.remove();
+					r.shutdownQuietly();
+					count++;
+				}
+			}
+		}
+		return count;
+	}
+
+	/**
+	 * number of connections of the client's connection pool that are leased or waited for, -1 if this cannot be read.
+	 * The AWS SDK does not expose its connection manager, so it is read by reflection (AmazonWebServiceClient.client
+	 * -&gt; AmazonHttpClient.httpClient -&gt; getHttpClientConnectionManager().getTotalStats()).
+	 */
+	static int busyConnections(AmazonS3 client) {
+		return busyConnections(client, null);
+	}
+
+	private static int busyConnections(AmazonS3 client, Log log) {
 		try {
-			client = create();
+			Object http = getField(client, "client");
+			Object apache = getField(http, "httpClient");
+			Object cm = invoke(apache, "getHttpClientConnectionManager");
+			Object stats = invoke(cm, "getTotalStats");
+			return ((Number) invoke(stats, "getLeased")).intValue() + ((Number) invoke(stats, "getPending")).intValue();
 		}
 		catch (Exception e) {
-			if (log != null) log.error("S3", e);
-			throw new AmazonS3Exception("failed to invalidate client", e);
+			if (log != null && !poolStatsFallbackLogged) {
+				poolStatsFallbackLogged = true;
+				log.info("S3", "cannot read the connection pool state of a retired S3 client, it is shut down "
+						+ (RETIRED_UNKNOWN_STATE_AGE / 1000) + " seconds after it was retired (logged once): " + e);
+			}
+			return -1;
 		}
-		finally {
-			if (previous != null && previous != client) {
-				try {
-					previous.shutdown();
-				}
-				catch (Exception e) {
-					if (log != null) log.error("S3", e);
-				}
+	}
+
+	private static Object getField(Object obj, String name) throws Exception {
+		Class<?> clazz = obj.getClass();
+		while (clazz != null) {
+			try {
+				Field f = clazz.getDeclaredField(name);
+				f.setAccessible(true);
+				Object val = f.get(obj);
+				if (val == null) throw new NullPointerException(name);
+				return val;
+			}
+			catch (NoSuchFieldException nsfe) {
+				clazz = clazz.getSuperclass();
+			}
+		}
+		throw new NoSuchFieldException(name);
+	}
+
+	private static Object invoke(Object obj, String name) throws Exception {
+		Method m = obj.getClass().getMethod(name);
+		m.setAccessible(true);
+		return m.invoke(obj);
+	}
+
+	private static final class Retired {
+		private final AmazonS3 client;
+		private final long since;
+		private final Log log;
+
+		private Retired(AmazonS3 client, long since, Log log) {
+			this.client = client;
+			this.since = since;
+			this.log = log;
+		}
+
+		private boolean canShutdown(long now) {
+			long age = now - since;
+			if (age >= RETIRED_MAX_AGE) return true;
+			if (age < RETIRED_MIN_AGE) return false;
+			int busy = busyConnections(client, log);
+			if (busy == -1) return age >= RETIRED_UNKNOWN_STATE_AGE;
+			return busy == 0;
+		}
+
+		private void shutdownQuietly() {
+			try {
+				client.shutdown();
+			}
+			catch (Exception e) {
+				if (log != null) log.error("S3", e);
 			}
 		}
 	}

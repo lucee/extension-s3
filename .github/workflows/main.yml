@@ -8,6 +8,7 @@ jobs:
     outputs:
       version: ${{ steps.extract-version.outputs.VERSION }}
       publish: ${{ steps.publish.outputs.PUBLISH }}
+      lucee_matrix: ${{ steps.lucee-matrix.outputs.MATRIX }}
     steps:
       # Only pushes and manual runs on master/main, a version branch (1.0, 2.0, ...) or release/* may
       # publish (deploy). Feature and PR branches only build and test.
@@ -49,17 +50,34 @@ jobs:
           VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
           echo "::set-output name=VERSION::$VERSION"
 
+      # Repository and organization variables are not passed to pull_request runs from forks, so
+      # vars.LUCEE_TEST_VERSIONS_PLUS is empty there and fromJSON('') fails the whole run before
+      # build-and-test starts. Use the variable when it is set, otherwise test the latest build of
+      # each Lucee line through a version query (script-runner resolves it), so fork PRs are tested too.
+      - name: Resolve Lucee test matrix
+        id: lucee-matrix
+        env:
+          TEST_VERSIONS: ${{ vars.LUCEE_TEST_VERSIONS_PLUS }}
+          FALLBACK_LINES: "6.0 6.1 6.2 7.0 7.1"
+        run: |
+          set -euo pipefail
+          if [[ -n "${TEST_VERSIONS// }" ]] && echo "$TEST_VERSIONS" | jq -e 'type == "array" and length > 0' > /dev/null; then
+            echo "Using vars.LUCEE_TEST_VERSIONS_PLUS"
+            MATRIX=$(echo "$TEST_VERSIONS" | jq -c '.')
+          else
+            echo "::notice::vars.LUCEE_TEST_VERSIONS_PLUS is not available (fork pull request?), testing the latest build of: ${FALLBACK_LINES}"
+            MATRIX=$(printf '%s\n' $FALLBACK_LINES | jq -R -s -c 'split("\n") | map(select(length > 0)) | map({version: (. + "/all/light"), query: (. + "/all/light")})')
+          fi
+          # artifact names cannot contain "/", so give every entry a label
+          MATRIX=$(echo "$MATRIX" | jq -c 'map(. + {label: ((.version // .query) | gsub("[^A-Za-z0-9._-]"; "-"))})')
+          echo "Lucee test matrix: ${MATRIX}"
+          echo "MATRIX=${MATRIX}" >> "$GITHUB_OUTPUT"
+
       - name: Cache Lucee files
         uses: actions/cache@v4
         with:
           path: ~/work/_actions/lucee/script-runner/main/lucee-download-cache
           key: lucee-downloads
-
-      - name: Import GPG key
-        run: |
-          echo "$GPG_PRIVATE_KEY" | base64 --decode | gpg --batch --import
-        env:
-          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
 
   build-and-test:
     runs-on: ubuntu-latest
@@ -89,8 +107,9 @@ jobs:
       S3_GOOGLE_BUCKET_PREFIX: lucee-ldev-e-
       LUCEE_TEST_VERSIONS_PLUS: ${{ vars.LUCEE_TEST_VERSIONS_PLUS }}
     strategy:
+      fail-fast: false
       matrix:
-        lucee: ${{ fromJSON(vars.LUCEE_TEST_VERSIONS_PLUS) }}
+        lucee: ${{ fromJSON(needs.setup.outputs.lucee_matrix) }}
     services:
       minio:
         image: fclairamb/minio-github-actions
@@ -113,7 +132,7 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: s3-lex-${{ matrix.lucee.version }}
+          name: s3-lex-${{ matrix.lucee.label }}
           path: target/*.lex
 
       - name: Checkout Lucee
