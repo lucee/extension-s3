@@ -55,6 +55,8 @@ public class AmazonS3Client implements AmazonS3 {
 	static final long RETIRED_MAX_AGE = 3_600_000L;
 	private static final long SHUTDOWN_RETIRED_INTERVAL = 1_000L;
 	private static volatile long lastShutdownRetired;
+	// LDEV-7004: the state of the connection pool could not be read by reflection, logged once
+	private static volatile boolean poolStatsFallbackLogged;
 
 	// private S3 s3;
 	private org.lucee.extension.resource.s3.region.RegionFactory.Region region;
@@ -62,7 +64,7 @@ public class AmazonS3Client implements AmazonS3 {
 	// LDEV-7004: volatile and only replaced under the lock of this instance (see invalidateAmazonS3)
 	private volatile AmazonS3 client;
 	// LDEV-7004: true once this wrapper was removed from the pool, an inner client it creates after that is retired too
-	private boolean removedFromPool;
+	private volatile boolean removedFromPool;
 	private Log log;
 
 	private long created;
@@ -2295,7 +2297,12 @@ public class AmazonS3Client implements AmazonS3 {
 	 */
 	private AmazonS3 retry(AmazonS3 failed, RuntimeException e) {
 		if (!isPoolShutdown(e)) throw e;
-		if (log != null) log.log(Log.LEVEL_WARN, "S3", e);
+		if (log != null) {
+			// expected when a thread still holds a wrapper that expired and whose retired client was shut down in the
+			// meantime, so no warning for that case
+			if (removedFromPool) log.debug("S3", "retry with a new client, the client of the expired wrapper was shut down: " + e);
+			else log.log(Log.LEVEL_WARN, "S3", e);
+		}
 		return invalidateAmazonS3(failed);
 	}
 
@@ -2345,7 +2352,14 @@ public class AmazonS3Client implements AmazonS3 {
 	}
 
 	private static void retire(AmazonS3 client, Log log) {
-		if (client != null) retired.add(new Retired(client, System.currentTimeMillis(), log));
+		if (client == null) return;
+		synchronized (retired) {
+			// never queue the same client twice (identity, not equals)
+			for (Retired r: retired) {
+				if (r.client == client) return;
+			}
+			retired.add(new Retired(client, System.currentTimeMillis(), log));
+		}
 	}
 
 	/**
@@ -2380,6 +2394,10 @@ public class AmazonS3Client implements AmazonS3 {
 	 * -&gt; AmazonHttpClient.httpClient -&gt; getHttpClientConnectionManager().getTotalStats()).
 	 */
 	static int busyConnections(AmazonS3 client) {
+		return busyConnections(client, null);
+	}
+
+	private static int busyConnections(AmazonS3 client, Log log) {
 		try {
 			Object http = getField(client, "client");
 			Object apache = getField(http, "httpClient");
@@ -2388,6 +2406,11 @@ public class AmazonS3Client implements AmazonS3 {
 			return ((Number) invoke(stats, "getLeased")).intValue() + ((Number) invoke(stats, "getPending")).intValue();
 		}
 		catch (Exception e) {
+			if (log != null && !poolStatsFallbackLogged) {
+				poolStatsFallbackLogged = true;
+				log.info("S3", "cannot read the connection pool state of a retired S3 client, it is shut down "
+						+ (RETIRED_UNKNOWN_STATE_AGE / 1000) + " seconds after it was retired (logged once): " + e);
+			}
 			return -1;
 		}
 	}
@@ -2430,7 +2453,7 @@ public class AmazonS3Client implements AmazonS3 {
 			long age = now - since;
 			if (age >= RETIRED_MAX_AGE) return true;
 			if (age < RETIRED_MIN_AGE) return false;
-			int busy = busyConnections(client);
+			int busy = busyConnections(client, log);
 			if (busy == -1) return age >= RETIRED_UNKNOWN_STATE_AGE;
 			return busy == 0;
 		}

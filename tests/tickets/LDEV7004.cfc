@@ -16,43 +16,96 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 		describe( title="LDEV-7004: expired client", body=function() {
 
 			it( title="get() does not shut down an expired client that another thread is still using", body=function() {
-				// the socket accepts the connection (the OS does) but nobody answers, so the request keeps its connection leased
-				var sock = createObject( "java", "java.net.ServerSocket" ).init( 0, 50, createObject( "java", "java.net.InetAddress" ).getByName( "127.0.0.1" ) );
+				// a local HTTP endpoint that sends the head and the first half of the body, then waits until it is released
+				// before it sends the rest: the request in the thread keeps its connection leased while it reads the body
+				variables.sock = createObject( "java", "java.net.ServerSocket" ).init( 0, 50, createObject( "java", "java.net.InetAddress" ).getByName( "127.0.0.1" ) );
+				variables.released = false;
+				var serverName = "ldev7004-server-" & createUUID();
+				var threadName = "ldev7004-midop-" & createUUID();
 				try {
-					var host = "http://127.0.0.1:" & sock.getLocalPort();
+					thread action="run" name=serverName {
+						var s = variables.sock.accept();
+						try {
+							var reader = createObject( "java", "java.io.BufferedReader" ).init( createObject( "java", "java.io.InputStreamReader" ).init( s.getInputStream(), "UTF-8" ) );
+							while ( true ) {
+								var line = reader.readLine();
+								if ( isNull( line ) || !len( line ) ) break;
+							}
+							var out = s.getOutputStream();
+							var crlf = chr( 13 ) & chr( 10 );
+							out.write( charsetDecode( "HTTP/1.1 200 OK" & crlf & "Content-Type: text/plain" & crlf & "Content-Length: 10" & crlf & "Connection: close" & crlf & crlf & "01234", "UTF-8" ) );
+							out.flush();
+							var deadline = getTickCount() + 10000;
+							while ( !variables.released && getTickCount() < deadline ) sleep( 20 );
+							out.write( charsetDecode( "56789", "UTF-8" ) );
+							out.flush();
+						}
+						catch ( any e ) {
+							// without the fix the client closed the connection already, the request in the thread shows it
+							thread.error = e.message;
+						}
+						finally {
+							s.close();
+						}
+					}
+
+					var host = "http://127.0.0.1:" & variables.sock.getLocalPort();
 					var key = "ldev7004-" & createUUID();
 					// liveTimeout of 1 ms: the client is expired for the next get()
-					variables.expired = getClient( key, host, 1, { socketTimeout: 1500, connectionTimeout: 500 } );
+					variables.expired = getClient( key, host, 1, { socketTimeout: 5000, connectionTimeout: 500 } );
 					var inner = innerClient( variables.expired );
 
-					var threadName = "ldev7004-midop-" & createUUID();
 					thread action="run" name=threadName {
 						try {
-							variables.expired.getObjectMetadata( "ldev7004-bucket", "some/file.txt" );
-							thread.result = "ok";
+							var obj = variables.expired.getObject( "ldev7004-bucket", "some/file.txt" );
+							var content = obj.getObjectContent();
+							try {
+								thread.result = createObject( "java", "java.lang.String" ).init( content.readAllBytes(), "UTF-8" );
+							}
+							finally {
+								content.close();
+							}
 						}
 						catch ( any e ) {
 							thread.result = fullMessage( e );
 						}
 					}
-					// give the request in the thread the time to lease its connection (it then waits for an answer for 1.5 seconds)
-					sleep( 500 );
-					var replacement = getClient( key, host, 1, { socketTimeout: 1500, connectionTimeout: 500 } );
-					expect( replacement.equals( variables.expired ) ).toBeFalse( "get() did not replace the expired client" );
-					// the request in the thread still holds its connection: get() did not shut the pool down under it
-					expect( busyConnections( inner ) ).toBeGTE( 1, "the expired client has no leased connection anymore, was it shut down by get()?" );
-					// a sweep long after the expiry still keeps the client, it has a leased connection
-					shutdownRetired( nowMillis() + 20000 );
-					expect( isShutdown( inner ) ).toBeFalse( "the expired client was shut down while a thread was still using it" );
+					// wait until the request in the thread has leased its connection (it then waits for the rest of the body)
+					waitForBusyConnection( inner, 5000 );
+					var replacement = getClient( key, host, 1, { socketTimeout: 5000, connectionTimeout: 500 } );
 
-					thread action="join" name=threadName;
+					// state of the expired client while the request in the thread is still running; these helpers use
+					// internals that only exist with the fix, so their failure is checked after the public assertion
+					var internals = { error: "" };
+					try {
+						// the request in the thread still holds its connection: get() did not shut the pool down under it
+						internals.busy = busyConnections( inner );
+						// a sweep long after the expiry still keeps the client, it has a leased connection
+						shutdownRetired( nowMillis() + 20000 );
+					}
+					catch ( any e ) {
+						internals.error = e.message;
+					}
+
+					variables.released = true;
+					joinThreads( [ threadName, serverName ], 30000 );
 					var res = cfthread[ threadName ].result ?: "";
-					// the endpoint never answers, so the request fails with a read timeout, but not because the pool was shut down
-					expect( res ).notToInclude( "pool shut down" );
-					expect( res ).notToInclude( "Request execution failed" );
+					// public API only: the request in the thread reads the whole object, get() did not shut its pool down
+					expect( res ).notToInclude( "pool shut down", "the request in the thread failed because the expired client was shut down: " & res );
+					expect( res ).toBe( "0123456789", "the request in the thread failed: " & res );
+
+					// nothing listens anymore, a request with the expired client fails fast, but not with a shut down pool
+					variables.sock.close();
+					internals.shutdown = isShutdown( inner );
+
+					expect( replacement.equals( variables.expired ) ).toBeFalse( "get() did not replace the expired client" );
+					expect( internals.error ).toBe( "" );
+					expect( internals.busy ).toBeGTE( 1, "the expired client has no leased connection anymore, was it shut down by get()?" );
+					expect( internals.shutdown ).toBeFalse( "the expired client was shut down while a thread was still using it" );
 				}
 				finally {
-					sock.close();
+					variables.released = true;
+					variables.sock.close();
 				}
 			});
 
@@ -99,7 +152,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 						}
 					}
 				}
-				thread action="join" name=arrayToList( names );
+				joinThreads( names, 60000 );
 
 				for ( var threadName in names ) {
 					var res = cfthread[ threadName ].result ?: "";
@@ -174,6 +227,34 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 		var f = clientClass().getDeclaredField( "client" );
 		f.setAccessible( true );
 		return f.get( arguments.wrapper );
+	}
+
+	/** joins the threads, fails if one of them did not finish within the timeout (milliseconds, for all threads together) */
+	private function joinThreads( required array names, required numeric timeout ) {
+		var deadline = getTickCount() + arguments.timeout;
+		for ( var name in arguments.names ) {
+			thread action="join" name=name timeout=max( 1, deadline - getTickCount() );
+			var status = cfthread[ name ].status;
+			expect( listFindNoCase( "COMPLETED,TERMINATED", status ) ).toBeGT( 0, "thread [#name#] did not finish within #arguments.timeout# ms (status #status#)" );
+		}
+	}
+
+	/**
+	 * waits until the connection pool of the inner client has a leased connection (or a thread waiting for one), at
+	 * most timeout milliseconds; without the fix busyConnections() does not exist, it then just waits 500 ms
+	 */
+	private function waitForBusyConnection( required inner, required numeric timeout ) {
+		var deadline = getTickCount() + arguments.timeout;
+		try {
+			while ( busyConnections( arguments.inner ) < 1 ) {
+				if ( getTickCount() > deadline ) throw "the request in the thread did not lease a connection within #arguments.timeout# ms";
+				sleep( 20 );
+			}
+		}
+		catch ( any e ) {
+			if ( !findNoCase( "NoSuchMethod", ( e.type ?: "" ) & " " & ( e.message ?: "" ) & " " & ( e.stacktrace ?: "" ) ) ) rethrow;
+			sleep( 500 );
+		}
 	}
 
 	private numeric function busyConnections( required inner ) {
