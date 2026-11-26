@@ -55,19 +55,28 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 					variables.expired = getClient( key, host, 1, { socketTimeout: 5000, connectionTimeout: 500 } );
 					var inner = innerClient( variables.expired );
 
+					// Lucee 6.0/6.1 did not expose a value set on the thread scope after join when it was built
+					// from a Java byte array, so the body is also stored on variables (already shared with the thread)
+					variables.midOpBody = "";
 					thread action="run" name=threadName {
 						try {
 							var obj = variables.expired.getObject( "ldev7004-bucket", "some/file.txt" );
 							var content = obj.getObjectContent();
 							try {
-								thread.readBody = charsetEncode( content.readAllBytes(), "UTF-8" );
+								var bytes = content.readAllBytes();
+								var body = charsetEncode( bytes, "UTF-8" );
+								if ( !len( body ) ) body = createObject( "java", "java.lang.String" ).init( bytes, "UTF-8" ).toString();
+								variables.midOpBody = body;
+								thread.readBody = body;
+								thread.byteLen = arrayLen( bytes );
 							}
 							finally {
 								content.close();
 							}
 						}
 						catch ( any e ) {
-							thread.readBody = fullMessage( e );
+							variables.midOpBody = fullMessage( e );
+							thread.readBody = variables.midOpBody;
 						}
 					}
 					// wait until the request in the thread has leased its connection (it then waits for the rest of the body)
@@ -90,10 +99,10 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 					variables.released = true;
 					joinThreads( [ threadName, serverName ], 30000 );
 					var th = cfthread[ threadName ];
-					var res = th.readBody ?: "";
+					var res = len( variables.midOpBody ?: "" ) ? variables.midOpBody : ( th.readBody ?: "" );
 					// public API only: the request in the thread reads the whole object, get() did not shut its pool down
 					expect( res ).notToInclude( "pool shut down", "the request in the thread failed because the expired client was shut down: " & res );
-					expect( res ).toBe( "0123456789", "the request in the thread failed (status #th.status#): " & res );
+					expect( res ).toBe( "0123456789", "the request in the thread failed (status #th.status#, thread.readBody '#th.readBody ?: ""#', byteLen #th.byteLen ?: -1#): " & res );
 
 					// nothing listens anymore, a request with the expired client fails fast, but not with a shut down pool
 					variables.sock.close();
