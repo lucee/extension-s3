@@ -60,14 +60,14 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 							var obj = variables.expired.getObject( "ldev7004-bucket", "some/file.txt" );
 							var content = obj.getObjectContent();
 							try {
-								thread.result = createObject( "java", "java.lang.String" ).init( content.readAllBytes(), "UTF-8" );
+								thread.readBody = charsetEncode( content.readAllBytes(), "UTF-8" );
 							}
 							finally {
 								content.close();
 							}
 						}
 						catch ( any e ) {
-							thread.result = fullMessage( e );
+							thread.readBody = fullMessage( e );
 						}
 					}
 					// wait until the request in the thread has leased its connection (it then waits for the rest of the body)
@@ -89,10 +89,11 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 
 					variables.released = true;
 					joinThreads( [ threadName, serverName ], 30000 );
-					var res = cfthread[ threadName ].result ?: "";
+					var th = cfthread[ threadName ];
+					var res = th.readBody ?: "";
 					// public API only: the request in the thread reads the whole object, get() did not shut its pool down
 					expect( res ).notToInclude( "pool shut down", "the request in the thread failed because the expired client was shut down: " & res );
-					expect( res ).toBe( "0123456789", "the request in the thread failed: " & res );
+					expect( res ).toBe( "0123456789", "the request in the thread failed (status #th.status#): " & res );
 
 					// nothing listens anymore, a request with the expired client fails fast, but not with a shut down pool
 					variables.sock.close();
@@ -145,17 +146,17 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 					thread action="run" name=threadName {
 						try {
 							variables.shared.getObjectMetadata( "ldev7004-bucket", "some/file.txt" );
-							thread.result = "ok";
+							thread.readBody = "ok";
 						}
 						catch ( any e ) {
-							thread.result = fullMessage( e );
+							thread.readBody = fullMessage( e );
 						}
 					}
 				}
 				joinThreads( names, 60000 );
 
 				for ( var threadName in names ) {
-					var res = cfthread[ threadName ].result ?: "";
+					var res = cfthread[ threadName ].readBody ?: "";
 					expect( res ).notToInclude( "pool shut down", "a request failed with the shut down client: " & res );
 				}
 				var current = innerClient( variables.shared );
@@ -216,12 +217,13 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 		var region = cl.loadClass( "org.lucee.extension.resource.s3.region.RegionFactory" ).getField( "US_EAST_1" ).get( javaCast( "null", "" ) );
 		var logClass = cl.loadClass( "lucee.commons.io.log.Log" );
 		var strClass = cl.loadClass( "java.lang.String" );
-		var boolClass = createObject( "java", "java.lang.Boolean" ).TYPE;
+		// 2.1+ get() takes Boolean pathStyleAccess and Boolean ssl, not primitive boolean
+		var boolObj = cl.loadClass( "java.lang.Boolean" );
 		var get = clientClass().getMethod( "get", javaCast( "java.lang.Class[]", [ strClass, strClass, strClass, regionClass,
-			createObject( "java", "java.lang.Long" ).TYPE, boolClass, boolClass, httpPool.getClass(), logClass ] ) );
+			createObject( "java", "java.lang.Long" ).TYPE, boolObj, boolObj, httpPool.getClass(), logClass ] ) );
 		// ssl=false: the local HTTP endpoint in these tests is plain HTTP
 		return get.invoke( javaCast( "null", "" ), javaCast( "java.lang.Object[]", [ arguments.key, "secret", arguments.host, region,
-			javaCast( "long", arguments.liveTimeout ), javaCast( "boolean", true ), javaCast( "boolean", false ), httpPool, getPageContext().getConfig().getLog( "application" ) ] ) );
+			javaCast( "long", arguments.liveTimeout ), createObject( "java", "java.lang.Boolean" ).TRUE, createObject( "java", "java.lang.Boolean" ).FALSE, httpPool, getPageContext().getConfig().getLog( "application" ) ] ) );
 	}
 
 	/** the inner com.amazonaws.services.s3.AmazonS3 of the wrapper */
