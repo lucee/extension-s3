@@ -147,8 +147,10 @@ public class S3Write extends S3Function {
 		ObjectOptions opts = null;
 		int len = args.length;
 		if (len > 11) {
-			if (len > 14) throw engine.getExceptionUtil().createFunctionException(pc, "S3Write", 3, 14, len);
+			if (len > 16) throw engine.getExceptionUtil().createFunctionException(pc, "S3Write", 3, 16, len);
 			opts = toObjectOptions(pc, "S3Write", 12, args[11], len > 12 ? args[12] : null, len > 13 ? args[13] : null);
+			// conditions (only ifMatch and ifNoneMatch apply to a write)
+			opts = withConditions(opts, toConditions(pc, len > 14 ? args[14] : null, len > 15 ? args[15] : null, null, null));
 			// ignore the arguments not defined at the end, so the number of arguments matches what the user defined
 			len = 11;
 			while (len > 3 && args[len - 1] == null)
@@ -187,6 +189,6 @@ public class S3Write extends S3Function {
 		if (len == 3) {
 			return call(pc, cast.toString(args[0]), cast.toString(args[1]), args[2], null, null, null, null, null, null, null, 0, opts);
 		}
-		throw engine.getExceptionUtil().createFunctionException(pc, "S3Write", 3, 14, args.length);
+		throw engine.getExceptionUtil().createFunctionException(pc, "S3Write", 3, 16, args.length);
 	}
 }

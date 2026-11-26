@@ -1,6 +1,7 @@
 package org.lucee.extension.resource.s3.function;
 
 import org.lucee.extension.resource.s3.S3;
+import org.lucee.extension.resource.s3.S3Conditions;
 import org.lucee.extension.resource.s3.S3Util;
 
 import com.amazonaws.services.s3.model.S3Object;
@@ -22,6 +23,11 @@ public class S3Read extends S3Function {
 
 	public static String call(PageContext pc, String bucketName, String objectName, String charset, String accessKeyId, String secretAccessKey, String host, double timeout,
 			Object range, String versionId) throws PageException {
+		return call(pc, bucketName, objectName, charset, accessKeyId, secretAccessKey, host, timeout, range, versionId, null);
+	}
+
+	public static String call(PageContext pc, String bucketName, String objectName, String charset, String accessKeyId, String secretAccessKey, String host, double timeout,
+			Object range, String versionId, S3Conditions conditions) throws PageException {
 		CFMLEngine eng = CFMLEngineFactory.getInstance();
 		// for backward compatibility, when host was not existing
 		if (eng.getDecisionUtil().isNumber(host)) {
@@ -32,7 +38,7 @@ public class S3Read extends S3Function {
 		try {
 			// create S3 Instance
 			S3 s3 = S3.getInstance(toS3Properties(pc, accessKeyId, secretAccessKey, host), toTimeout(timeout), pc.getConfig());
-			obj = s3.getData(bucketName, objectName, toRange(range), versionId);
+			obj = s3.getData(bucketName, objectName, toRange(range), versionId, conditions);
 
 			// copy data
 			return eng.getIOUtil().toString(obj.getObjectContent(), toCharset(pc, charset));
@@ -51,9 +57,13 @@ public class S3Read extends S3Function {
 		CFMLEngine engine = CFMLEngineFactory.getInstance();
 		Cast cast = engine.getCastUtil();
 
-		if (args.length == 9 || args.length == 8)
+		if (args.length >= 8 && args.length <= 13) {
+			// arguments after the timeout: range, versionId, ifMatch, ifNoneMatch, ifModifiedSince, ifUnmodifiedSince
+			S3Conditions conditions = toConditions(pc, args.length > 9 ? args[9] : null, args.length > 10 ? args[10] : null, args.length > 11 ? args[11] : null,
+					args.length > 12 ? args[12] : null);
 			return call(pc, cast.toString(args[0]), cast.toString(args[1]), cast.toString(args[2]), cast.toString(args[3]), cast.toString(args[4]), cast.toString(args[5]),
-					cast.toDoubleValue(args[6]), args[7], args.length == 9 ? cast.toString(args[8], null) : null);
+					cast.toDoubleValue(args[6]), args[7], args.length > 8 ? cast.toString(args[8], null) : null, conditions);
+		}
 		if (args.length == 7) return call(pc, cast.toString(args[0]), cast.toString(args[1]), cast.toString(args[2]), cast.toString(args[3]), cast.toString(args[4]),
 				cast.toString(args[5]), cast.toDoubleValue(args[6]));
 		if (args.length == 6)
@@ -63,6 +73,6 @@ public class S3Read extends S3Function {
 		if (args.length == 3) return call(pc, cast.toString(args[0]), cast.toString(args[1]), cast.toString(args[2]), null, null, null, 0);
 		if (args.length == 2) return call(pc, cast.toString(args[0]), cast.toString(args[1]), null, null, null, null, 0);
 
-		throw engine.getExceptionUtil().createFunctionException(pc, "S3Read", 2, 9, args.length);
+		throw engine.getExceptionUtil().createFunctionException(pc, "S3Read", 2, 13, args.length);
 	}
 }

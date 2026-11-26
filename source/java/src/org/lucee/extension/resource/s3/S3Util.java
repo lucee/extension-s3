@@ -110,6 +110,10 @@ public class S3Util {
 	 */
 	public static PageException toPageException(Throwable t) {
 		CFMLEngine eng = CFMLEngineFactory.getInstance();
+		// a condition that is not met is reported with its own exception type, so it can be told apart from any other S3 failure
+		if (t instanceof S3PreconditionFailedException) {
+			return eng.getExceptionUtil().createCustomTypeException(t.getMessage(), "", S3PreconditionFailedException.ERROR_CODE, S3PreconditionFailedException.TYPE);
+		}
 		PageException pe = eng.getCastUtil().toPageException(t);
 		S3Exception s3e = null;
 		Throwable c = t;

@@ -512,7 +512,16 @@ public class S3 {
 	 * @param versionId version of the object to read, null for the latest version
 	 */
 	public S3Object getData(String bucketName, String objectName, long[] range, String versionId) throws S3Exception {
-		return getDataRaw(rb(bucketName), objectName, range, versionId);
+		return getDataRaw(rb(bucketName), objectName, range, versionId, null);
+	}
+
+	/**
+	 * @param conditions optional conditions (ifMatch, ifNoneMatch, ifModifiedSince, ifUnmodifiedSince)
+	 *            for the read
+	 * @throws S3PreconditionFailedException if the conditions are not met
+	 */
+	public S3Object getData(String bucketName, String objectName, long[] range, String versionId, S3Conditions conditions) throws S3Exception {
+		return getDataRaw(rb(bucketName), objectName, range, versionId, conditions);
 	}
 
 	public Query listObjectsAsQuery(String bucketName, int maxKeys, ListListener listener, String delimiter, String startAfter, long maxResults, String prefix)
@@ -783,6 +792,15 @@ public class S3 {
 	 * @param versionId version of the object to read, null for the latest version
 	 */
 	public S3Object getDataRaw(String bucketName, String objectName, long[] range, String versionId) throws S3Exception {
+		return getDataRaw(bucketName, objectName, range, versionId, null);
+	}
+
+	/**
+	 * @param conditions optional conditions (ifMatch, ifNoneMatch, ifModifiedSince, ifUnmodifiedSince)
+	 *            for the read
+	 * @throws S3PreconditionFailedException if the conditions are not met
+	 */
+	public S3Object getDataRaw(String bucketName, String objectName, long[] range, String versionId, S3Conditions conditions) throws S3Exception {
 		bucketName = improveBucketName(bucketName);
 		objectName = improveObjectName(objectName);
 
@@ -790,14 +808,18 @@ public class S3 {
 		try {
 			if (log != null) log.debug("S3", "get data from [" + bucketName + "/" + objectName + "]" + (Util.isEmpty(versionId, true) ? "" : " version [" + versionId + "]")
 					+ (range == null ? "" : " range [" + range[0] + "-" + (range[1] == Long.MAX_VALUE ? "" : range[1]) + "]"));
-			if (range == null && Util.isEmpty(versionId, true)) return client.getObject(bucketName, objectName);
+			if (range == null && conditions == null && Util.isEmpty(versionId, true)) return client.getObject(bucketName, objectName);
 
 			GetObjectRequest gor = new GetObjectRequest(bucketName, objectName, Util.isEmpty(versionId, true) ? null : versionId.trim());
 			if (range != null) {
 				if (range[1] == Long.MAX_VALUE) gor.setRange(range[0]);
 				else gor.setRange(range[0], range[1]);
 			}
-			return client.getObject(gor);
+			if (conditions != null) conditions.apply(gor);
+			S3Object obj = client.getObject(gor);
+			// the SDK returns null when the conditions are not met (304 or 412)
+			if (obj == null && conditions != null) throw conditions.toException("read", bucketName + "/" + objectName);
+			return obj;
 		}
 		catch (AmazonServiceException se) {
 			throw toS3Exception(se);
@@ -2162,7 +2184,9 @@ public class S3 {
 
 			if (acl != null) setACL(cor, acl);
 			try {
-				trgClient.copyObject(cor);
+				// the SDK returns null when the conditions are not met
+				if (trgClient.copyObject(cor) == null && opts != null && opts.getConditions() != null)
+					throw opts.getConditions().toException("copy", srcBucketName + "/" + srcObjectName);
 				if (log != null) log.debug("S3", "copy object from [" + srcBucketName + "/" + srcObjectName + " to " + trgBucketName + "/" + trgObjectName + "]");
 			}
 			catch (AmazonServiceException se) {
@@ -2209,7 +2233,8 @@ public class S3 {
 							clientTarget.createBucket(cbr);
 						}
 
-						trgClient.copyObject(cor);
+						if (trgClient.copyObject(cor) == null && opts != null && opts.getConditions() != null)
+							throw opts.getConditions().toException("copy", srcBucketName + "/" + srcObjectName);
 						if (log != null)
 							log.debug("S3", "copy object from [" + srcBucketName + "/" + srcObjectName + " to " + trgBucketName + "/" + trgObjectName + "] (fallback)");
 					}
@@ -2463,6 +2488,7 @@ public class S3 {
 	 * @param opts object properties, can be null
 	 */
 	public void writeRaw(String bucketName, String objectName, String data, String mimeType, Charset charset, Object acl, String region, ObjectOptions opts) throws IOException {
+		if (opts != null) opts.validateForWrite();
 		bucketName = improveBucketName(bucketName);
 		objectName = improveObjectName(objectName, false);
 		flushExists(bucketName, objectName);
@@ -2553,6 +2579,7 @@ public class S3 {
 	 * @param opts object properties, can be null
 	 */
 	public void writeRaw(String bucketName, String objectName, byte[] data, String mimeType, Object acl, String region, ObjectOptions opts) throws IOException {
+		if (opts != null) opts.validateForWrite();
 		bucketName = improveBucketName(bucketName);
 		objectName = improveObjectName(objectName, false);
 		if (log != null) log.debug("S3", "write byte array (" + (data == null ? 0 : data.length) + ") to [" + bucketName + "/" + objectName + "]");
@@ -2621,6 +2648,7 @@ public class S3 {
 	 * @param opts object properties, can be null
 	 */
 	public void writeRaw(String bucketName, String objectName, File file, Object acl, String region, ObjectOptions opts) throws IOException {
+		if (opts != null) opts.validateForWrite();
 		bucketName = improveBucketName(bucketName);
 		objectName = improveObjectName(objectName, false);
 		if (log != null) log.debug("S3", "write file [" + file + "] to [" + bucketName + "/" + objectName + "]");
@@ -2671,6 +2699,7 @@ public class S3 {
 
 				// Complete the multipart upload.
 				CompleteMultipartUploadRequest compRequest = new CompleteMultipartUploadRequest(bucketName, objectName, initResponse.getUploadId(), partETags);
+				if (opts != null) opts.applyTo(compRequest);
 				client.completeMultipartUpload(compRequest);
 				if (acl != null) {
 					setAccessControlListRaw(client, bucketName, objectName, acl);
@@ -2743,6 +2772,7 @@ public class S3 {
 	 * @param opts object properties, can be null
 	 */
 	public void writeRaw(String bucketName, String objectName, Resource res, Object acl, String region, ObjectOptions opts) throws IOException {
+		if (opts != null) opts.validateForWrite();
 
 		if (res instanceof File) {
 			writeRaw(bucketName, objectName, (File) res, acl, region, opts);
@@ -3505,6 +3535,8 @@ public class S3 {
 	 */
 	private static S3Exception copyFailed(String message, AmazonServiceException se) {
 		S3Exception cause = toS3Exception(se, null);
+		// a condition that is not met is reported as such
+		if (cause instanceof S3PreconditionFailedException) return cause;
 		S3Exception s3e = new S3Exception(message + ";" + cause.getMessage(), se);
 		s3e.setStackTrace(se.getStackTrace());
 		return s3e;
@@ -3596,13 +3628,22 @@ public class S3 {
 			}
 		}
 
-		S3Exception s3e = new S3Exception(msg);
+		S3Exception s3e = isPreconditionFailed(se) ? new S3PreconditionFailedException("precondition failed, " + msg) : new S3Exception(msg);
 		s3e.initCause(se);
 		s3e.setStackTrace(se.getStackTrace());
 		s3e.setServiceDetails(se);
 		s3e.setErrorCode(ec);
 		if (proposedSize > 0) s3e.setProposedSize(proposedSize);
 		return s3e;
+	}
+
+	/**
+	 * S3 rejects a request with a not met condition (If-Match, If-None-Match, ...) with 412
+	 * PreconditionFailed, a write that collides with a concurrent write with 409
+	 * ConditionalRequestConflict
+	 */
+	private static boolean isPreconditionFailed(AmazonServiceException se) {
+		return se.getStatusCode() == 412 || "PreconditionFailed".equals(se.getErrorCode()) || "ConditionalRequestConflict".equals(se.getErrorCode());
 	}
 
 	public static String improveBucketName(String bucketName) throws S3Exception {

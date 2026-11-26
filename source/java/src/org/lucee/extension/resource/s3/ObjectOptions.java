@@ -5,6 +5,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import com.amazonaws.services.s3.Headers;
+import com.amazonaws.services.s3.model.CompleteMultipartUploadRequest;
 import com.amazonaws.services.s3.model.CopyObjectRequest;
 import com.amazonaws.services.s3.model.InitiateMultipartUploadRequest;
 import com.amazonaws.services.s3.model.ObjectMetadata;
@@ -28,6 +29,7 @@ public final class ObjectOptions {
 	private String contentLanguage;
 	private Date expires;
 	private String storageClass;
+	private S3Conditions conditions;
 
 	/**
 	 * @param metadata user metadata, null if not defined. An empty map is a valid definition (it removes
@@ -90,6 +92,26 @@ public final class ObjectOptions {
 	}
 
 	/**
+	 * @param conditions conditions of a conditional request (ifMatch, ifNoneMatch, ...), null for none
+	 */
+	public void setConditions(S3Conditions conditions) {
+		this.conditions = conditions;
+	}
+
+	public S3Conditions getConditions() {
+		return conditions;
+	}
+
+	/**
+	 * writes (PutObject) can only be conditional on the ETag
+	 * 
+	 * @throws S3Exception if the options define conditions that are not supported when writing
+	 */
+	public void validateForWrite() throws S3Exception {
+		if (conditions != null) conditions.validateForWrite();
+	}
+
+	/**
 	 * @return true if the object metadata (and not only the storage class) is defined
 	 */
 	public boolean hasMetaData() {
@@ -107,6 +129,7 @@ public final class ObjectOptions {
 		c.contentLanguage = contentLanguage;
 		c.expires = expires;
 		c.storageClass = storageClass;
+		c.conditions = conditions;
 		return c;
 	}
 
@@ -141,6 +164,11 @@ public final class ObjectOptions {
 
 	public void applyTo(PutObjectRequest por) {
 		if (storageClass != null) por.setStorageClass(storageClass);
+		if (conditions != null) conditions.applyAsHeaders(por);
+	}
+
+	public void applyTo(CompleteMultipartUploadRequest request) {
+		if (conditions != null) conditions.applyAsHeaders(request);
 	}
 
 	public void applyTo(InitiateMultipartUploadRequest request) {
@@ -149,6 +177,7 @@ public final class ObjectOptions {
 
 	public void applyTo(CopyObjectRequest cor) {
 		if (storageClass != null) cor.setStorageClass(storageClass);
+		if (conditions != null) conditions.apply(cor);
 	}
 
 	/**

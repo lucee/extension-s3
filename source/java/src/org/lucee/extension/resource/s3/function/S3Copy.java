@@ -63,8 +63,10 @@ public class S3Copy extends S3Function {
 		ObjectOptions opts = null;
 		int len = args.length;
 		if (len > 10) {
-			if (len > 13) throw engine.getExceptionUtil().createFunctionException(pc, "S3Copy", 3, 13, len);
+			if (len > 17) throw engine.getExceptionUtil().createFunctionException(pc, "S3Copy", 3, 17, len);
 			opts = toObjectOptions(pc, "S3Copy", 11, args[10], len > 11 ? args[11] : null, len > 12 ? args[12] : null);
+			// conditions for the source object
+			opts = withConditions(opts, toConditions(pc, len > 13 ? args[13] : null, len > 14 ? args[14] : null, len > 15 ? args[15] : null, len > 16 ? args[16] : null));
 			// ignore the arguments not defined at the end, so the number of arguments matches what the user defined
 			len = 10;
 			while (len > 3 && args[len - 1] == null)
@@ -85,6 +87,6 @@ public class S3Copy extends S3Function {
 		if (len == 4) return call(pc, cast.toString(args[0]), cast.toString(args[1]), cast.toString(args[2]), cast.toString(args[3]), null, null, null, null, null, 0, opts);
 		if (len == 3) return call(pc, cast.toString(args[0]), cast.toString(args[1]), cast.toString(args[2]), null, null, null, null, null, null, 0, opts);
 
-		throw engine.getExceptionUtil().createFunctionException(pc, "S3Copy", 3, 13, args.length);
+		throw engine.getExceptionUtil().createFunctionException(pc, "S3Copy", 3, 17, args.length);
 	}
 }

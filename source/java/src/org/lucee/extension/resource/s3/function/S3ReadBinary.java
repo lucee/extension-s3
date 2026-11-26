@@ -3,6 +3,7 @@ package org.lucee.extension.resource.s3.function;
 import java.io.ByteArrayOutputStream;
 
 import org.lucee.extension.resource.s3.S3;
+import org.lucee.extension.resource.s3.S3Conditions;
 import org.lucee.extension.resource.s3.S3Util;
 
 import com.amazonaws.services.s3.model.S3Object;
@@ -23,6 +24,11 @@ public class S3ReadBinary extends S3Function {
 
 	public static byte[] call(PageContext pc, String bucketName, String objectName, String accessKeyId, String secretAccessKey, String host, double timeout, Object range,
 			String versionId) throws PageException {
+		return call(pc, bucketName, objectName, accessKeyId, secretAccessKey, host, timeout, range, versionId, null);
+	}
+
+	public static byte[] call(PageContext pc, String bucketName, String objectName, String accessKeyId, String secretAccessKey, String host, double timeout, Object range,
+			String versionId, S3Conditions conditions) throws PageException {
 		CFMLEngine eng = CFMLEngineFactory.getInstance();
 		// for backward compatibility, when host was not existing
 		if (eng.getDecisionUtil().isNumber(host)) {
@@ -33,7 +39,7 @@ public class S3ReadBinary extends S3Function {
 		try {
 			// create S3 Instance
 			S3 s3 = S3.getInstance(toS3Properties(pc, accessKeyId, secretAccessKey, host), toTimeout(timeout), pc.getConfig());
-			obj = s3.getData(bucketName, objectName, toRange(range), versionId);
+			obj = s3.getData(bucketName, objectName, toRange(range), versionId, conditions);
 
 			// copy data
 			ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -54,9 +60,13 @@ public class S3ReadBinary extends S3Function {
 		CFMLEngine engine = CFMLEngineFactory.getInstance();
 		Cast cast = engine.getCastUtil();
 
-		if (args.length == 8 || args.length == 7)
+		if (args.length >= 7 && args.length <= 12) {
+			// arguments after the timeout: range, versionId, ifMatch, ifNoneMatch, ifModifiedSince, ifUnmodifiedSince
+			S3Conditions conditions = toConditions(pc, args.length > 8 ? args[8] : null, args.length > 9 ? args[9] : null, args.length > 10 ? args[10] : null,
+					args.length > 11 ? args[11] : null);
 			return call(pc, cast.toString(args[0]), cast.toString(args[1]), cast.toString(args[2]), cast.toString(args[3]), cast.toString(args[4]), cast.toDoubleValue(args[5]),
-					args[6], args.length == 8 ? cast.toString(args[7], null) : null);
+					args[6], args.length > 7 ? cast.toString(args[7], null) : null, conditions);
+		}
 		if (args.length == 6)
 			return call(pc, cast.toString(args[0]), cast.toString(args[1]), cast.toString(args[2]), cast.toString(args[3]), cast.toString(args[4]), cast.toDoubleValue(args[5]));
 		if (args.length == 5) return call(pc, cast.toString(args[0]), cast.toString(args[1]), cast.toString(args[2]), cast.toString(args[3]), cast.toString(args[4]), 0);
@@ -64,6 +74,6 @@ public class S3ReadBinary extends S3Function {
 		if (args.length == 3) return call(pc, cast.toString(args[0]), cast.toString(args[1]), cast.toString(args[2]), null, null, 0);
 		if (args.length == 2) return call(pc, cast.toString(args[0]), cast.toString(args[1]), null, null, null, 0);
 
-		throw engine.getExceptionUtil().createFunctionException(pc, "S3ReadBinary", 2, 8, args.length);
+		throw engine.getExceptionUtil().createFunctionException(pc, "S3ReadBinary", 2, 12, args.length);
 	}
 }

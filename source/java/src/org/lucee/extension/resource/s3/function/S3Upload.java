@@ -20,7 +20,7 @@ public class S3Upload extends S3Function {
 	public Object invoke(PageContext pc, Object[] args) throws PageException {
 		CFMLEngine eng = CFMLEngineFactory.getInstance();
 		Cast cast = eng.getCastUtil();
-		if (args.length > 13 || args.length < 3) throw eng.getExceptionUtil().createFunctionException(pc, "S3Upload", 3, 13, args.length);
+		if (args.length > 15 || args.length < 3) throw eng.getExceptionUtil().createFunctionException(pc, "S3Upload", 3, 15, args.length);
 
 		// required
 		String bucketName = cast.toString(args[0]);
@@ -40,6 +40,8 @@ public class S3Upload extends S3Function {
 		// arguments after the timeout
 		String mimeType = args.length > 9 && !isEmpty(args[9]) ? cast.toString(args[9]) : null;
 		ObjectOptions opts = toObjectOptions(pc, "S3Upload", 11, args.length > 10 ? args[10] : null, args.length > 11 ? args[11] : null, args.length > 12 ? args[12] : null);
+		// conditions (only ifMatch and ifNoneMatch apply to a write)
+		opts = withConditions(opts, toConditions(pc, args.length > 13 ? args[13] : null, args.length > 14 ? args[14] : null, null, null));
 		opts = (ObjectOptions) resolveContentType(pc, "S3Upload", 10, mimeType, opts, false)[0];
 
 		// validate

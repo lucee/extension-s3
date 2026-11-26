@@ -25,6 +25,7 @@ import java.util.Map;
 
 import org.lucee.extension.resource.s3.S3;
 import org.lucee.extension.resource.s3.ObjectOptions;
+import org.lucee.extension.resource.s3.S3Conditions;
 import org.lucee.extension.resource.s3.S3Exception;
 import org.lucee.extension.resource.s3.S3HttpPoolSettings;
 import org.lucee.extension.resource.s3.S3Properties;
@@ -94,6 +95,43 @@ public abstract class S3Function extends BIF {
 		if (Double.isNaN(d) || d < 0 || d != Math.floor(d))
 			throw CFMLEngineFactory.getInstance().getExceptionUtil().createApplicationException("invalid value [" + value + "] for the [" + name + "] of the argument [range], it needs to be a whole number of 0 or more");
 		return (long) d;
+	}
+
+	/**
+	 * converts the arguments ifMatch, ifNoneMatch, ifModifiedSince and ifUnmodifiedSince to the
+	 * conditions of a conditional request
+	 * 
+	 * @return the conditions or null if none is defined
+	 */
+	protected static S3Conditions toConditions(PageContext pc, Object ifMatch, Object ifNoneMatch, Object ifModifiedSince, Object ifUnmodifiedSince) throws PageException {
+		CFMLEngine eng = CFMLEngineFactory.getInstance();
+		return S3Conditions.of(toETag(eng, ifMatch), toETag(eng, ifNoneMatch), toDate(pc, eng, "ifModifiedSince", ifModifiedSince), toDate(pc, eng, "ifUnmodifiedSince", ifUnmodifiedSince));
+	}
+
+	private static String toETag(CFMLEngine eng, Object obj) throws PageException {
+		if (obj == null) return null;
+		String str = eng.getCastUtil().toString(obj);
+		return Util.isEmpty(str, true) ? null : str;
+	}
+
+	private static Date toDate(PageContext pc, CFMLEngine eng, String name, Object obj) throws PageException {
+		if (obj == null || (obj instanceof CharSequence && Util.isEmpty(obj.toString(), true))) return null;
+		try {
+			return new Date(eng.getCastUtil().toDate(obj, pc.getTimeZone()).getTime());
+		}
+		catch (PageException pe) {
+			throw eng.getExceptionUtil().createApplicationException("argument [" + name + "] must be a date, the value [" + obj + "] cannot be cast to a date");
+		}
+	}
+
+	/**
+	 * @return the options with the given conditions, null if neither options nor conditions are defined
+	 */
+	static ObjectOptions withConditions(ObjectOptions opts, S3Conditions conditions) {
+		if (conditions == null) return opts;
+		if (opts == null) opts = new ObjectOptions();
+		opts.setConditions(conditions);
+		return opts;
 	}
 
 	/**
