@@ -35,9 +35,11 @@ import com.amazonaws.services.s3.model.Owner;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 
 import lucee.commons.io.log.Log;
+import lucee.loader.engine.CFMLEngineFactory;
 import lucee.loader.util.Util;
 import lucee.runtime.type.Array;
 import lucee.runtime.type.Struct;
+import lucee.runtime.util.Cast;
 
 public final class StorageObjectWrapper extends S3InfoSupport {
 
@@ -122,11 +124,11 @@ public final class StorageObjectWrapper extends S3InfoSupport {
 	}
 
 	public URL getLink(int secondsValid) throws InvalidKeyException, NoSuchAlgorithmException, IOException {
-		return s3.url(so.getBucketName(), so.getKey(), secondsValid * 1000);
+		return s3.urlRaw(so.getBucketName(), so.getKey(), secondsValid * 1000);
 	}
 
 	public InputStream getInputStream() throws S3Exception {
-		return s3.getInputStream(so.getBucketName(), so.getKey());
+		return s3.getInputStreamRaw(so.getBucketName(), so.getKey());
 	}
 
 	@Override
@@ -188,7 +190,7 @@ public final class StorageObjectWrapper extends S3InfoSupport {
 			synchronized (S3.getToken("contentType:" + getBucketName() + ":" + getObjectName())) {
 				if (contentType == null) {
 					try {
-						contentType = s3.getContentType(getBucketName(), getObjectName());
+						contentType = s3.getContentTypeRaw(getBucketName(), getObjectName());
 					}
 					catch (Exception e) {
 						if (log != null) log.error("s3", e);
@@ -204,7 +206,7 @@ public final class StorageObjectWrapper extends S3InfoSupport {
 	public Struct getMetaData() throws S3Exception {
 		Struct data = super.getMetaData();
 
-		ObjectMetadata omd = s3.getObjectMetadata(getBucketName(), getObjectName());
+		ObjectMetadata omd = s3.getObjectMetadataRaw(getBucketName(), getObjectName());
 
 		// raw
 		{
@@ -226,16 +228,23 @@ public final class StorageObjectWrapper extends S3InfoSupport {
 			Iterator<Entry<String, String>> it = umd.entrySet().iterator();
 			Entry<String, String> e;
 			String name;
+			Cast cast = CFMLEngineFactory.getInstance().getCastUtil();
 			while (it.hasNext()) {
 				e = it.next();
 				name = Util.replace(e.getKey(), "-", "", true);
 				name = Character.toLowerCase(name.charAt(0)) + (name.length() > 1 ? name.substring(1) : "");
-				data.setEL(name, e.getValue());
+				// a user metadata entry must not replace one of the fields of the extension (size, owner, exists, ...)
+				if (!data.containsKey(cast.toKey(name))) data.setEL(name, e.getValue());
 			}
 		}
 
-		Array acl = s3.getAccessControlList(getBucketName(), getObjectName());
+		Array acl = s3.getAccessControlListRaw(getBucketName(), getObjectName());
 		if (acl != null) data.setEL("acl", acl);
+		if (omd.getVersionId() != null) data.setEL("versionId", omd.getVersionId());
+
+		// the same information with the original names, see LDEV-6840
+		data.setEL("metadata", MetaDataStructs.toMetadata(omd));
+		data.setEL("headers", MetaDataStructs.toHeaders(omd));
 		return data;
 	}
 

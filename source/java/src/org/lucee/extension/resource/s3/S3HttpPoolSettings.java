@@ -146,7 +146,14 @@ public class S3HttpPoolSettings {
 			return Integer.valueOf(str.trim());
 		}
 		catch (Exception e) {
-			return S3ResourceProvider.toIntValue(str, defaultValue == null ? 0 : defaultValue.intValue());
+			// like 1.5 or 1e3, but an invalid value is not set (null), it must not become 0 (no timeout, no connections)
+			try {
+				double d = Double.parseDouble(str.trim());
+				if (!Double.isNaN(d) && !Double.isInfinite(d) && d >= Integer.MIN_VALUE && d <= Integer.MAX_VALUE) return Integer.valueOf((int) d);
+			}
+			catch (Exception ignore) {
+			}
+			return defaultValue;
 		}
 	}
 

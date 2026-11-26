@@ -119,7 +119,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 				accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST));
 			Util::waitUntilReadable(cred,srcBucketName,srcObjectName);
 
-			// array of grant structs
+			// array of grant structs, not possible with Wasabi (see Util::isGroupGrantSupported())
+			if(Util::isGroupGrantSupported(cred)) {
 			S3Copy(
 				location:region,
 				srcBucketName:srcBucketName,  srcObjectName:srcObjectName, trgBucketName:trgBucketName, trgObjectName:"trg/grants.txt",
@@ -130,6 +131,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 				bucketName:trgBucketName, objectName:"trg/grants.txt",
 				accessKeyId:cred.ACCESS_KEY_ID, secretAccessKey:cred.SECRET_KEY, host:(isNull(cred.HOST)?nullvalue():cred.HOST));
 			assertTrue(Util::hasGrant(acl,"authenticated","READ"), "READ for authenticated users is missing: #serializeJSON(acl)#");
+			}
 
 			// canned ACL
 			S3Copy(

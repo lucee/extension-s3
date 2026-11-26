@@ -18,6 +18,7 @@
  **/
 package org.lucee.extension.resource.s3.function;
 
+import org.lucee.extension.resource.s3.S3Util;
 import org.lucee.extension.resource.s3.S3;
 import org.lucee.extension.resource.s3.S3Properties;
 
@@ -64,7 +65,7 @@ public class S3GetMetaData extends S3Function {
 			return s3.getMetaData(pae.bucketName, pae.objectName);
 		}
 		catch (Exception e) {
-			throw eng.getCastUtil().toPageException(e);
+			throw S3Util.toPageException(e);
 		}
 	}
 }

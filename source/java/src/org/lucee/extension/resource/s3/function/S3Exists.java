@@ -1,5 +1,6 @@
 package org.lucee.extension.resource.s3.function;
 
+import org.lucee.extension.resource.s3.S3Util;
 import org.lucee.extension.resource.s3.S3;
 
 import lucee.loader.engine.CFMLEngine;
@@ -28,7 +29,7 @@ public class S3Exists extends S3Function {
 			return s3.exists(bucketName, objectName);
 		}
 		catch (Exception e) {
-			throw eng.getCastUtil().toPageException(e);
+			throw S3Util.toPageException(e);
 		}
 	}
 

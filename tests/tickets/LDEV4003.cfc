@@ -6,6 +6,9 @@
  * directory on the S3 side, with an older Lucee (or when the case is not supported, for example a
  * filter) Lucee does it object by object. The result has to be the same in all cases, that is what
  * these tests check.
+ *
+ * Runs against Amazon S3 if the credentials are set, otherwise against the S3 compatible server of the
+ * S3_CUSTOM_* environment variables (MinIO in the CI), see CustomS3.cfc.
  */
 component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 
@@ -15,14 +18,23 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 
 			beforeEach( function() {
 				variables.cred = getCredentials();
-				variables.bucket = "ldev4003-" & lcase( left( createUUID(), 8 ) ) & "-" & listFirst( replace( server.lucee.version, ".", "", "all" ), "-" );
-				var s3settings = buildS3Settings( cred );
-				application action="update" s3=s3settings;
-				directoryCreate( s3p( "" ) );
+				if ( structIsEmpty( variables.cred ) ) {
+					// no Amazon credentials: run against the S3 compatible server (MinIO in the CI), the bucket is created by prepare()
+					variables.custom = CustomS3::prepare( "4003" );
+					variables.bucket = custom.bucket;
+				}
+				else {
+					structDelete( variables, "custom" );
+					variables.bucket = "ldev4003-" & lcase( left( createUUID(), 8 ) ) & "-" & listFirst( replace( server.lucee.version, ".", "", "all" ), "-" );
+					var s3settings = buildS3Settings( cred );
+					application action="update" s3=s3settings;
+					directoryCreate( s3p( "" ) );
+				}
 			});
 
 			afterEach( function() {
-				deleteBucketEL( cred, bucket );
+				if ( !isNull( variables.custom ) ) CustomS3::cleanup( variables.custom );
+				else deleteBucketEL( cred, bucket );
 				if ( !isNull( variables.bucket2 ) ) deleteBucketEL( cred, variables.bucket2 );
 				structDelete( variables, "bucket2" );
 			});
@@ -44,7 +56,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 				var trg = s3p( "to" );
 				buildTree( src );
 
-				directoryRename( src, trg );
+				renameDirectory( src, trg );
 
 				expectTree( trg );
 				expect( directoryExists( src ) ).toBeFalse();
@@ -64,7 +76,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 				expect( fileExists( s3p( "copy/b.txt" ) ) ).toBeFalse();
 				expect( directoryExists( s3p( "copy2" ) ) ).toBeFalse();
 
-				directoryRename( s3p( "dir" ), s3p( "moved" ) );
+				renameDirectory( s3p( "dir" ), s3p( "moved" ) );
 				expect( fileRead( s3p( "moved/a.txt" ) ) ).toBe( "in dir" );
 				expect( directoryExists( s3p( "dir" ) ) ).toBeFalse();
 				// the sibling is not touched
@@ -81,7 +93,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 				expect( fileRead( s3p( "virtualCopy/inner/v2.txt" ) ) ).toBe( "v2" );
 				expect( fileRead( s3p( "virtual/inner/v2.txt" ) ) ).toBe( "v2" );
 
-				directoryRename( s3p( "virtual" ), s3p( "virtualMoved" ) );
+				renameDirectory( s3p( "virtual" ), s3p( "virtualMoved" ) );
 				expect( fileRead( s3p( "virtualMoved/v1.txt" ) ) ).toBe( "v1" );
 				expect( fileRead( s3p( "virtualMoved/inner/v2.txt" ) ) ).toBe( "v2" );
 				expect( directoryExists( s3p( "virtual" ) ) ).toBeFalse();
@@ -105,7 +117,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 				fileWrite( s3p( "two/x.txt" ), "x" );
 
 				expect( function() {
-					directoryRename( s3p( "one" ), s3p( "two" ) );
+					renameDirectory( s3p( "one" ), s3p( "two" ) );
 				}).toThrow();
 
 				expectTree( s3p( "one" ) );
@@ -121,7 +133,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 				directoryCopy( s3p( "toOther" ), other & "/copied", true );
 				expectTree( other & "/copied" );
 
-				directoryRename( s3p( "toOther" ), other & "/moved" );
+				renameDirectory( s3p( "toOther" ), other & "/moved" );
 				expectTree( other & "/moved" );
 				expect( directoryExists( s3p( "toOther" ) ) ).toBeFalse();
 			});
@@ -133,7 +145,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 				expectTree( s3p( "new/parent/copied" ) );
 				expect( directoryExists( s3p( "new/parent" ) ) ).toBeTrue();
 
-				directoryRename( s3p( "deepSrc" ), s3p( "other/parent/moved" ), true );
+				renameDirectory( s3p( "deepSrc" ), s3p( "other/parent/moved" ), true );
 				expectTree( s3p( "other/parent/moved" ) );
 				expect( directoryExists( s3p( "other/parent" ) ) ).toBeTrue();
 				expect( directoryExists( s3p( "deepSrc" ) ) ).toBeFalse();
@@ -142,7 +154,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 			it( title="the parent directory of a moved directory does not vanish when it was the last thing in it", body=function() {
 				fileWrite( s3p( "holder/only/a.txt" ), "a" );
 
-				directoryRename( s3p( "holder/only" ), s3p( "elsewhere" ) );
+				renameDirectory( s3p( "holder/only" ), s3p( "elsewhere" ) );
 
 				expect( fileRead( s3p( "elsewhere/a.txt" ) ) ).toBe( "a" );
 				expect( directoryExists( s3p( "holder" ) ) ).toBeTrue();
@@ -152,7 +164,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 			it( title="a copied or moved directory can be listed", body=function() {
 				buildTree( s3p( "listed" ) );
 
-				directoryRename( s3p( "listed" ), s3p( "listedMoved" ) );
+				renameDirectory( s3p( "listed" ), s3p( "listedMoved" ) );
 
 				var names = directoryList( s3p( "listedMoved" ), true, "name" );
 				arraySort( names, "text" );
@@ -162,6 +174,18 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 				expect( names ).toInclude( "empty" );
 			});
 		});
+	}
+
+	/**
+	 * directoryRename() without the ACL step. The directoryRename() function of Lucee hardcodes the ACL "public-read"
+	 * and applies it to the new directory with s3:PutObjectAcl afterwards. The CI bucket policy does not allow that:
+	 * Block Public Access refuses public ACLs and new Amazon buckets do not allow ACLs at all
+	 * (AccessControlListNotSupported), so every directoryRename() fails on Amazon, which has nothing to do with the
+	 * copy/move of this ticket. The directory tag is the same code (Directory.actionRename) as the function, but
+	 * only sets an ACL when the attribute acl is passed, so the tag is used here (without acl).
+	 */
+	private function renameDirectory( required string source, required string destination, boolean createPath=true ) {
+		directory action="rename" directory=arguments.source newdirectory=arguments.destination createpath=arguments.createPath;
 	}
 
 	// the tree used in the tests: files in the root, nested sub directories and an empty directory
@@ -202,8 +226,10 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 		return settings;
 	}
 
+	// Amazon S3, or the S3 compatible server of the CI (without a fixed bucket, the tests need buckets of their own)
 	private boolean function isNotSupported() {
-		return structIsEmpty( getCredentials() );
+		if ( !structIsEmpty( getCredentials() ) ) return false;
+		return !CustomS3::isSupported() || len( CustomS3::getCredentials().BUCKET ) > 0;
 	}
 
 	// same credentials the other tests of this extension use (Amazon S3)
@@ -217,6 +243,11 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="s3" {
 
 	private function deleteBucketEL( required struct cred, required string bucketName ) {
 		var bucketPath = "s3:///" & bucketName;
-		if ( directoryExists( bucketPath ) ) directoryDelete( bucketPath, true );
+		try {
+			if ( directoryExists( bucketPath ) ) directoryDelete( bucketPath, true );
+		}
+		catch ( any e ) {
+			systemOutput( "LDEV4003 cleanup of " & bucketName & " failed: " & e.message, true );
+		}
 	}
 }
